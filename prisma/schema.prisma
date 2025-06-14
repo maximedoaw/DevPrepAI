@@ -1,0 +1,160 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubscriptionTier {
+  FREE
+  PREMIUM
+  EXPERT
+}
+
+enum QuizType {
+  CODING
+  QCM
+  MOCK_INTERVIEW
+  SOFT_SKILLS
+}
+
+enum InterviewRoomType {
+  TECH
+  HR
+  EXECUTIVE
+}
+
+model User {
+  id                 String         @id @default(cuid())
+  authId             String         @unique
+  email              String         @unique
+  firstName          String?
+  lastName           String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  subscription       Subscription?
+  quizResults        QuizResult[]
+  skillAnalyses      SkillAnalysis[]
+  progressTracking   ProgressTracking[]
+  chatSessions       ChatSession[]
+  interviewRooms     InterviewRoom[]
+  searchHistory      SearchHistory[]
+  recommendations    Recommendation[]
+}
+
+model Subscription {
+  id               String          @id @default(cuid())
+  userId           String          @unique
+  user             User            @relation(fields: [userId], references: [id])
+  tier             SubscriptionTier @default(FREE)
+  startDate        DateTime        @default(now())
+  endDate          DateTime?
+  isActive         Boolean         @default(true)
+  stripeCustomerId String?
+  stripeSubscriptionId String?
+  features         Json? // Pour stocker les features spécifiques au plan
+}
+
+model Quiz {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  type        QuizType
+  questions   Json       // Structure flexible pour différents types de questions
+  difficulty  Int        @default(1)
+  tags        String[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  results     QuizResult[]
+}
+
+model QuizResult {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id])
+  quizId      String
+  quiz        Quiz       @relation(fields: [quizId], references: [id])
+  skillAnalysis SkillAnalysis[]
+  score       Float
+  answers     String       // Réponses de l'utilisateur
+  analysis    String     // Analyse détaillée (points forts/faibles)
+  duration    Int?       // Temps passé en secondes
+  completedAt DateTime   @default(now())
+}
+
+model SkillAnalysis {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id])
+  quizResultId    String?
+  quizResult      QuizResult? @relation(fields: [quizResultId], references: [id])
+  skills          Json       // Compétences évaluées avec scores
+  aiFeedback      String?
+  improvementTips String[]
+  analyzedAt      DateTime   @default(now())
+}
+
+model ProgressTracking {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id])
+  metric      String     // Ex: "coding_score", "interview_performance"
+  value       Float
+  date        DateTime   @default(now())
+  context     Json?      // Contexte supplémentaire (quizId, etc.)
+}
+
+model Recommendation {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  source       String     // "quiz", "ai_analysis", "system"
+  content      String
+  vector       Json?      // Embedding vector pour similarité
+  relatedItems Json?      // IDs des éléments connexes
+  weight       Float      @default(1.0)
+  viewed       Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+}
+
+model ChatSession {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  messages     Json       // Historique des messages
+  sessionType  String     // "hr_interview", "tech_qna", etc.
+  startedAt    DateTime   @default(now())
+  lastActivity DateTime   @updatedAt
+  feedback     Json?      // Feedback généré par l'IA
+}
+
+model InterviewRoom {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id])
+  roomType     InterviewRoomType
+  roomData     Json             // Configuration de la salle 3D
+  participants Json?            // Pour les sessions multi-joueurs
+  startedAt    DateTime         @default(now())
+  endedAt      DateTime?
+  recordingUrl String?
+}
+
+model SearchHistory {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  query        String
+  filters      Json?
+  resultsCount Int
+  searchedAt   DateTime   @default(now())
+}
