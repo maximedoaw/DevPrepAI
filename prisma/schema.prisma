@@ -6,13 +6,13 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../lib/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 
 enum SubscriptionTier {
   FREE
@@ -35,7 +35,6 @@ enum InterviewRoomType {
 
 model User {
   id                 String         @id @default(cuid())
-  authId             String         @unique
   email              String         @unique
   firstName          String?
   lastName           String?
