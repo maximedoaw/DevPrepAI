@@ -1,16 +1,15 @@
 import { TypeConfig } from "@/types"
 
-export  type TypeInterview = "qcm" | "mock" | "soft-skills" | "coding"
 
-export type Difficulty = "junior" | "mid" | "senior"
+export type Difficulty = "JUNIOR" | "MID" | "SENIOR"
 
 export interface Interview {
   id: string
-  type: TypeInterview
+  type: string
   title: string
   company: string
   technology: string[]
-  difficulty: "junior" | "mid" | "senior"
+  difficulty: "JUNIOR" | "MID" | "SENIOR"
   duration: number // en minutes
   questions: Question[]
   description: string
@@ -42,11 +41,11 @@ export interface UserStats {
 export const MOCK_INTERVIEWS: Interview[] = [
   {
     id: "1",
-    type: "qcm",
+    type: "QCM",
     title: "React.js Fundamentals",
     company: "Google",
     technology: ["React", "JavaScript", "TypeScript"],
-    difficulty: "mid",
+    difficulty: "MID",
     duration: 30,
     description:
       "Testez vos connaissances fondamentales en React.js avec des questions sur les hooks, le state management et les bonnes pratiques.",
@@ -104,11 +103,11 @@ export const MOCK_INTERVIEWS: Interview[] = [
   },
   {
     id: "2",
-    type: "coding",
+    type: "CODING",
     title: "Algorithmes et Structures de Données",
     company: "Meta",
     technology: ["JavaScript", "Algorithms", "Data Structures"],
-    difficulty: "senior",
+    difficulty: "SENIOR",
     duration: 45,
     description:
       "Résolvez des problèmes algorithmiques complexes et démontrez votre maîtrise des structures de données.",
@@ -161,11 +160,11 @@ console.log(isBalanced(root)); // true`,
   },
   {
     id: "3",
-    type: "soft-skills",
+    type: "SOFT_SKILLS",
     title: "Leadership & Communication",
     company: "Netflix",
     technology: ["Communication", "Leadership", "Team Management"],
-    difficulty: "mid",
+    difficulty: "MID",
     duration: 25,
     description: "Évaluez vos compétences en leadership et communication à travers des scénarios réalistes.",
     totalPoints: 150,

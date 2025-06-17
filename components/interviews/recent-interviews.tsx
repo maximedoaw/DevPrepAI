@@ -1,12 +1,53 @@
+"use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Star } from "lucide-react"
+import { Calendar, Star, Loader2 } from "lucide-react"
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { getRecentInterviews } from "@/actions/interview.action"
+import { useEffect, useRef, useCallback } from "react"
 
-interface RecentInterviewsProps {
-  interviews: { id: string; title: string; score: number; date: string; company: string }[]
-}
+export function RecentInterviews() {
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    status
+  } = useInfiniteQuery({
+    queryKey: ['recentInterviews'],
+    queryFn: ({ pageParam = 1 }) => getRecentInterviews(pageParam, 5),
+    getNextPageParam: (lastPage, pages) => {
+      if (!lastPage.hasMore) return undefined
+      return pages.length + 1
+    },
+    initialPageParam: 1
+  })
 
-export function RecentInterviews({ interviews }: RecentInterviewsProps) {
+  const observer = useRef<IntersectionObserver>(null)
+  const lastElementRef = useCallback((node: HTMLDivElement) => {
+    if (isFetchingNextPage) return
+    if (observer.current) observer.current.disconnect()
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasNextPage) {
+        fetchNextPage()
+      }
+    })
+    if (node) observer.current.observe(node)
+  }, [isFetchingNextPage, hasNextPage, fetchNextPage])
+
+  const interviews = data?.pages.flatMap(page => page.interviews) ?? []
+
+  if (status === "error") {
+    return (
+      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+        <CardContent className="p-6 text-center text-red-500">
+          Une erreur est survenue lors du chargement des interviews
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
       <CardHeader>
@@ -22,9 +63,10 @@ export function RecentInterviews({ interviews }: RecentInterviewsProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {interviews.map((interview) => (
+          {interviews.map((interview, index) => (
             <div
               key={interview.id}
+              ref={index === interviews.length - 1 ? lastElementRef : null}
               className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
             >
               <div className="flex-1">
@@ -49,6 +91,11 @@ export function RecentInterviews({ interviews }: RecentInterviewsProps) {
               </div>
             </div>
           ))}
+          {isFetchingNextPage && (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

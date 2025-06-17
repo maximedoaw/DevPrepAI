@@ -1,22 +1,43 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Trophy, TrendingUp, Clock, Zap, Target, Calendar, ArrowRight, Star, Code, Brain, Users } from 'lucide-react'
+import {  Clock, Target, ArrowRight, } from 'lucide-react'
 import { MOCK_INTERVIEWS, MOCK_USER_STATS, DIFFICULTY_CONFIG, TYPE_CONFIG } from "@/constants"
 import { DashboardStats } from "@/components/interviews/dashboard-stats"
 import { WeeklyChart } from "@/components/interviews/weekly-chart"
 import { SkillsProgress } from "@/components/interviews/skills-progress"
 import { RecentInterviews } from "@/components/interviews/recent-interviews"
 import { toast } from "sonner"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import { getInterviews, interviewSave } from "@/actions/interview.action"
+import InterviewSkeleton from "../interview-skeleton"
 
 export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(false)
+  const {data: interviews, isLoading : isLoadingInterviewCard} = useQuery({
+    queryKey: ['interviews'],
+    queryFn: async () => await getInterviews(),
+  })
+//  const {mutate: mutationInterview} = useMutation({
+ //   mutationKey: ['interview'],
+ //   mutationFn: async () => await interviewSave(),
+ //   onSuccess: () => {
+ //     setIsLoading(false)
+ //     toast.success("Interviews enregistrées")
+ //   },
+ //   onError: (error) =>{
+ //     setIsLoading(false)
+ //     toast.error("Une erreur est survenue: " + error.message)
+ //   }
+ // })
+  useEffect(() => {
+   // mutationInterview()
+  }, [])
   const router = useRouter()
 
   const handleStartInterview = (interviewId: string) => {
@@ -63,7 +84,7 @@ export default function HomeScreen() {
           {/* Left Column - Progress & Charts */}
           <div className="lg:col-span-2 space-y-6">
             {/* Weekly Progress */}
-            <WeeklyChart data={MOCK_USER_STATS.weeklyProgress} />
+            <WeeklyChart />
 
             {/* Interview Categories */}
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
@@ -80,7 +101,10 @@ export default function HomeScreen() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {MOCK_INTERVIEWS.map((interview) => (
+                  {isLoadingInterviewCard && [...Array(4)].map((_, i) => (
+                    <InterviewSkeleton key={i}/>
+                  ))}
+                  {interviews?.map((interview) => (
                     <InterviewCard 
                       key={interview.id} 
                       interview={interview} 
@@ -95,7 +119,7 @@ export default function HomeScreen() {
           {/* Right Column - Skills & Recent */}
           <div className="space-y-6">
             <SkillsProgress skills={MOCK_USER_STATS.skillsProgress} />
-            <RecentInterviews interviews={MOCK_USER_STATS.recentInterviews} />
+            <RecentInterviews />
           </div>
         </div>
       </div>
@@ -111,10 +135,10 @@ function InterviewCard({ interview, onStart }: { interview: any, onStart: () => 
     <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 hover:scale-[1.02]">
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
-          <div className={`p-3 rounded-xl bg-gradient-to-r ${typeConfig.color}`}>
-            <span className="text-2xl">{typeConfig.icon}</span>
+          <div className={`p-3 rounded-xl bg-gradient-to-r`}>
+            <span className="text-2xl"></span>
           </div>
-          <Badge className={`${difficultyConfig.bg} ${difficultyConfig.text} border-0`}>
+          <Badge className={`border-0`}>
             {interview.difficulty}
           </Badge>
         </div>

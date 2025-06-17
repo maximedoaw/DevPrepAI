@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card"
+import { UserStats } from "@/constants"
 import { Trophy, TrendingUp, Clock, Zap } from "lucide-react"
-import type { UserStats } from "../constants"
 
 interface DashboardStatsProps {
   stats: UserStats
