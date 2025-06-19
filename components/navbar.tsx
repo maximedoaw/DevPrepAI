@@ -22,17 +22,20 @@ export default function Navbar() {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
-          <nav className="flex gap-6">
-            <Link href="#features" className="text-sm font-medium hover:text-primary transition-colors">
-              Fonctionnalités
-            </Link>
-            <Link href="#testimonials" className="text-sm font-medium hover:text-primary transition-colors">
-              Témoignages
-            </Link>
-            <Link href="#pricing" className="text-sm font-medium hover:text-primary transition-colors">
-              Tarifs
-            </Link>
-          </nav>
+          {/* Navigation links - only show when not authenticated */}
+          {!isAuthenticated && (
+            <nav className="flex gap-6">
+              <Link href="#features" className="text-sm font-medium hover:text-primary transition-colors">
+                Fonctionnalités
+              </Link>
+              <Link href="#testimonials" className="text-sm font-medium hover:text-primary transition-colors">
+                Témoignages
+              </Link>
+              <Link href="#pricing" className="text-sm font-medium hover:text-primary transition-colors">
+                Tarifs
+              </Link>
+            </nav>
+          )}
 
           <div className="flex gap-2">
             {isLoading ? (
@@ -97,27 +100,32 @@ export default function Navbar() {
         {mobileMenuOpen && (
           <div className="md:hidden absolute top-16 left-0 right-0 bg-background border-t shadow-lg">
             <div className="container py-4 space-y-4">
-              <Link 
-                href="#features" 
-                className="block py-2 px-4 rounded-md hover:bg-accent"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Fonctionnalités
-              </Link>
-              <Link 
-                href="#testimonials" 
-                className="block py-2 px-4 rounded-md hover:bg-accent"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Témoignages
-              </Link>
-              <Link 
-                href="#pricing" 
-                className="block py-2 px-4 rounded-md hover:bg-accent"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Tarifs
-              </Link>
+              {/* Navigation links - only show when not authenticated */}
+              {!isAuthenticated && (
+                <>
+                  <Link 
+                    href="#features" 
+                    className="block py-2 px-4 rounded-md hover:bg-accent"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Fonctionnalités
+                  </Link>
+                  <Link 
+                    href="#testimonials" 
+                    className="block py-2 px-4 rounded-md hover:bg-accent"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Témoignages
+                  </Link>
+                  <Link 
+                    href="#pricing" 
+                    className="block py-2 px-4 rounded-md hover:bg-accent"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Tarifs
+                  </Link>
+                </>
+              )}
 
               <div className="pt-2 space-y-2">
                 {isLoading ? (

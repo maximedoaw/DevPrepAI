@@ -19,20 +19,6 @@ export default function Hero() {
             Préparez-vous efficacement aux entretiens techniques avec notre plateforme alimentée par l'IA. Améliorez vos
             hard et soft skills pour décrocher le job de vos rêves.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:opacity-90 transition-opacity"
-              asChild
-            >
-              <Link href="/signup">
-                Commencer gratuitement <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="#features">En savoir plus</Link>
-            </Button>
-          </div>
         </div>
 
         <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">

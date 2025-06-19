@@ -17,7 +17,9 @@ export function InterviewCard({ interview, onStart }: InterviewCardProps) {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">{TYPE_ICONS[interview.type]}</span>
+            <span className="text-2xl">
+              {TYPE_ICONS[interview.type as keyof typeof TYPE_ICONS]}
+            </span>
             <div>
               <CardTitle className="text-lg group-hover:text-blue-600 transition-colors">{interview.title}</CardTitle>
               <CardDescription className="flex items-center gap-1 mt-1">
@@ -26,7 +28,7 @@ export function InterviewCard({ interview, onStart }: InterviewCardProps) {
               </CardDescription>
             </div>
           </div>
-          <Badge className={DIFFICULTY_COLORS[interview.difficulty]}>{interview.difficulty}</Badge>
+          <Badge className={DIFFICULTY_COLORS[interview.difficulty as keyof typeof DIFFICULTY_COLORS]}>{interview.difficulty}</Badge>
         </div>
       </CardHeader>
 

@@ -1,9 +1,14 @@
 import { InterviewContainer } from "./components/interview-container"
+import ProtectedPage from "@/components/protected-routes"
 
 interface InterviewPageProps {
   params: { id: string }
 }
 
 export default function InterviewPage({ params }: InterviewPageProps) {
-  return <InterviewContainer interviewId={params.id} />
+  return (
+    <ProtectedPage>
+      <InterviewContainer interviewId={params.id} />
+    </ProtectedPage>
+  )
 }
