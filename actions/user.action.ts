@@ -19,7 +19,7 @@ export async function createUser(userData: {
       where: { id: userData.id },
     });
 
-    if (existingUser) return { success: false, message: "User already exists" };
+    if (existingUser) return { success: false, message: "Bon retour parmi nous" };
 
     await prisma.user.create({
       data: {

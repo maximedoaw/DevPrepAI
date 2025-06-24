@@ -6,6 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Calendar, Star, Loader2 } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { getUserStats } from "@/actions/interview.action"
+import React, { useState } from "react"
+import { Button } from "../ui/button"
 
 // Composant Skeleton pour simuler le chargement
 function RecentInterviewsSkeleton() {
@@ -52,6 +54,8 @@ export function RecentInterviews() {
     refetchInterval: 30000, // Rafraîchir toutes les 30 secondes
   })
 
+  const [visibleCount, setVisibleCount] = useState(5)
+
   if (isLoading) {
     return <RecentInterviewsSkeleton />
   }
@@ -67,6 +71,8 @@ export function RecentInterviews() {
   }
 
   const interviews = stats?.recentInterviews || []
+  const visibleInterviews = interviews.slice(0, visibleCount)
+  const hasMore = visibleCount < interviews.length
 
   return (
     <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
@@ -90,33 +96,47 @@ export function RecentInterviews() {
               <p className="text-sm">Commencez votre première interview !</p>
             </div>
           ) : (
-            interviews.map((interview) => (
-              <div
-                key={interview.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex-1">
-                  <h4 className="font-medium text-sm">{interview.title}</h4>
-                  <p className="text-xs text-gray-600">
-                    {interview.type} • {interview.date}
-                  </p>
+            <>
+              {visibleInterviews.map((interview) => (
+                <div
+                  key={interview.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex-1">
+                    <h4 className="font-medium text-sm">{interview.title}</h4>
+                    <p className="text-xs text-gray-600">
+                      {interview.type} • {interview.date}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      className={`${
+                        interview.score >= 80
+                          ? "bg-green-100 text-green-700"
+                          : interview.score >= 60
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {interview.score}%
+                    </Badge>
+                    {interview.score >= 90 && <Star className="h-4 w-4 text-yellow-500 fill-current" />}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    className={`${
-                      interview.score >= 80
-                        ? "bg-green-100 text-green-700"
-                        : interview.score >= 60
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-red-100 text-red-700"
-                    }`}
+              ))}
+              {hasMore && (
+                <div className="flex justify-center mt-4">
+                  <Button
+                    className="w-full rounded-full text-blue-500 bg-blue-200 font-bold cursor-pointer
+                     hover:text-blue-600 hover:bg-blue-300 hover:brightness-100 transition-colors text-sm"
+                    onClick={() => setVisibleCount((c) => c + 5)}
+                    variant={"outline"}
                   >
-                    {interview.score}%
-                  </Badge>
-                  {interview.score >= 90 && <Star className="h-4 w-4 text-yellow-500 fill-current" />}
+                    Charger plus
+                  </Button>
                 </div>
-              </div>
-            ))
+              )}
+            </>
           )}
         </div>
       </CardContent>

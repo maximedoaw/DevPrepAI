@@ -7,27 +7,30 @@ import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 
 
 export async function interviewSave() {
- // try {
- //   for (const interview of MOCK_INTERVIEWS) {
-   //   await prisma.quiz.create({
-     //   id: nanoid(),
-       //   title: interview.title,
-         // description: interview.description,
-          //type: interview.type,
-         // questions: interview.questions,
-         // company: interview.company,
-         // technology: interview.technology || [],
-         // difficulty: interview.difficulty,
-         // duration: interview.duration,
-         // totalPoints: interview.totalPoints,
-       // },
-     // })
-    //}
-    //return { success: true }
-  //} catch (error) {
-   // console.error("Error saving interviews:", error)
-    //return { success: false, error }
-  //}
+  try {
+    for (const interview of MOCK_INTERVIEWS) {
+      await prisma.quiz.create({
+        data: {
+          id: nanoid(),
+          title: interview.title,
+          description: interview.description,
+          // On suppose que interview.type est de type string, il faut le caster ou le valider comme 'QuizType'
+          type: interview.type as any, // Remplacez 'any' par 'QuizType' si possible
+          // On doit sérialiser les questions en JSON pour correspondre à InputJsonValue
+          questions: JSON.parse(JSON.stringify(interview.questions)),
+          company: interview.company,
+          technology: interview.technology || [],
+          difficulty: interview.difficulty,
+          duration: interview.duration,
+          totalPoints: interview.totalPoints,
+        },
+      })
+    }
+    return { success: true }
+  } catch (error) {
+    console.error("Error saving interviews:", error)
+    return { success: false, error }
+  }
 }
 
 export async function getInterviews() {
@@ -362,7 +365,7 @@ export async function getUserStats() {
       streak,
       statsByType,
       statsByDifficulty,
-      recentInterviews: quizResults.slice(0, 5).map(result => ({
+      recentInterviews: quizResults.map(result => ({
         id: result.id,
         title: result.quiz.title,
         score: result.score,

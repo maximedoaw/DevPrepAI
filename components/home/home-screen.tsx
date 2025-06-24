@@ -42,8 +42,13 @@ export default function HomeScreen() {
     queryFn: async () => await getInterviews(),
   })
 
+  const {data : mutationSaveInterview} = useMutation({
+    mutationKey: ["saveinterview"],
+    mutationFn: async () => await interviewSave()
+  })
+
   useEffect(() => {
-   // mutationInterview()
+    //mutationSaveInterview()
   }, [])
   const router = useRouter()
 

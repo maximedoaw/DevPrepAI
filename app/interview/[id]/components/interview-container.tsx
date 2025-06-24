@@ -10,6 +10,7 @@ import { useQuery, useMutation } from "@tanstack/react-query"
 import { getInterviewById, quizSaveAnswer } from "@/actions/interview.action"
 import { InterviewContent } from "./interview-content"
 import DevLoader from "@/components/dev-loader"
+import AIVocalInterview from "@/components/interviews/ai-vocal-interview"
 
 interface Question {
   id: string
@@ -224,6 +225,11 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
         </Card>
       </div>
     )
+  }
+
+  // Affichage spécifique pour MOCK_INTERVIEW (vocal)
+  if (interview.type === "MOCK_INTERVIEW") {
+    return <AIVocalInterview />
   }
 
   return (
