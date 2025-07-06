@@ -6,6 +6,8 @@ import styles from './pricing.module.css';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+import { useRouter } from "next/navigation";
 
 export interface PricingTierFrequency {
   id: string;
@@ -116,8 +118,26 @@ const CheckIcon = ({ className }: { className?: string }) => {
 
 export function Pricing() {
   const [frequency, setFrequency] = useState(frequencies[0]);
+  const { isAuthenticated } = useKindeBrowserClient();
+  const router = useRouter();
 
   const bannerText = '';
+
+
+  function handleSubscribeClick(e: React.MouseEvent, tierId: string) {
+    e.preventDefault();
+    if (tierId === '0') {
+      // Plan gratuit : redirige vers /subscribe
+      router.push('/subscribe');
+      return;
+    }
+    // Pour Pro/Expert :
+      if (!isAuthenticated) {
+        router.push(process.env.NEXT_PUBLIC_KIND_REGISTER_URL || "");
+    } else {
+      router.push('/');
+    }
+  }
 
   return (
     <div
@@ -255,12 +275,13 @@ export function Pricing() {
                   ) : null}
                 </p>
                 <a
-                  href={tier.href}
+                  href="#"
                   aria-describedby={tier.id}
                   className={cn(
                     'flex mt-6 shadow-sm',
                     tier.soldOut ? 'pointer-events-none' : '',
                   )}
+                  onClick={e => handleSubscribeClick(e, tier.id)}
                 >
                   <Button
                     size="lg"
@@ -270,14 +291,14 @@ export function Pricing() {
                       !tier.highlighted && !tier.featured
                         ? 'bg-gray-100 dark:bg-gray-600'
                         : 'bg-fuchsia-300 hover:bg-fuchsia-400 dark:bg-fuchsia-600 dark:hover:bg-fuchsia-700',
-                        tier.featured || tier.soldOut ? 'bg-white dark:bg-neutral-900 hover:bg-gray-200 dark:hover:bg-black' : 'hover:opacity-80 transition-opacity',
+                      (tier.featured || tier.soldOut) ? 'bg-white dark:bg-neutral-900 hover:bg-gray-200 dark:hover:bg-black' : 'hover:opacity-80 transition-opacity',
                     )}
                     variant={tier.highlighted ? 'default' : 'outline'}
                   >
                     {tier.soldOut ? 'Épuisé' : tier.cta}
                   </Button>
                 </a>
-
+                
                 <ul
                   className={cn(
                     tier.featured

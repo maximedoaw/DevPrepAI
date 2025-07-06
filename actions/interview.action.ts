@@ -4,6 +4,7 @@ import { MOCK_INTERVIEWS } from "@/constants"
 import prisma from "@/db/prisma"
 import { nanoid } from "nanoid"
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import { GoogleGenAI } from "@google/genai"
 
 
 export async function interviewSave() {
@@ -203,7 +204,7 @@ export async function getWeeklyQuizData() {
     })
 
     // Grouper les résultats par jour et par type
-    const dailyScores: Record<string, { general: number[], byType: Record<string, number[]> }> = {}
+    const dailyScores: Record<string, { general: number[]; byType: Record<string, number[]> }> = {}
     
     results.forEach(result => {
       const resultDate = result.completedAt.toISOString().split('T')[0]
@@ -420,4 +421,369 @@ function calculateStreak(quizResults: any[]) {
   }
   
   return streak
+}
+
+export async function seedMockInterviews(interviews: any[]) {
+  try {
+    if (!Array.isArray(interviews)) {
+      return { success: false, error: "Aucun tableau d'interviews fourni" }
+    }
+    for (const interview of interviews) {
+      await prisma.quiz.create({
+        data: {
+          title: interview.title,
+          description: interview.description,
+          type: interview.type.toUpperCase(),
+          questions: JSON.parse(JSON.stringify(interview.questions)),
+          company: interview.company,
+          technology: interview.technology || [],
+          difficulty: interview.difficulty.toUpperCase(),
+          duration: interview.duration,
+          totalPoints: interview.totalPoints,
+        },
+      })
+    }
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: e.message || "Erreur serveur" }
+  }
+}
+
+export async function getGeminiRecommendations({ stats, interviews }: { stats: any, interviews: any[] }) {
+  try {
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    if (!user || !user.id) throw new Error("Utilisateur non authentifié");
+    const ai = new GoogleGenAI({ apiKey: String(process.env.GEMINI_API_KEY || "") })
+    // Préparer le prompt
+    const prompt = `Tu es un assistant IA expert en préparation d'entretiens techniques.\nVoici le profil utilisateur :\n${JSON.stringify(stats, null, 2)}\n\nVoici la liste des interviews disponibles :\n${JSON.stringify(interviews.map(i => ({ id: i.id, title: i.title, type: i.type, difficulty: i.difficulty, technology: i.technology, company: i.company, description: i.description })), null, 2)}\n\nEn te basant sur le profil, la courbe de progression et les interviews disponibles, recommande 5 exercices de renforcement (parmi les interviews) les plus pertinents pour ce profil.\nPour chaque recommandation, retourne un objet JSON strict : { id, title, type, difficulty, technology, company, description, raison, correspondance }.\nLa clé 'raison' doit expliquer pourquoi tu recommandes cet exercice à ce profil. La clé 'correspondance' est un pourcentage (0-100) de pertinence.\nFormat de sortie : tableau JSON de 5 objets.`
+    // Gemini Embedded ne retourne que des embeddings, il faut utiliser generateContent pour du texte
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt
+    })
+    let recommendations = []
+    try {
+      recommendations = JSON.parse(response.text as string)
+    } catch (e) {
+      return { success: false, error: "Réponse Gemini non JSON" }
+    }
+    // Enregistrer dans la table Recommendation
+    for (const rec of recommendations) {
+      const weight = rec.correspondance ? Number(rec.correspondance) / 100 : 1.0
+      await prisma.recommendation.create({
+        data: {
+          userId: user.id,
+          source: "gemini",
+          content: JSON.stringify(rec),
+          relatedItems: [rec.id],
+          weight,
+        }
+      })
+      console.log(`% de correspondance pour ${rec.title} (${rec.id}) : ${rec.correspondance || 100}%`)
+    }
+    return { success: true, recommendations }
+  } catch (e: any) {
+    return { success: false, error: e.message || "Erreur Gemini" }
+  }
+}
+
+export async function getUserReputation(userId: string) {
+  try {
+    // Récupérer tous les résultats de quiz de l'utilisateur
+    const quizResults = await prisma.quizResult.findMany({
+      where: {
+        userId: userId
+      },
+      include: {
+        quiz: {
+          select: {
+            title: true,
+            type: true,
+            difficulty: true,
+            company: true
+          }
+        }
+      },
+      orderBy: {
+        completedAt: 'desc'
+      }
+    })
+
+    if (quizResults.length === 0) {
+      return {
+        user: null,
+        stats: {
+          totalQuizzes: 0,
+          averageScore: 0,
+          totalScore: 0,
+          streak: 0,
+          level: 1,
+          experience: 0,
+          experienceToNextLevel: 100
+        },
+        badges: [],
+        recentActivity: [],
+        achievements: []
+      }
+    }
+
+    // Récupérer les informations utilisateur
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+        credits: true
+      }
+    })
+
+    // Calculer les statistiques
+    const totalQuizzes = quizResults.length
+    const totalScore = quizResults.reduce((sum, result) => sum + result.score, 0)
+    const averageScore = Math.round(totalScore / totalQuizzes)
+    
+    // Calculer l'expérience et le niveau (système inspiré de Duolingo)
+    const experience = totalScore * 10 // 10 XP par point de score
+    const level = Math.floor(experience / 1000) + 1
+    const experienceToNextLevel = 1000 - (experience % 1000)
+
+    // Calculer la série actuelle
+    const streak = calculateStreak(quizResults)
+
+    // Statistiques par type
+    const statsByType: Record<string, { count: number; averageScore: number; totalScore: number }> = {
+      QCM: { count: 0, averageScore: 0, totalScore: 0 },
+      CODING: { count: 0, averageScore: 0, totalScore: 0 },
+      MOCK_INTERVIEW: { count: 0, averageScore: 0, totalScore: 0 },
+      SOFT_SKILLS: { count: 0, averageScore: 0, totalScore: 0 }
+    }
+
+    quizResults.forEach(result => {
+      const type = result.quiz.type
+      if (statsByType[type]) {
+        statsByType[type].count++
+        statsByType[type].totalScore += result.score
+      }
+    })
+
+    // Calculer les moyennes par type
+    Object.keys(statsByType).forEach(type => {
+      if (statsByType[type].count > 0) {
+        statsByType[type].averageScore = Math.round(statsByType[type].totalScore / statsByType[type].count)
+      }
+    })
+
+    // Générer les badges basés sur les performances
+    const badges = generateBadges(quizResults, statsByType, streak, level, totalQuizzes)
+
+    // Activité récente (7 derniers jours)
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    
+    const recentActivity = quizResults
+      .filter(result => result.completedAt >= sevenDaysAgo)
+      .slice(0, 10)
+      .map(result => ({
+        id: result.id,
+        title: result.quiz.title,
+        score: result.score,
+        type: result.quiz.type,
+        company: result.quiz.company,
+        date: result.completedAt,
+        difficulty: result.quiz.difficulty
+      }))
+
+    // Réalisations spéciales
+    const achievements = generateAchievements(quizResults, statsByType, streak, level)
+
+    return {
+      user,
+      stats: {
+        totalQuizzes,
+        averageScore,
+        totalScore,
+        streak,
+        level,
+        experience,
+        experienceToNextLevel
+      },
+      badges,
+      recentActivity,
+      achievements,
+      statsByType
+    }
+  } catch (error) {
+    console.error("Error fetching user reputation:", error)
+    return null
+  }
+}
+
+// Fonction pour générer les badges
+function generateBadges(quizResults: any[], statsByType: any, streak: number, level: number, totalQuizzes: number) {
+  const badges = []
+
+  // Badge de niveau
+  if (level >= 1) badges.push({ id: 'level-1', name: 'Débutant', icon: '🌟', description: 'Premier niveau atteint', unlocked: true, rarity: 'common' })
+  if (level >= 5) badges.push({ id: 'level-5', name: 'Intermédiaire', icon: '⭐', description: 'Niveau 5 atteint', unlocked: true, rarity: 'uncommon' })
+  if (level >= 10) badges.push({ id: 'level-10', name: 'Avancé', icon: '💎', description: 'Niveau 10 atteint', unlocked: true, rarity: 'rare' })
+  if (level >= 20) badges.push({ id: 'level-20', name: 'Expert', icon: '👑', description: 'Niveau 20 atteint', unlocked: true, rarity: 'epic' })
+
+  // Badge de série
+  if (streak >= 3) badges.push({ id: 'streak-3', name: 'Persévérant', icon: '🔥', description: '3 jours consécutifs', unlocked: true, rarity: 'common' })
+  if (streak >= 7) badges.push({ id: 'streak-7', name: 'Déterminé', icon: '🔥🔥', description: '7 jours consécutifs', unlocked: true, rarity: 'uncommon' })
+  if (streak >= 30) badges.push({ id: 'streak-30', name: 'Légende', icon: '🔥🔥🔥', description: '30 jours consécutifs', unlocked: true, rarity: 'legendary' })
+
+  // Badge de quiz
+  if (totalQuizzes >= 10) badges.push({ id: 'quizzes-10', name: 'Quiz Master', icon: '📝', description: '10 quiz complétés', unlocked: true, rarity: 'common' })
+  if (totalQuizzes >= 50) badges.push({ id: 'quizzes-50', name: 'Quiz Champion', icon: '🏆', description: '50 quiz complétés', unlocked: true, rarity: 'uncommon' })
+  if (totalQuizzes >= 100) badges.push({ id: 'quizzes-100', name: 'Quiz Légende', icon: '👑', description: '100 quiz complétés', unlocked: true, rarity: 'epic' })
+
+  // Badge de score
+  const perfectScores = quizResults.filter(r => r.score >= 95).length
+  if (perfectScores >= 5) badges.push({ id: 'perfect-5', name: 'Perfectionniste', icon: '💯', description: '5 scores parfaits', unlocked: true, rarity: 'rare' })
+  if (perfectScores >= 20) badges.push({ id: 'perfect-20', name: 'Maître de la Perfection', icon: '✨', description: '20 scores parfaits', unlocked: true, rarity: 'legendary' })
+
+  // Badge par type
+  Object.keys(statsByType).forEach(type => {
+    const typeStats = statsByType[type]
+    if (typeStats.count >= 10) {
+      const typeIcons: Record<string, string> = { QCM: '📋', CODING: '💻', MOCK_INTERVIEW: '🎤', SOFT_SKILLS: '🤝' }
+      badges.push({ 
+        id: `${type.toLowerCase()}-master`, 
+        name: `Maître ${type.replace('_', ' ')}`, 
+        icon: typeIcons[type] || '🏆', 
+        description: `10 quiz ${type.replace('_', ' ')} complétés`, 
+        unlocked: true, 
+        rarity: 'uncommon' 
+      })
+    }
+  })
+
+  // Badge de moyenne
+  const overallAverage = quizResults.reduce((sum, r) => sum + r.score, 0) / quizResults.length
+  if (overallAverage >= 80) badges.push({ id: 'average-80', name: 'Excellent', icon: '🎯', description: 'Moyenne ≥ 80%', unlocked: true, rarity: 'rare' })
+  if (overallAverage >= 90) badges.push({ id: 'average-90', name: 'Exceptionnel', icon: '🏅', description: 'Moyenne ≥ 90%', unlocked: true, rarity: 'epic' })
+
+  return badges
+}
+
+// Fonction pour générer les réalisations
+function generateAchievements(quizResults: any[], statsByType: any, streak: number, level: number) {
+  const achievements = []
+
+  // Réalisations de progression
+  achievements.push({
+    id: 'first-quiz',
+    name: 'Premier Pas',
+    description: 'Compléter votre premier quiz',
+    progress: quizResults.length > 0 ? 100 : 0,
+    target: 1,
+    icon: '🎯',
+    unlocked: quizResults.length > 0
+  })
+
+  achievements.push({
+    id: 'streak-achievement',
+    name: 'Série de Victoires',
+    description: 'Maintenir une série de 7 jours',
+    progress: Math.min(streak, 7),
+    target: 7,
+    icon: '🔥',
+    unlocked: streak >= 7
+  })
+
+  achievements.push({
+    id: 'level-achievement',
+    name: 'Progression Continue',
+    description: 'Atteindre le niveau 10',
+    progress: Math.min(level, 10),
+    target: 10,
+    icon: '⭐',
+    unlocked: level >= 10
+  })
+
+  // Réalisations par type
+  Object.keys(statsByType).forEach(type => {
+    const typeStats = statsByType[type]
+    const typeIcons: Record<string, string> = { QCM: '📋', CODING: '💻', MOCK_INTERVIEW: '🎤', SOFT_SKILLS: '🤝' }
+    achievements.push({
+      id: `${type.toLowerCase()}-achievement`,
+      name: `Spécialiste ${type.replace('_', ' ')}`,
+      description: `Compléter 20 quiz ${type.replace('_', ' ')}`,
+      progress: Math.min(typeStats.count, 20),
+      target: 20,
+      icon: typeIcons[type] || '🏆',
+      unlocked: typeStats.count >= 20
+    })
+  })
+
+  return achievements
+}
+
+export async function getLeaderboard() {
+  try {
+    // Récupérer tous les utilisateurs avec leurs statistiques
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        credits: true,
+        createdAt: true,
+        quizResults: {
+          select: {
+            score: true,
+            completedAt: true
+          }
+        }
+      }
+    })
+
+    // Calculer les statistiques pour chaque utilisateur
+    const leaderboardData = users.map(user => {
+      const totalScore = user.quizResults.reduce((sum, result) => sum + result.score, 0)
+      const experience = totalScore * 10
+      const level = Math.floor(experience / 1000) + 1
+      
+      // Calculer la série
+      const streak = calculateStreak(user.quizResults)
+      
+      return {
+        id: user.id,
+        name: user.firstName && user.lastName 
+          ? `${user.firstName} ${user.lastName}`
+          : user.email?.split('@')[0] || 'Utilisateur',
+        avatar: user.firstName?.[0] || user.email?.[0] || 'U',
+        level,
+        experience,
+        streak,
+        totalQuizzes: user.quizResults.length,
+        averageScore: user.quizResults.length > 0 
+          ? Math.round(totalScore / user.quizResults.length)
+          : 0,
+        rank: 0 // Sera mis à jour après le tri
+      }
+    })
+
+    // Trier par niveau puis par expérience
+    leaderboardData.sort((a, b) => {
+      if (a.level !== b.level) return b.level - a.level
+      return b.experience - a.experience
+    })
+
+    // Ajouter les rangs
+    leaderboardData.forEach((user, index) => {
+      user.rank = index + 1
+    })
+
+    return leaderboardData
+  } catch (error) {
+    console.error("Error fetching leaderboard:", error)
+    return []
+  }
 }

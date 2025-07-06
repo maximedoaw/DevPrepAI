@@ -45,12 +45,14 @@ model User {
   lastName           String?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
+  credits            Int            @default(5000)
   subscription       Subscription?
   quizResults        QuizResult[]
   skillAnalyses      SkillAnalysis[]
   progressTracking   ProgressTracking[]
   chatSessions       ChatSession[]
   interviewRooms     InterviewRoom[]
+  voiceInterviews    VoiceInterview[]
   recommendations    Recommendation[]
 }
 
@@ -95,6 +97,8 @@ model QuizResult {
   analysis    String     // Analyse détaillée (points forts/faibles)
   duration    Int?       // Temps passé en secondes
   completedAt DateTime   @default(now())
+  
+  @@index([userId, quizId])
 }
 
 model SkillAnalysis {
@@ -155,3 +159,21 @@ model InterviewRoom {
   recordingUrl String?
 }
 
+model VoiceInterview {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id])
+  technologies    String[]   // Technologies sélectionnées pour l'entretien
+  context         String     // Contexte de l'entretien
+  duration        Int        // Durée prévue de l'entretien en minutes
+  conversationId  String?    // ID de la conversation ElevenLabs
+  transcription   Json?      // Transcription complète de la conversation
+  actualDuration  Int?       // Durée réelle de l'appel en secondes
+  status          String     @default("pending") // pending, active, completed, failed
+  startedAt       DateTime   @default(now())
+  endedAt         DateTime?
+  feedback        Json?      // Feedback généré par l'IA
+  score           Float?     // Score de performance
+
+  @@index([userId])
+}

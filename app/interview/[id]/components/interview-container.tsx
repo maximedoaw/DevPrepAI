@@ -109,7 +109,7 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
         setIsRunning(true)
         setHasStarted(true)
         toast.success("Interview démarrée ! Timer activé automatiquement.")
-      }, 1000)
+      }, 1500)
     }
   }, [interview, hasStarted])
 

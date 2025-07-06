@@ -19,7 +19,7 @@ export async function createUser(userData: {
       where: { id: userData.id },
     });
 
-    if (existingUser) return { success: false, message: "Bon retour parmi nous" };
+    if (existingUser) return { success: false };
 
     await prisma.user.create({
       data: {
@@ -30,7 +30,7 @@ export async function createUser(userData: {
       },
     });
 
-    return { success: true, message: "User created successfully" };
+    return { success: true, message: "Utilisateur créer avec succes" };
   } catch (error) {
     console.error("Prisma error:", error);
     return { success: false, message: "Database error occurred" };

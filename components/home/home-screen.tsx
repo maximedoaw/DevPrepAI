@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Clock, Target, ArrowRight, Filter, Grid3X3, Table } from "lucide-react"
+import { Clock, Target, ArrowRight, Filter, Grid3X3, Table, ChevronLeft, ChevronRight, Trophy } from "lucide-react"
 import { MOCK_USER_STATS, DIFFICULTY_CONFIG, TYPE_CONFIG } from "@/constants"
 import { DashboardStats } from "@/components/interviews/dashboard-stats"
 import { WeeklyChart } from "@/components/interviews/weekly-chart"
@@ -20,6 +20,9 @@ import { getInterviews, interviewSave } from "@/actions/interview.action"
 import InterviewSkeleton from "../interview-skeleton"
 import { ProtectedSection } from "@/components/protected-routes"
 import InterviewSidebar from "../interviews/interview-sidebar"
+import SeedDatabase from "../seed-database"
+import ReputationLink from "../reputation-link"
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
 
 interface SearchFilters {
   difficulty: string[]
@@ -29,6 +32,7 @@ interface SearchFilters {
 }
 
 function HomeScreenContent() {
+  const { user } = useKindeBrowserClient()
   const [isLoading, setIsLoading] = useState(false)
   const [filters, setFilters] = useState<SearchFilters>({
     difficulty: [],
@@ -38,6 +42,8 @@ function HomeScreenContent() {
   })
   const [showFilters, setShowFilters] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid")
+  const [page, setPage] = useState(1)
+  const interviewsPerPage = 6
 
   const { data: interviews, isLoading: isLoadingInterviewCard } = useQuery({
     queryKey: ["interviews"],
@@ -50,7 +56,7 @@ function HomeScreenContent() {
   })
 
   useEffect(() => {
-    //mutationSaveInterview()
+    toast.success("Bienvenue")
   }, [])
   const router = useRouter()
 
@@ -86,6 +92,9 @@ function HomeScreenContent() {
       return true
     }) || []
 
+  const totalPages = Math.ceil(filteredInterviews.length / interviewsPerPage)
+  const paginatedInterviews = filteredInterviews.slice((page - 1) * interviewsPerPage, page * interviewsPerPage)
+
   const clearFilters = () => {
     setFilters({
       difficulty: [],
@@ -104,6 +113,7 @@ function HomeScreenContent() {
   return (
     <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header avec gradient */}
+      {/*<SeedDatabase/>*/}
       <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white rounded-2xl mb-8">
         <div className="px-8 py-12">
           <div className="flex items-center justify-between">
@@ -121,6 +131,15 @@ function HomeScreenContent() {
                 </div>
               </div>
             </div>
+            {user && (
+              <div className="hidden lg:block ml-4">
+                <ReputationLink 
+                  userId={user.id} 
+                  variant="default"
+                  className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -133,7 +152,7 @@ function HomeScreenContent() {
       {/* AI Recommendations */}
       <ProtectedSection>
         <div className="mt-8">
-          <AIRecommendations />
+          
         </div>
       </ProtectedSection>
 
@@ -367,17 +386,23 @@ function HomeScreenContent() {
                   )}
                 </div>
               ) : viewMode === "grid" ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {filteredInterviews.map((interview) => (
-                    <InterviewCard
-                      key={interview.id}
-                      interview={interview}
-                      onStart={() => handleStartInterview(interview.id)}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {paginatedInterviews.map((interview) => (
+                      <InterviewCard
+                        key={interview.id}
+                        interview={interview}
+                        onStart={() => handleStartInterview(interview.id)}
+                      />
+                    ))}
+                  </div>
+                  <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+                </>
               ) : (
-                <InterviewTableView interviews={filteredInterviews} onStart={handleStartInterview} />
+                <>
+                  <InterviewTableView interviews={paginatedInterviews} onStart={handleStartInterview} />
+                  <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+                </>
               )}
             </CardContent>
           </Card>
@@ -653,6 +678,37 @@ function LoadingSkeleton() {
           <Skeleton className="h-80 rounded-xl" />
         </div>
       </div>
+    </div>
+  )
+}
+
+function Pagination({ page, setPage, totalPages }: { page: number; setPage: (p: number) => void; totalPages: number }) {
+  if (totalPages <= 1) return null
+  return (
+    <div className="flex justify-center items-center gap-2 mt-8">
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => setPage(page - 1)}
+        disabled={page === 1}
+        className="rounded-full"
+        aria-label="Page précédente"
+      >
+        <ChevronLeft className="h-5 w-5" />
+      </Button>
+      <span className="font-mono text-lg px-4">
+        Page {page} / {totalPages}
+      </span>
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => setPage(page + 1)}
+        disabled={page === totalPages}
+        className="rounded-full"
+        aria-label="Page suivante"
+      >
+        <ChevronRight className="h-5 w-5" />
+      </Button>
     </div>
   )
 }
