@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, FileText, Trophy, CreditCard, TrendingUp } from 'lucide-react'
+import { CreditCard, TrendingUp, Users, FileText, Trophy, DollarSign } from 'lucide-react'
 
 interface AdminStats {
   totalUsers: number
@@ -13,6 +13,13 @@ interface AdminStats {
   recentQuizResults: any[]
   subscriptionStats: any[]
   quizTypeStats: any[]
+  monthlyRevenue?: {
+    total: number
+    premium: number
+    expert: number
+    premiumAmount: number
+    expertAmount: number
+  }
 }
 
 interface StatsCardsProps {
@@ -20,6 +27,13 @@ interface StatsCardsProps {
 }
 
 export function StatsCards({ stats }: StatsCardsProps) {
+  // Calcul du revenu total cumulé (tous mois)
+  const totalAllTime = (stats.subscriptionStats || []).reduce((acc, sub) => {
+    if (sub.tier === 'PREMIUM') return acc + 5000 * sub._count.tier;
+    if (sub.tier === 'EXPERT') return acc + 9000 * sub._count.tier;
+    return acc;
+  }, 0);
+
   const statsData = [
     {
       title: "Utilisateurs totaux",
@@ -60,7 +74,27 @@ export function StatsCards({ stats }: StatsCardsProps) {
       iconColor: "text-green-600",
       trend: "+8%",
       trendColor: "text-green-600"
-    }
+    },
+    {
+      title: "Revenus abonnements (30j)",
+      value: stats.monthlyRevenue?.total || 0,
+      icon: DollarSign,
+      color: "from-green-500 to-green-700",
+      bgColor: "bg-green-50",
+      iconColor: "text-green-700",
+      trend: `Pro: +${stats.monthlyRevenue?.premiumAmount || 0}fr, Expert: +${stats.monthlyRevenue?.expertAmount || 0}fr`,
+      trendColor: "text-green-700"
+    },
+    {
+      title: "Revenus abonnements (total)",
+      value: totalAllTime,
+      icon: DollarSign,
+      color: "from-amber-500 to-yellow-600",
+      bgColor: "bg-yellow-50",
+      iconColor: "text-yellow-700",
+      trend: "Cumulé depuis le lancement",
+      trendColor: "text-yellow-700"
+    },
   ]
 
   return (
@@ -78,13 +112,11 @@ export function StatsCards({ stats }: StatsCardsProps) {
             </CardHeader>
             <CardContent className="relative z-10">
               <div className="text-3xl font-bold text-gray-900 mb-1">
-                {stat.value.toLocaleString()}
+                {stat.value.toLocaleString()} <span className="text-base font-normal text-gray-500">fr</span>
               </div>
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-green-500" />
-                <p className={`text-sm font-medium ${stat.trendColor}`}>
-                  {stat.trend} ce mois
-                </p>
+                <p className={`text-sm font-medium ${stat.trendColor}`}>{stat.trend}</p>
               </div>
             </CardContent>
           </Card>

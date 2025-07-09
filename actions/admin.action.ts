@@ -467,3 +467,38 @@ export async function redirectToAdmin() {
     redirect('/')
   }
 } 
+
+// Calculer le revenu total des abonnements payants sur le dernier mois
+export async function getMonthlySubscriptionRevenue() {
+  if (!(await isAdmin())) {
+    throw new Error("Accès non autorisé")
+  }
+  const now = new Date();
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setDate(now.getDate() - 30);
+
+  // On ne compte que les abonnements payants créés dans le mois
+  const premiumSubs = await prisma.subscription.count({
+    where: {
+      tier: "PREMIUM",
+      startDate: { gte: oneMonthAgo },
+    },
+  });
+  const expertSubs = await prisma.subscription.count({
+    where: {
+      tier: "EXPERT",
+      startDate: { gte: oneMonthAgo },
+    },
+  });
+  // Prix fixes
+  const PREMIUM_PRICE = 5000;
+  const EXPERT_PRICE = 9000;
+  const total = premiumSubs * PREMIUM_PRICE + expertSubs * EXPERT_PRICE;
+  return {
+    total,
+    premium: premiumSubs,
+    expert: expertSubs,
+    premiumAmount: premiumSubs * PREMIUM_PRICE,
+    expertAmount: expertSubs * EXPERT_PRICE,
+  };
+} 

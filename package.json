@@ -27,6 +27,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@stream-io/video-react-sdk": "^1.18.11",
     "@tanstack/react-query": "^5.80.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -39,7 +40,10 @@
     "react-dom": "^19.0.0",
     "recharts": "^2.15.4",
     "sonner": "^2.0.5",
-    "tailwind-merge": "^3.3.1"
+    "stream-chat": "^9.10.1",
+    "stream-chat-react": "^13.2.1",
+    "tailwind-merge": "^3.3.1",
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

@@ -23,6 +23,8 @@ import InterviewSidebar from "../interviews/interview-sidebar"
 import SeedDatabase from "../seed-database"
 import ReputationLink from "../reputation-link"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
+import { useSubscribeStore } from '@/store/subscribe-store'
+import SubscribeDialog from "@/components/subscribe-dialog"
 
 interface SearchFilters {
   difficulty: string[]
@@ -31,8 +33,9 @@ interface SearchFilters {
   duration: string[]
 }
 
-function HomeScreenContent() {
+export default function HomeScreenContent() {
   const { user } = useKindeBrowserClient()
+  const { isOpen, open, pendingAfterAuth, setPendingAfterAuth } = useSubscribeStore()
   const [isLoading, setIsLoading] = useState(false)
   const [filters, setFilters] = useState<SearchFilters>({
     difficulty: [],
@@ -57,7 +60,12 @@ function HomeScreenContent() {
 
   useEffect(() => {
     toast.success("Bienvenue")
-  }, [])
+    // Ouvre le dialog d'abonnement si pendingAfterAuth est à true
+    if (pendingAfterAuth) {
+      open()
+      setPendingAfterAuth(false)
+    }
+  }, [pendingAfterAuth, open, setPendingAfterAuth])
   const router = useRouter()
 
   const handleStartInterview = (interviewId: string) => {
@@ -112,6 +120,7 @@ function HomeScreenContent() {
 
   return (
     <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <SubscribeDialog />
       {/* Header avec gradient */}
       {/*<SeedDatabase/>*/}
       <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white rounded-2xl mb-8">
@@ -387,15 +396,15 @@ function HomeScreenContent() {
                 </div>
               ) : viewMode === "grid" ? (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {paginatedInterviews.map((interview) => (
-                      <InterviewCard
-                        key={interview.id}
-                        interview={interview}
-                        onStart={() => handleStartInterview(interview.id)}
-                      />
-                    ))}
-                  </div>
+                    <InterviewCard
+                      key={interview.id}
+                      interview={interview}
+                      onStart={() => handleStartInterview(interview.id)}
+                    />
+                  ))}
+                </div>
                   <Pagination page={page} setPage={setPage} totalPages={totalPages} />
                 </>
               ) : (
@@ -422,13 +431,7 @@ function HomeScreenContent() {
   )
 }
 
-export default function HomeScreenWithYouTubeSidebar() {
-  return (
-    <InterviewSidebar>
-      <HomeScreenContent />
-    </InterviewSidebar>
-  )
-}
+
 
 // Composant pour la vue tableau
 function InterviewTableView({ interviews, onStart }: { interviews: any[]; onStart: (id: string) => void }) {

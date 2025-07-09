@@ -1,11 +1,13 @@
+
+
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import Navbar from "@/components/navbar"
 import { ThemeProvider } from "@/components/theme-provider"
 import TanStackProvider from "@/components/tan-stack-provider"
 import { Toaster } from "sonner"
+import ClientRoot from "@/components/client-root"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -23,10 +25,8 @@ export default function RootLayout({
     <html lang="fr" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
-          <Navbar />
           <TanStackProvider>
-            div.flex
-              {children}
+            <ClientRoot>{children}</ClientRoot>
           </TanStackProvider>
           <Toaster/>
         </ThemeProvider>

@@ -43,7 +43,8 @@ import {
   updateSubscription,
   createQuiz,
   deleteQuiz,
-  deleteQuizResult
+  deleteQuizResult,
+  getMonthlySubscriptionRevenue
 } from '@/actions/admin.action'
 
 // Import des composants
@@ -64,6 +65,7 @@ interface AdminStats {
   recentQuizResults: any[]
   subscriptionStats: any[]
   quizTypeStats: any[]
+  monthlyRevenue?: any // <-- optionnel
 }
 
 interface User {
@@ -203,14 +205,15 @@ export default function AdminPage() {
     const loadData = async () => {
       try {
         setLoading(true)
-        const [statsData, usersData, quizzesData, resultsData] = await Promise.all([
+        const [statsData, usersData, quizzesData, resultsData, monthlyRevenue] = await Promise.all([
           getAdminStats(),
           getUsers(1, 20),
           getQuizzes(1, 20),
-          getQuizResults(1, 20)
+          getQuizResults(1, 20),
+          getMonthlySubscriptionRevenue(),
         ])
-        
-        setStats(statsData)
+        const statsWithRevenue = { ...statsData, monthlyRevenue };
+        setStats(statsWithRevenue)
         setUsers(usersData.users)
         setQuizzes(quizzesData.quizzes)
         setResults(resultsData.results)
@@ -263,7 +266,7 @@ export default function AdminPage() {
       <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         <AdminHeader />
         
-        <StatsCards stats={stats} />
+        <StatsCards stats={stats as AdminStats} />
 
         {/* Navigation par onglets responsive */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
