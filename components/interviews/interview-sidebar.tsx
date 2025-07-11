@@ -126,7 +126,7 @@ function InterviewSidebarContent() {
       bgColor: "bg-gradient-to-r from-indigo-500 to-purple-600",
       action: () => {
         toast.success("Ouverture des parcours...")
-        router.push("/learning")
+        router.push("/learning-path")
       },
       path: "/learning"
     },
@@ -261,9 +261,9 @@ function InterviewSidebarContent() {
                                     <Zap className="h-3 w-3 text-red-500" />
                                     <Badge className="text-xs bg-red-100 text-red-700 border-red-200">
                                       Admin
-                                    </Badge>
-                                  </div>
-                                )}
+                                  </Badge>
+                                </div>
+                              )}
                             </div>
                             <p className="text-sm text-gray-600 group-hover:text-gray-700 transition-colors line-clamp-1">
                               {option.description}

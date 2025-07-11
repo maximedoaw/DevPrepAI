@@ -12,11 +12,11 @@ import { DashboardStats } from "@/components/interviews/dashboard-stats"
 import { WeeklyChart } from "@/components/interviews/weekly-chart"
 import { SkillsProgress } from "@/components/interviews/skills-progress"
 import { RecentInterviews } from "@/components/interviews/recent-interviews"
-import { AIRecommendations } from "@/components/interviews/ai-recommendations"
+import { AIRecommendationsCarousel } from "@/components/interviews/ai-recommendations"
 //import { InterviewSidebar } from "@/components/youtube-style-sidebar"
 import { toast } from "sonner"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { getInterviews, interviewSave } from "@/actions/interview.action"
+import { getInterviews, interviewSave, getUserStats, getGeminiRecommendations } from "@/actions/interview.action"
 import InterviewSkeleton from "../interview-skeleton"
 import { ProtectedSection } from "@/components/protected-routes"
 import InterviewSidebar from "../interviews/interview-sidebar"
@@ -48,9 +48,27 @@ export default function HomeScreenContent() {
   const [page, setPage] = useState(1)
   const interviewsPerPage = 6
 
+  // Ajout de la récupération des recommandations IA réelles
+  const { data: stats } = useQuery({
+    queryKey: ["userStats"],
+    queryFn: getUserStats,
+  })
   const { data: interviews, isLoading: isLoadingInterviewCard } = useQuery({
     queryKey: ["interviews"],
-    queryFn: async () => await getInterviews(),
+    queryFn: getInterviews,
+  })
+  const { data: aiRecs, isLoading: isLoadingAIRecs } = useQuery({
+    queryKey: ["ai-recommendations", stats, interviews],
+    queryFn: async () => {
+      if (!stats || !interviews) return []
+      const res = await getGeminiRecommendations({ stats, interviews })
+      if (res && res.recommendations) {
+        // On ne garde que les 4 premiers résultats
+        return res.recommendations.slice(0, 4)
+      }
+      return []
+    },
+    enabled: !!stats && !!interviews,
   })
 
   const { data: mutationSaveInterview } = useMutation({
@@ -158,10 +176,14 @@ export default function HomeScreenContent() {
         <DashboardStats />
       </ProtectedSection>
 
-      {/* AI Recommendations */}
+      {/* AI Recommendations Carousel */}
       <ProtectedSection>
         <div className="mt-8">
-          
+          {isLoadingAIRecs ? (
+            <div className="h-48 flex items-center justify-center"><span>Chargement des recommandations IA...</span></div>
+          ) : (
+            <AIRecommendationsCarousel recommendations={aiRecs || []} />
+          )}
         </div>
       </ProtectedSection>
 
@@ -376,7 +398,7 @@ export default function HomeScreenContent() {
             )}
 
             <CardContent>
-              {isLoadingInterviewCard ? (
+              {(isLoading || !interviews) ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[...Array(4)].map((_, i) => (
                     <InterviewSkeleton key={i} />

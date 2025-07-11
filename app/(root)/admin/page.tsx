@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Table, 
   TableBody, 
@@ -46,6 +47,14 @@ import {
   deleteQuizResult,
   getMonthlySubscriptionRevenue
 } from '@/actions/admin.action'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import dynamic from 'next/dynamic';
+import { useRef } from 'react';
+import { EditorView, basicSetup } from 'codemirror';
+import { EditorState } from '@codemirror/state';
+import { javascript } from '@codemirror/lang-javascript';
+import { python } from '@codemirror/lang-python';
+
 
 // Import des composants
 import { AdminHeader } from '@/components/admin/admin-header'
@@ -54,6 +63,8 @@ import StatsCards from './components/stats-cards'
 import { OverviewTab } from '@/components/admin/overview-tab'
 import { DuolingoCard } from '@/components/admin/duolingo-card'
 import { DuolingoBadge } from '@/components/admin/duolingo-badge'
+
+
 
 // Types et interfaces
 interface AdminStats {
@@ -185,6 +196,44 @@ function MobileQuizCard({ quiz }: { quiz: any }) {
   )
 }
 
+function CodingEditor({ value, onChange, language }: { value: string; onChange: (v: string) => void; language: string }) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+
+  useEffect(() => {
+    if (!editorRef.current) return;
+    let langExt = javascript();
+    if (language === 'python') langExt = python();
+    const extensions = [
+      basicSetup,
+      langExt,
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) {
+          onChange(update.state.doc.toString());
+        }
+      }),
+      EditorView.theme({
+        '&': { fontSize: '14px', fontFamily: "'JetBrains Mono', 'Fira Code', 'Monaco', monospace" },
+        '.cm-content': { padding: '20px', minHeight: '120px', lineHeight: '1.6' },
+        '.cm-editor': { border: '2px solid #E5E7EB', borderRadius: '12px', backgroundColor: '#FAFAFA' },
+        '.cm-editor.cm-focused': { borderColor: '#3B82F6', backgroundColor: '#FFFFFF' },
+      }),
+    ];
+    const state = EditorState.create({ doc: value, extensions });
+    const view = new EditorView({ state, parent: editorRef.current });
+    viewRef.current = view;
+    return () => { view.destroy(); };
+  }, []);
+  useEffect(() => {
+    if (viewRef.current && viewRef.current.state.doc.toString() !== value) {
+      viewRef.current.dispatch({
+        changes: { from: 0, to: viewRef.current.state.doc.length, insert: value },
+      });
+    }
+  }, [value]);
+  return <div ref={editorRef} className="rounded-xl overflow-hidden shadow-lg" />;
+}
+
 // Composant principal
 export default function AdminPage() {
   const router = useRouter()
@@ -194,11 +243,39 @@ export default function AdminPage() {
   const [selectedFilter, setSelectedFilter] = useState('all')
   const [isUpdating, setIsUpdating] = useState(false)
   const [showQuizForm, setShowQuizForm] = useState(false)
+  const [quizForm, setQuizForm] = useState({
+    title: '',
+    description: '',
+    type: '',
+    difficulty: '',
+    company: '',
+    technology: '',
+    duration: '',
+    totalPoints: '',
+    questions: ''
+  })
+  const [creatingQuiz, setCreatingQuiz] = useState(false)
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [users, setUsers] = useState<any[]>([])
   const [quizzes, setQuizzes] = useState<any[]>([])
   const [results, setResults] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [quizType, setQuizType] = useState('');
+  // QCM : structure manuelle
+  const [qcmQuestions, setQcmQuestions] = useState([
+    { title: '', choices: ['', '', '', ''], answer: 1 }
+  ]);
+  const [codingTech, setCodingTech] = useState('javascript');
+  const [codingQuestions, setCodingQuestions] = useState([
+    { title: '', starterCode: '', solution: '' }
+  ]);
+  const [softQuestions, setSoftQuestions] = useState(['']);
+  const [generating, setGenerating] = useState(false);
+  const dialogContentRef = useRef<HTMLDivElement>(null);
+  // Ajout d'une variable pour la durée personnalisée
+  const [durationMode, setDurationMode] = useState<'select' | 'custom'>('select');
+  const durationOptions = Array.from({length: 12}, (_, i) => (i+1)*10); // [10, 20, ..., 120]
+
 
   // Charger les données au montage
   useEffect(() => {
@@ -245,6 +322,85 @@ export default function AdminPage() {
       toast.error('Erreur lors de la mise à jour')
     } finally {
       setIsUpdating(false)
+    }
+  }
+
+  async function handleCreateQuiz(e: React.FormEvent) {
+    e.preventDefault()
+    setCreatingQuiz(true)
+    try {
+      // On suppose que les technologies sont séparées par des virgules
+      const techArray = quizForm.technology.split(',').map(t => t.trim()).filter(Boolean)
+      const questionsJson = JSON.parse(quizForm.questions)
+      await (await import('@/actions/admin.action')).createQuiz({
+        title: quizForm.title,
+        description: quizForm.description,
+        type: quizForm.type,
+        questions: questionsJson,
+        difficulty: quizForm.difficulty,
+        company: quizForm.company,
+        technology: techArray,
+        duration: Number(quizForm.duration),
+        totalPoints: Number(quizForm.totalPoints)
+      })
+      toast.success('Quiz créé avec succès !')
+      setShowQuizForm(false)
+      setQuizForm({ title: '', description: '', type: '', difficulty: '', company: '', technology: '', duration: '', totalPoints: '', questions: '' })
+      // Recharger les quiz
+      const quizzesData = await (await import('@/actions/admin.action')).getQuizzes(1, 20)
+      setQuizzes(quizzesData.quizzes)
+    } catch (err: any) {
+      toast.error(err?.message || 'Erreur lors de la création du quiz')
+    } finally {
+      setCreatingQuiz(false)
+    }
+  }
+
+  async function handleGenerateAI() {
+    setGenerating(true);
+    try {
+      let prompt = '';
+      if (quizType === 'QCM') {
+        prompt = `Génère-moi 3 questions QCM niveau ${quizForm.difficulty || 'junior'} sur le thème "${quizForm.title}". Pour chaque question, donne un titre, 4 propositions (choices) et le numéro (1 à 4) de la bonne réponse. Format JSON : [{title, choices: ["", "", "", ""], answer: 1}]`;
+      } else if (quizType === 'CODING') {
+        prompt = `Génère-moi 2 exercices de code niveau junior sur ${codingTech}, format JSON [{title, starterCode, solution}]`;
+      } else if (quizType === 'SOFT_SKILLS') {
+        prompt = `Génère-moi 3 questions d'entretien soft skills pour un poste de développeur junior, format JSON ["question1", "question2", ...]`;
+      }
+      const res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+      const data = await res.json();
+      // Ajout du console.log ici
+      console.log('Résultat Gemini:', data.text);
+      if (quizType === 'QCM') {
+        try {
+          const parsed = JSON.parse(data.text);
+          const valid = Array.isArray(parsed) && parsed.every(q =>
+            typeof q.title === 'string' &&
+            Array.isArray(q.choices) && q.choices.length === 4 &&
+            q.choices.every((c: any) => typeof c === 'string') &&
+            typeof q.answer === 'number' && q.answer >= 1 && q.answer <= 4
+          );
+          if (!valid) {
+            toast.error('Format des questions QCM générées invalide.');
+            return;
+          }
+          setQcmQuestions(parsed);
+        } catch (err) {
+          toast.error('Erreur de parsing JSON pour les questions QCM.');
+        }
+      } else if (quizType === 'CODING') {
+        setCodingQuestions(JSON.parse(data.text));
+      } else if (quizType === 'SOFT_SKILLS') { 
+        setSoftQuestions(JSON.parse(data.text));
+      }
+    } catch (e) {
+      toast.error('Erreur lors de la génération IA');
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -451,10 +607,143 @@ export default function AdminPage() {
                     </div>
                     Gestion des quiz
                   </h2>
-                  <Button className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 w-full sm:w-auto">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Créer un quiz
-                  </Button>
+                  <Dialog open={showQuizForm} onOpenChange={setShowQuizForm}>
+                    <DialogTrigger asChild>
+                      <Button className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 w-full sm:w-auto">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Créer un quiz
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent ref={dialogContentRef} className="max-h-[90vh] overflow-y-auto w-full max-w-2xl p-4 md:p-8">
+                      <DialogHeader>
+                        <DialogTitle>Créer un nouveau quiz</DialogTitle>
+                        <DialogDescription>Remplis les champs pour créer un quiz personnalisé.</DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleCreateQuiz} className="space-y-3">
+                        <Input placeholder="Titre" value={quizForm.title} onChange={e => setQuizForm(f => ({ ...f, title: e.target.value }))} required />
+                        <Textarea placeholder="Description" value={quizForm.description} onChange={e => setQuizForm(f => ({ ...f, description: e.target.value }))} />
+                        <Select value={quizType} onValueChange={v => { setQuizType(v); setQuizForm(f => ({ ...f, type: v })); }} required>
+                          <SelectTrigger><SelectValue placeholder="Type de quiz" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CODING">Coding</SelectItem>
+                            <SelectItem value="QCM">QCM</SelectItem>
+                            <SelectItem value="SOFT_SKILLS">Soft Skills</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select value={quizForm.difficulty} onValueChange={v => setQuizForm(f => ({ ...f, difficulty: v }))} required>
+                          <SelectTrigger><SelectValue placeholder="Difficulté" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="JUNIOR">Junior</SelectItem>
+                            <SelectItem value="MID">Mid</SelectItem>
+                            <SelectItem value="SENIOR">Senior</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input placeholder="Entreprise" value={quizForm.company} onChange={e => setQuizForm(f => ({ ...f, company: e.target.value }))} required />
+                        <Input placeholder="Technologies (séparées par des virgules)" value={quizForm.technology} onChange={e => setQuizForm(f => ({ ...f, technology: e.target.value }))} required />
+                        <Select value={durationMode === 'select' ? quizForm.duration : ''} onValueChange={v => {
+                          if (v === 'custom') {
+                            setDurationMode('custom');
+                            setQuizForm(f => ({ ...f, duration: '' }));
+                          } else {
+                            setDurationMode('select');
+                            setQuizForm(f => ({ ...f, duration: v }));
+                          }
+                        }} required>
+                          <SelectTrigger><SelectValue placeholder="Durée (minutes)" /></SelectTrigger>
+                          <SelectContent>
+                            {durationOptions.map(opt => (
+                              <SelectItem key={opt} value={String(opt)}>{opt} min</SelectItem>
+                            ))}
+                            <SelectItem value="custom">Personnalisé</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {durationMode === 'custom' && (
+                          <Input type="number" min={0} placeholder="Durée personnalisée (minutes)" value={quizForm.duration} onChange={e => setQuizForm(f => ({ ...f, duration: e.target.value }))} required />
+                        )}
+                        <Input type="number" min={0} placeholder="Total de points" value={quizForm.totalPoints} onChange={e => setQuizForm(f => ({ ...f, totalPoints: e.target.value }))} required />
+                        {quizType === 'QCM' && (
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                              <span className="font-semibold">Questions QCM</span>
+                            </div>
+                            {qcmQuestions.map((q, qi) => (
+                              <div key={qi} className="border rounded-lg p-3 bg-gray-50 space-y-2">
+                                <Input placeholder="Titre de la question" value={q.title} onChange={e => setQcmQuestions(arr => arr.map((qq, i) => i === qi ? { ...qq, title: e.target.value } : qq))} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  {q.choices.map((choice, ci) => (
+                                    <Input key={ci} placeholder={`Proposition ${ci+1}`} value={choice} onChange={e => setQcmQuestions(arr => arr.map((qq, i) => i === qi ? { ...qq, choices: qq.choices.map((c, j) => j === ci ? e.target.value : c) } : qq))} />
+                                  ))}
+                                </div>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <label className="text-sm font-medium">Bonne réponse :</label>
+                                  <Select value={String(q.answer)} onValueChange={v => setQcmQuestions(arr => arr.map((qq, i) => i === qi ? { ...qq, answer: Number(v) } : qq))}>
+                                    <SelectTrigger className="w-32"><SelectValue placeholder="Numéro" /></SelectTrigger>
+                                    <SelectContent>
+                                      {[1,2,3,4].map(n => <SelectItem key={n} value={String(n)}>{`Proposition ${n}`}</SelectItem>)}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  <Button type="button" size="sm" variant="destructive" onClick={() => setQcmQuestions(arr => arr.filter((_, i) => i !== qi))}>Supprimer la question</Button>
+                                </div>
+                              </div>
+                            ))}
+                            <Button type="button" className="mt-2" onClick={() => setQcmQuestions(arr => [...arr, { title: '', choices: ['', '', '', ''], answer: 1 }])}>Ajouter une question QCM</Button>
+                          </div>
+                        )}
+                        {quizType === 'CODING' && (
+                          <div className="space-y-4">
+                            <Input placeholder="Technologie (ex: javascript, python)" value={codingTech} onChange={e => setCodingTech(e.target.value)} />
+                            <div className="flex justify-between items-center">
+                              <span className="font-semibold">Exercices de code</span>
+                              <Button type="button" variant="outline" size="sm" onClick={handleGenerateAI} disabled={generating}>{generating ? 'Génération...' : 'Générer avec l’IA'}</Button>
+                            </div>
+                            {codingQuestions.map((q, qi) => (
+                              <div key={qi} className="border rounded-lg p-3 bg-gray-50 space-y-2">
+                                <Input placeholder="Titre de l'exercice" value={q.title} onChange={e => setCodingQuestions(arr => arr.map((qq, i) => i === qi ? { ...qq, title: e.target.value } : qq))} />
+                                <span className="text-xs text-gray-500">Starter code</span>
+                                <CodingEditor
+                                  value={q.starterCode}
+                                  language={codingTech}
+                                  onChange={(v: string) => setCodingQuestions(arr => arr.map((qq, i) => i === qi ? { ...qq, starterCode: v } : qq))}
+                                />
+                                <span className="text-xs text-gray-500">Solution attendue</span>
+                                <CodingEditor
+                                  value={q.solution}
+                                  language={codingTech}
+                                  onChange={(v: string) => setCodingQuestions(arr => arr.map((qq, i) => i === qi ? { ...qq, solution: v } : qq))}
+                                />
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  <Button type="button" size="sm" variant="destructive" onClick={() => setCodingQuestions(arr => arr.filter((_, i) => i !== qi))}>Supprimer l'exercice</Button>
+                                </div>
+                              </div>
+                            ))}
+                            <Button type="button" className="mt-2" onClick={() => setCodingQuestions(arr => [...arr, { title: '', starterCode: '', solution: '' }])}>Ajouter un exercice</Button>
+                          </div>
+                        )}
+                        {quizType === 'SOFT_SKILLS' && (
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                              <span className="font-semibold">Questions Soft Skills</span>
+                              <Button type="button" variant="outline" size="sm" onClick={handleGenerateAI} disabled={generating}>{generating ? 'Génération...' : 'Générer avec l’IA'}</Button>
+                            </div>
+                            {softQuestions.map((q, qi) => (
+                              <div key={qi} className="flex gap-2 items-center">
+                                <Textarea placeholder="Question soft skill" value={q} onChange={e => setSoftQuestions(arr => arr.map((qq, i) => i === qi ? e.target.value : qq))} />
+                                <Button type="button" size="icon" variant="ghost" onClick={() => setSoftQuestions(arr => arr.filter((_, i) => i !== qi))}>-</Button>
+                              </div>
+                            ))}
+                            <Button type="button" onClick={() => setSoftQuestions(arr => [...arr, ''])}>Ajouter une question</Button>
+                          </div>
+                        )}
+                        <DialogFooter>
+                          <Button type="submit" disabled={creatingQuiz} className="bg-gradient-to-r from-purple-500 to-pink-500 text-white w-full">
+                            {creatingQuiz ? 'Création...' : 'Créer'}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
                 </div>
                 
                 <div className="space-y-4">

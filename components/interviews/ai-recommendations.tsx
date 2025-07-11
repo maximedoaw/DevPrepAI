@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Brain, TrendingUp, Clock, Target, Sparkles } from "lucide-react"
+import { Brain, TrendingUp, Clock, Target, Sparkles, ChevronLeft, ChevronRight } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { getUserStats } from "@/actions/interview.action"
 import Link from "next/link"
+import { useState } from "react"
 
 // Types pour les recommandations
 interface Recommendation {
@@ -158,118 +159,32 @@ const mockRecommendations: Recommendation[] = [
   }
 ]
 
-// Fonction pour générer des recommandations basées sur les stats utilisateur
-function generateRecommendations(stats: any): Recommendation[] {
-  // Logique de recommandation basée sur les statistiques
+// --- SIMULATION IA façon Tensorflow ---
+function simulateTensorflowRecommendations(stats: any): Recommendation[] {
+  // Ici, on simule un modèle Tensorflow qui classerait les recommandations selon le profil utilisateur
+  // En réalité, on applique une logique de tri avancée sur les mockRecommendations
   let recommendations = [...mockRecommendations]
-  
-  // Ajuster les recommandations selon les performances globales
+
+  // Simule une "prédiction" IA :
   if (stats.averageScore < 60) {
-    // Si score très faible, recommander principalement des quiz JUNIOR
     recommendations = recommendations.filter(rec => rec.difficulty === 'JUNIOR')
-    recommendations.sort((a, b) => {
-      if (a.type === 'QCM' && b.type !== 'QCM') return -1
-      if (b.type === 'QCM' && a.type !== 'QCM') return 1
-      return 0
-    })
+    recommendations.sort((a, b) => (a.type === 'QCM' ? -1 : 1))
   } else if (stats.averageScore < 75) {
-    // Si score moyen, recommander un mélange JUNIOR/MID
-    recommendations.sort((a, b) => {
-      if (a.difficulty === 'JUNIOR' && b.difficulty === 'SENIOR') return -1
-      if (b.difficulty === 'JUNIOR' && a.difficulty === 'SENIOR') return 1
-      return 0
-    })
-  } else if (stats.averageScore > 85) {
-    // Si score élevé, recommander plus de quiz SENIOR
-    recommendations.sort((a, b) => {
-      if (a.difficulty === 'SENIOR' && b.difficulty !== 'SENIOR') return -1
-      if (b.difficulty === 'SENIOR' && a.difficulty !== 'SENIOR') return 1
-      return 0
-    })
+    recommendations = recommendations.filter(rec => rec.difficulty !== 'SENIOR')
+    recommendations.sort((a, b) => (a.type === 'CODING' ? -1 : 1))
+  } else {
+    recommendations = recommendations.filter(rec => rec.difficulty !== 'JUNIOR')
+    recommendations.sort((a, b) => (b.confidence - a.confidence))
   }
-  
-  // Ajuster selon les types les moins performants
-  if (stats.statsByType && Object.keys(stats.statsByType).length > 0) {
-    const typeStats = Object.entries(stats.statsByType)
-    const weakestType = typeStats.reduce((weakest, [type, data]: [string, any]) => {
-      return data.averageScore < weakest.score ? { type, score: data.averageScore } : weakest
-    }, { type: 'CODING', score: 100 })
-    
-    // Prioriser les quiz du type le plus faible
-    recommendations.sort((a, b) => {
-      if (a.type === weakestType.type && b.type !== weakestType.type) return -1
-      if (b.type === weakestType.type && a.type !== weakestType.type) return 1
-      return 0
-    })
-  }
-  
-  // Ajuster selon la série actuelle
-  if (stats.streak > 7) {
-    // Si série longue, recommander des défis plus difficiles
-    recommendations.sort((a, b) => {
-      if (a.difficulty === 'SENIOR' && b.difficulty !== 'SENIOR') return -1
-      if (b.difficulty === 'SENIOR' && a.difficulty !== 'SENIOR') return 1
-      return 0
-    })
-  } else if (stats.streak === 0) {
-    // Si pas de série, recommander des quiz motivants
-    recommendations.sort((a, b) => {
-      if (a.priority === 'HIGH' && b.priority !== 'HIGH') return -1
-      if (b.priority === 'HIGH' && a.priority !== 'HIGH') return 1
-      return 0
-    })
-  }
-  
-  // Ajuster selon le nombre total d'interviews
-  if (stats.totalInterviews < 5) {
-    // Nouveau utilisateur, recommander des quiz de base
-    recommendations = recommendations.filter(rec => 
-      rec.difficulty === 'JUNIOR' || rec.type === 'QCM'
-    )
-  } else if (stats.totalInterviews > 20) {
-    // Utilisateur expérimenté, recommander des quiz avancés
-    recommendations.sort((a, b) => {
-      if (a.difficulty === 'SENIOR' && b.difficulty !== 'SENIOR') return -1
-      if (b.difficulty === 'SENIOR' && a.difficulty !== 'SENIOR') return 1
-      return 0
-    })
-  }
-  
-  // Ajuster les scores de confiance basés sur les données utilisateur
-  recommendations = recommendations.map(rec => {
-    let confidence = rec.confidence
-    
-    // Augmenter la confiance si le type correspond aux forces de l'utilisateur
-    if (stats.statsByType && stats.statsByType[rec.type] && stats.statsByType[rec.type].averageScore > 80) {
-      confidence += 5
-    }
-    
-    // Diminuer la confiance si le type correspond aux faiblesses
-    if (stats.statsByType && stats.statsByType[rec.type] && stats.statsByType[rec.type].averageScore < 60) {
-      confidence -= 10
-    }
-    
-    // Ajuster selon la difficulté
-    if (rec.difficulty === 'JUNIOR' && stats.averageScore > 80) {
-      confidence -= 15
-    } else if (rec.difficulty === 'SENIOR' && stats.averageScore < 70) {
-      confidence -= 20
-    }
-    
-    return {
-      ...rec,
-      confidence: Math.max(50, Math.min(95, confidence))
-    }
-  })
-  
-  // Trier par confiance et priorité
-  recommendations.sort((a, b) => {
-    if (a.priority === 'HIGH' && b.priority !== 'HIGH') return -1
-    if (b.priority === 'HIGH' && a.priority !== 'HIGH') return 1
-    return b.confidence - a.confidence
-  })
-  
-  return recommendations.slice(0, 6)
+
+  // Simule un score de confiance IA
+  recommendations = recommendations.map((rec, i) => ({
+    ...rec,
+    confidence: Math.max(60, Math.min(95, rec.confidence + (Math.random() * 10 - 5)))
+  }))
+
+  // On retourne les 4 premiers comme "top picks" IA
+  return recommendations.slice(0, 4)
 }
 
 // Composant Skeleton pour les recommandations
@@ -338,7 +253,8 @@ export function AIRecommendations() {
     )
   }
 
-  const recommendations = generateRecommendations(stats)
+  // --- Utilisation de la simulation Tensorflow ---
+  const recommendations = simulateTensorflowRecommendations(stats)
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -376,9 +292,10 @@ export function AIRecommendations() {
           <Brain className="h-6 w-6 text-white" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Recommandations IA</h2>
+          <h2 className="text-xl font-bold text-gray-900">Recommandations IA (simulation Tensorflow)</h2>
           <p className="text-sm text-gray-600">
-            Basé sur vos {stats.totalInterviews} interviews et votre score moyen de {stats.averageScore}%
+            Basé sur vos {stats.totalInterviews} interviews et votre score moyen de {stats.averageScore}%<br/>
+            <span className="text-xs text-blue-500">Simulation IA (Tensorflow-like)</span>
           </p>
         </div>
       </div>
@@ -473,6 +390,97 @@ export function AIRecommendations() {
             : "L'IA recommande de commencer par des quiz de niveau junior pour construire une base solide."
           }
         </p>
+      </div>
+    </div>
+  )
+} 
+
+// Nouveau composant carousel compact pour le homescreen
+export function AIRecommendationsCarousel({ recommendations }: { recommendations: Recommendation[] }) {
+  const [index, setIndex] = useState(0)
+  const visible = recommendations.slice(index, index + 1)
+
+  if (!recommendations || recommendations.length === 0) {
+    return (
+      <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+        <CardContent className="p-8 text-center">
+          <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Recommandations IA</h3>
+          <p className="text-gray-500">Aucune recommandation disponible</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="relative w-full max-w-xl mx-auto">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm text-gray-700 font-semibold">Recommandation IA personnalisée</span>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" onClick={() => setIndex((i) => (i === 0 ? recommendations.length - 1 : i - 1))} aria-label="Précédent">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => setIndex((i) => (i === recommendations.length - 1 ? 0 : i + 1))} aria-label="Suivant">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      {visible.map((rec) => (
+        <Card key={rec.id} className="border-0 shadow-lg bg-white/80 backdrop-blur-sm group">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                  {rec.title}
+                </h3>
+                <p className="text-sm text-gray-500">{rec.company}</p>
+              </div>
+              <Badge className={`text-xs ${rec.priority === 'HIGH' ? 'bg-red-100 text-red-700' : rec.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{rec.priority}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <Badge className={`text-xs ${rec.type === 'CODING' ? 'bg-blue-100 text-blue-700' : rec.type === 'QCM' ? 'bg-purple-100 text-purple-700' : rec.type === 'MOCK_INTERVIEW' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{rec.type.replace('_', ' ')}</Badge>
+              <Badge className={`text-xs ${rec.difficulty === 'JUNIOR' ? 'bg-green-100 text-green-700' : rec.difficulty === 'MID' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{rec.difficulty}</Badge>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {rec.technology.slice(0, 3).map((tech, index) => (
+                <span key={index} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{tech}</span>
+              ))}
+              {rec.technology.length > 3 && (
+                <span className="text-xs text-gray-500">+{rec.technology.length - 3}</span>
+              )}
+            </div>
+            <p className="text-sm text-gray-600 line-clamp-2">{rec.reason}</p>
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {rec.duration}min
+              </div>
+              <div className="flex items-center gap-1">
+                <Target className="h-3 w-3" />
+                {typeof rec.confidence === 'number' ? rec.confidence : 0}% confiance
+              </div>
+            </div>
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center gap-1 text-sm">
+                <TrendingUp className="h-4 w-4 text-green-500" />
+                <span className="text-green-600 font-medium">{typeof rec.score === 'number' ? rec.score : 0}%</span>
+              </div>
+              <Button asChild size="sm" className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+                <Link href={`/interview/${rec.id}`}>
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  Commencer
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+      <div className="flex justify-center mt-2 gap-1">
+        {recommendations.slice(0, 4).map((_, i) => (
+          <span key={i} className={`inline-block w-2 h-2 rounded-full ${i === index ? 'bg-blue-500' : 'bg-gray-300'}`}></span>
+        ))}
       </div>
     </div>
   )

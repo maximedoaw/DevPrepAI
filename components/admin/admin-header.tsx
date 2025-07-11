@@ -16,16 +16,6 @@ export function AdminHeader() {
           </h1>
           <p className="text-blue-100 text-lg">Gestion complète de la plateforme</p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-white font-medium">Système opérationnel</span>
-          </div>
-          <Button variant="secondary" size="lg" className="bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30">
-            <Settings className="h-5 w-5 mr-2" />
-            Paramètres
-          </Button>
-        </div>
       </div>
     </div>
   )

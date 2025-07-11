@@ -232,7 +232,7 @@ export async function getQuizzes(page = 1, limit = 20, search = "", type?: strin
   }
 }
 
-// Créer un nouveau quiz
+// Créer un nouveau quiz (exposé pour le front)
 export async function createQuiz(data: {
   title: string
   description?: string
@@ -246,6 +246,11 @@ export async function createQuiz(data: {
 }) {
   if (!(await isAdmin())) {
     throw new Error("Accès non autorisé")
+  }
+
+  // Validation basique
+  if (!data.title || !data.type || !data.questions || !data.difficulty || !data.company || !data.technology || !data.duration || !data.totalPoints) {
+    throw new Error("Champs requis manquants")
   }
 
   try {
@@ -262,7 +267,6 @@ export async function createQuiz(data: {
         totalPoints: data.totalPoints
       }
     })
-
     revalidatePath('/admin')
     return quiz
   } catch (error) {

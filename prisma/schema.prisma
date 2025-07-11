@@ -83,6 +83,7 @@ model Quiz {
   results     QuizResult[]
   duration    Int
   totalPoints Int
+  
 }
 
 model QuizResult {
