@@ -164,7 +164,7 @@ function simulateTensorflowRecommendations(stats: any): Recommendation[] {
   // Ici, on simule un modèle Tensorflow qui classerait les recommandations selon le profil utilisateur
   // En réalité, on applique une logique de tri avancée sur les mockRecommendations
   let recommendations = [...mockRecommendations]
-
+  
   // Simule une "prédiction" IA :
   if (stats.averageScore < 60) {
     recommendations = recommendations.filter(rec => rec.difficulty === 'JUNIOR')
@@ -176,13 +176,13 @@ function simulateTensorflowRecommendations(stats: any): Recommendation[] {
     recommendations = recommendations.filter(rec => rec.difficulty !== 'JUNIOR')
     recommendations.sort((a, b) => (b.confidence - a.confidence))
   }
-
+  
   // Simule un score de confiance IA
   recommendations = recommendations.map((rec, i) => ({
-    ...rec,
+      ...rec,
     confidence: Math.max(60, Math.min(95, rec.confidence + (Math.random() * 10 - 5)))
   }))
-
+  
   // On retourne les 4 premiers comme "top picks" IA
   return recommendations.slice(0, 4)
 }

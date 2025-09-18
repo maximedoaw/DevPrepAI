@@ -1,36 +1,41 @@
+import type React from "react";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
+import TanStackProvider from "@/components/tan-stack-provider";
+import { Toaster } from "sonner";
+import ClientRoot from "@/components/client-root";
 
-
-import type React from "react"
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import TanStackProvider from "@/components/tan-stack-provider"
-import { Toaster } from "sonner"
-import ClientRoot from "@/components/client-root"
-
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Dev Prep AI - Préparation aux entretiens techniques",
-  description: "Préparez-vous aux entretiens techniques avec Dev Prep AI - Améliorez vos hard et soft skills",
-}
+  title: "TurboIntMax - Accelerateur de carriere",
+  description:
+    "Préparez-vous aux entretiens techniques avec TurboIntMax - Améliorez vos hard et soft skills et progresez dans votre carriere",
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           <TanStackProvider>
             <ClientRoot>{children}</ClientRoot>
           </TanStackProvider>
-          <Toaster/>
         </ThemeProvider>
+
+        <Toaster />
       </body>
     </html>
-  )
+  );
 }

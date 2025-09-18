@@ -6,9 +6,42 @@ import { Button } from "@/components/ui/button"
 import Logo from "@/components/logo"
 import { LoginLink, RegisterLink, LogoutLink } from '@kinde-oss/kinde-auth-nextjs/components'
 import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs'
-import { Menu, X, Loader2 } from 'lucide-react'
+import { Menu, X, Loader2, Moon, Sun } from 'lucide-react'
 import { useState } from 'react'
 import { Skeleton } from "@/components/ui/skeleton"
+import { useTheme } from "next-themes"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+function ModeToggle() {
+  const { setTheme } = useTheme()
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon">
+          <Sun className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+          <Moon className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+          <span className="sr-only">Toggle theme</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => setTheme("light")}>
+          Clair
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("dark")}>
+          Sombre
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("system")}>
+          Système
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 export default function Navbar() {
   const { isAuthenticated, isLoading } = useKindeBrowserClient()
@@ -16,14 +49,14 @@ export default function Navbar() {
   const [authLoading, setAuthLoading] = useState(false)
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background">
+    <header className="fixed top-0 z-50 w-full border-b  backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <Link href="/">
           <Logo />
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-6">
           {/* Navigation links - only show when not authenticated */}
           {!isAuthenticated && (
             <nav className="flex gap-6">
@@ -39,7 +72,11 @@ export default function Navbar() {
             </nav>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {/* Theme Toggle */}
+            <ModeToggle />
+            
+            {/* Auth Buttons */}
             {isLoading ? (
               <>
                 <Skeleton className="h-9 w-20 rounded-md" />
@@ -73,7 +110,7 @@ export default function Navbar() {
                 </LoginLink>
                 <RegisterLink>
                   <Button
-                    className="bg-gradient-to-r from-indigo-600 to-pink-600 text-white"
+                    className="bg-gradient-to-r from-indigo-600 to-pink-600 text-white hover:from-indigo-700 hover:to-pink-700 transition-all"
                     onClick={() => setAuthLoading(true)}
                     disabled={authLoading}
                   >
@@ -88,7 +125,8 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Navigation */}
-        <div className="md:hidden flex items-center">
+        <div className="md:hidden flex items-center gap-2">
+          <ModeToggle />
           <Button
             variant="ghost"
             size="icon"
@@ -100,28 +138,28 @@ export default function Navbar() {
 
         {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden absolute top-16 left-0 right-0 bg-background border-t shadow-lg">
+          <div className="md:hidden absolute top-16 left-0 right-0 bg-background/95 backdrop-blur border-t shadow-lg">
             <div className="container py-4 space-y-4">
               {/* Navigation links - only show when not authenticated */}
               {!isAuthenticated && (
                 <>
                   <Link 
                     href="#features" 
-                    className="block py-2 px-4 rounded-md hover:bg-accent"
+                    className="block py-2 px-4 rounded-md hover:bg-accent transition-colors"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Fonctionnalités
                   </Link>
                   <Link 
                     href="#testimonials" 
-                    className="block py-2 px-4 rounded-md hover:bg-accent"
+                    className="block py-2 px-4 rounded-md hover:bg-accent transition-colors"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Témoignages
                   </Link>
                   <Link 
                     href="#pricing" 
-                    className="block py-2 px-4 rounded-md hover:bg-accent"
+                    className="block py-2 px-4 rounded-md hover:bg-accent transition-colors"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Tarifs
@@ -170,7 +208,7 @@ export default function Navbar() {
                     </LoginLink>
                     <RegisterLink>
                       <Button
-                        className="w-full bg-gradient-to-r from-indigo-600 to-pink-600 text-white"
+                        className="w-full bg-gradient-to-r from-indigo-600 to-pink-600 text-white hover:from-indigo-700 hover:to-pink-700 transition-all"
                         onClick={() => {
                           setAuthLoading(true)
                           setMobileMenuOpen(false)

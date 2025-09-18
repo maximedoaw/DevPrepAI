@@ -40,7 +40,8 @@ import {
   TrendingUp,
   Star,
   Zap,
-  Briefcase
+  Briefcase,
+  UsersRound
 } from 'lucide-react'
 import { toast } from "sonner"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
@@ -143,6 +144,19 @@ function InterviewSidebarContent() {
       },
       badge: "3 nouveaux",
       path: "/reputation"
+    },
+    {
+      id: "Communautés",
+      title: "Communautés",
+      description: "Decouvrez les differents communauté de dev",
+      icon: UsersRound,
+      color: "text-yellow-600",
+      bgColor: "bg-gradient-to-r from-yellow-500 to-orange-600",
+      action: () => {
+        toast.success("Mes communautés")
+        router.push(`/communities`)
+      },
+      path: "/communities"
     },
     {
       id: "job-recommendations",

@@ -1,261 +1,217 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Star, ChevronLeft, ChevronRight } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Star } from "lucide-react"
+import gsap from "gsap"
 
 interface Testimonial {
   id: number
   name: string
   role: string
   company: string
-  avatar: string
   stars: number
   content: string
+  avatarColor: string
 }
 
 const testimonials: Testimonial[] = [
   {
     id: 1,
-    name: "Aminata Diallo",
-    role: "Développeuse Frontend",
-    company: "TechCorp",
-    avatar: "/placeholder.svg?height=40&width=40",
+    name: "Eric Nguemta",
+    role: "Développeur Frontend",
+    company: "ActivSpace Douala",
     stars: 5,
-    content:
-      "Dev Prep AI m'a aidée à décrocher mon job de rêve chez TechCorp. Les simulations d'entretien étaient incroyablement réalistes et le feedback m'a permis d'améliorer mes points faibles.",
+    content: "TurboIntMax m'a aidé à décrocher un poste en seulement deux semaines grâce aux simulations réalistes et au coaching CV.",
+    avatarColor: "bg-blue-500"
   },
   {
     id: 2,
-    name: "Kouamé Nguemo",
-    role: "Ingénieur Fullstack",
-    company: "StartupLab",
-    avatar: "/placeholder.svg?height=40&width=40",
+    name: "Marie Tchoumi",
+    role: "Data Analyst",
+    company: "Orange Cameroun",
     stars: 5,
-    content:
-      "Après 3 semaines d'utilisation intensive, j'ai réussi tous mes entretiens techniques. Le module sur les algorithmes m'a particulièrement aidé à structurer ma pensée.",
+    content: "Les retours de l'IA sur mes points faibles en SQL ont été décisifs. J'ai gagné en confiance et j'ai réussi mes entretiens.",
+    avatarColor: "bg-purple-500"
   },
   {
     id: 3,
-    name: "Fatou Mbaye",
-    role: "Data Scientist",
-    company: "DataViz",
-    avatar: "/placeholder.svg?height=40&width=40",
+    name: "Jacques Mbarga",
+    role: "Ingénieur Cloud",
+    company: "Camtel",
     stars: 4,
-    content:
-      "L'IA de Dev Prep a su identifier mes lacunes en SQL et m'a proposé des exercices ciblés. J'ai pu combler mes lacunes en un temps record.",
+    content: "Grâce aux entraînements ciblés, j'ai maîtrisé Docker et Kubernetes pour briller face aux recruteurs.",
+    avatarColor: "bg-green-500"
   },
   {
     id: 4,
-    name: "Moussa Sarr",
-    role: "Développeur Backend",
-    company: "CloudSys",
-    avatar: "/placeholder.svg?height=40&width=40",
+    name: "Nathalie Abena",
+    role: "UX Designer",
+    company: "MTN Cameroun",
     stars: 5,
-    content:
-      "Le coaching sur les soft skills a complètement changé ma façon d'aborder les entretiens. Je suis beaucoup plus confiant et je communique mieux mes idées.",
+    content: "Les simulations m'ont préparée à des questions concrètes d'UX/UI. Mon portfolio a fait la différence.",
+    avatarColor: "bg-pink-500"
   },
   {
     id: 5,
-    name: "Aïcha Koné",
-    role: "DevOps Engineer",
-    company: "InfraTech",
-    avatar: "/placeholder.svg?height=40&width=40",
-    stars: 4,
-    content:
-      "Les questions techniques sur Docker et Kubernetes étaient exactement ce dont j'avais besoin. Le niveau de difficulté progressif m'a permis d'avancer à mon rythme.",
+    name: "Cyrille Ndongo",
+    role: "Mobile Developer",
+    company: "Njorku",
+    stars: 5,
+    content: "Les entretiens simulés en React Native m'ont permis de réussir mon test technique du premier coup.",
+    avatarColor: "bg-orange-500"
   },
   {
     id: 6,
-    name: "Boubacar Traoré",
-    role: "Mobile Developer",
-    company: "AppFactory",
-    avatar: "/placeholder.svg?height=40&width=40",
+    name: "Aïcha Mohamadou",
+    role: "Data Scientist",
+    company: "CBC Health Care",
     stars: 5,
-    content:
-      "Grâce à Dev Prep AI, j'ai pu me préparer efficacement aux questions spécifiques sur React Native. L'application a dépassé toutes mes attentes.",
+    content: "Les défis techniques en machine learning m'ont permis de me démarquer lors de mon entretien.",
+    avatarColor: "bg-red-500"
   },
   {
     id: 7,
-    name: "Mariama Sow",
-    role: "Lead Developer",
-    company: "InnovTech",
-    avatar: "/placeholder.svg?height=40&width=40",
+    name: "Samuel Ndzana",
+    role: "Architecte Solutions",
+    company: "Next Technology",
     stars: 5,
-    content:
-      "En tant que lead, j'utilise Dev Prep AI pour former mon équipe. Les exercices de code en temps réel et les feedbacks instantanés sont excellents.",
+    content: "La préparation aux questions d'architecture système était exceptionnellement réaliste et pertinente.",
+    avatarColor: "bg-indigo-500"
   },
   {
     id: 8,
-    name: "Ibrahim Diop",
-    role: "Software Architect",
-    company: "ArchitecturePlus",
-    avatar: "/placeholder.svg?height=40&width=40",
-    stars: 5,
-    content:
-      "Les questions sur l'architecture système et les patterns de conception m'ont permis de briller lors de mes entretiens. Un outil indispensable !",
+    name: "Chantal Mballa",
+    role: "Responsable Marketing",
+    company: "InnovaTech",
+    stars: 4,
+    content: "J'ai pu pratiquer des présentations clients avec un feedback personnalisé qui a transformé mon approche.",
+    avatarColor: "bg-teal-500"
   },
   {
     id: 9,
-    name: "Awa Fall",
-    role: "UX/UI Developer",
-    company: "DesignStudio",
-    avatar: "/placeholder.svg?height=40&width=40",
-    stars: 4,
-    content:
-      "La section sur les bonnes pratiques UX et l'accessibilité m'a ouvert les yeux sur des aspects que je négligeais. Très enrichissant !",
+    name: "Pauline Fotso",
+    role: "Ingénieure Biomédicale",
+    company: "Essilor Cameroun",
+    stars: 5,
+    content: "Les simulations techniques spécifiques à mon domaine étaient incroyablement précises et utiles.",
+    avatarColor: "bg-cyan-500"
   },
+  {
+    id: 10,
+    name: "Marcellin Njiensi",
+    role: "Chef de Projet",
+    company: "GICAM",
+    stars: 5,
+    content: "La préparation aux questions de gestion de projet et de leadership a été déterminante pour mon recrutement.",
+    avatarColor: "bg-amber-500"
+  }
 ]
 
 export default function Testimonials() {
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true)
+  const row1Ref = useRef<HTMLDivElement>(null)
+  const row2Ref = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % testimonials.length)
-  }
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      // Animation de la première ligne (vers la gauche)
+      if (row1Ref.current) {
+        const rowWidth = row1Ref.current.scrollWidth / 2;
+        gsap.to(row1Ref.current, {
+          x: -rowWidth,
+          duration: 40,
+          ease: "none",
+          repeat: -1,
+          modifiers: {
+            x: gsap.utils.unitize(x => parseFloat(x) % rowWidth)
+          }
+        });
+      }
 
-  const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length)
-  }
+      // Animation de la deuxième ligne (vers la droite)
+      if (row2Ref.current) {
+        const rowWidth = row2Ref.current.scrollWidth / 2;
+        gsap.to(row2Ref.current, {
+          x: rowWidth,
+          duration: 45,
+          ease: "none",
+          repeat: -1,
+          modifiers: {
+            x: gsap.utils.unitize(x => parseFloat(x) % -rowWidth)
+          }
+        });
+      }
+    }, containerRef);
 
-  const goToSlide = (index: number) => {
-    setCurrentIndex(index)
-  }
+    return () => ctx.revert();
+  }, []);
 
-  const visibleTestimonials = testimonials.slice(currentIndex, currentIndex + 3)
-  if (visibleTestimonials.length < 3) {
-    visibleTestimonials.push(...testimonials.slice(0, 3 - visibleTestimonials.length))
-  }
+  // Dupliquer les témoignages pour créer l'effet de boucle infini
+  const duplicatedTestimonials = [...testimonials, ...testimonials];
 
   return (
-    <section id="testimonials" className="py-20 relative overflow-hidden">
-      <div className="container">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Ce que disent nos utilisateurs
-          </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Découvrez comment Dev Prep AI aide les développeurs à réussir leurs entretiens
-          </p>
-        </div>
+    <section 
+      ref={containerRef}
+      className="relative py-20 overflow-hidden bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950"
+    >
+      <div className="max-w-6xl mx-auto px-6 text-center mb-14">
+        <h2 className="text-4xl font-bold mb-4">
+          Témoignages et preuves sociales
+        </h2>
+        <p className="text-lg text-slate-600 dark:text-slate-300">
+          Étudiants, professionnels et entreprises qui ont réussi avec TurboIntMax
+        </p>
+      </div>
 
-        <div className="relative">
-          {/* Boutons de navigation */}
-          <Button
-            onClick={prevSlide}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 rounded-full w-12 h-12 p-0 bg-white/80 hover:bg-white shadow-lg border-0"
-            variant="outline"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </Button>
-
-          <Button
-            onClick={nextSlide}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 rounded-full w-12 h-12 p-0 bg-white/80 hover:bg-white shadow-lg border-0"
-            variant="outline"
-          >
-            <ChevronRight className="h-6 w-6" />
-          </Button>
-
-          {/* Carrousel */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-16">
-            {visibleTestimonials.map((testimonial, index) => (
-              <Card 
-                key={testimonial.id} 
-                className="bg-white/95 border-0 shadow-xl backdrop-blur-sm overflow-hidden transform transition-all duration-500 hover:scale-105 hover:shadow-2xl min-h-[380px] relative group"
-                style={{
-                  animationDelay: `${index * 150}ms`
-                }}
-              >
-                {/* Bordure subtile */}
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-lg"></div>
-                
-                <CardContent className="p-8 relative z-10 h-full flex flex-col">
-                  {/* En-tête avec avatar */}
-                  <div className="flex items-center mb-6">
-                    <Avatar className="h-14 w-14 mr-4 ring-2 ring-blue-100 shadow-md">
-                      <AvatarImage src={testimonial.avatar || "/placeholder.svg"} alt={testimonial.name} />
-                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
-                        {testimonial.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-lg text-gray-800 mb-1">
-                        {testimonial.name}
-                      </h4>
-                      <p className="text-sm text-gray-600 mb-1">
-                        {testimonial.role}
-                      </p>
-                      <p className="text-xs text-blue-600 font-medium">
-                        {testimonial.company}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Étoiles */}
-                  <div className="flex mb-6">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`h-5 w-5 ${
-                          i < testimonial.stars 
-                            ? "text-yellow-400 fill-yellow-400" 
-                            : "text-gray-300"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  
-                  {/* Contenu du témoignage */}
-                  <div className="flex-1 flex flex-col justify-center">
-                    <blockquote className="text-gray-700 leading-relaxed text-base italic relative">
-                      <span className="absolute -top-2 -left-1 text-3xl text-blue-200 opacity-60">"</span>
-                      {testimonial.content}
-                      <span className="absolute -bottom-2 -right-1 text-3xl text-purple-200 opacity-60">"</span>
-                    </blockquote>
-                  </div>
-                  
-                  {/* Badge de score */}
-                  <div className="mt-6 flex justify-center">
-                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full font-medium text-sm shadow-md">
-                      {testimonial.stars * 20}% de satisfaction
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Indicateurs */}
-          <div className="flex justify-center mt-12 space-x-2">
-            {Array.from({ length: Math.ceil(testimonials.length / 3) }).map((_, index) => (
-              <button
-                key={index}
-                onClick={() => goToSlide(index * 3)}
-                className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                  Math.floor(currentIndex / 3) === index
-                    ? "bg-blue-600 scale-125"
-                    : "bg-gray-300 hover:bg-gray-400"
-                }`}
-              />
-            ))}
-          </div>
-
-          {/* Bouton pause/play */}
-          <div className="text-center mt-6">
-            <Button
-              onClick={() => setIsAutoPlaying(!isAutoPlaying)}
-              variant="outline"
-              className="rounded-full px-6"
+      {/* Première ligne (défilement vers la gauche) */}
+      <div className="overflow-hidden mb-10">
+        <div ref={row1Ref} className="flex gap-6 w-max">
+          {duplicatedTestimonials.map((t, index) => (
+            <Card
+              key={`row1-${t.id}-${index}`}
+              className="w-80 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
             >
-              {isAutoPlaying ? "Pause" : "Lecture automatique"}
-            </Button>
-          </div>
+              <CardContent className="p-6">
+                <div className="flex items-center mb-4">
+                  <Avatar className={`h-12 w-12 mr-3 ${t.avatarColor} text-white font-bold`}>
+                    <AvatarFallback>{t.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="text-left">
+                    <p className="font-semibold">{t.name}</p>
+                    <p className="text-xs text-slate-500">{t.role}</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                      {t.company}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex mb-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`h-4 w-4 ${
+                        i < t.stars
+                          ? "text-yellow-400 fill-yellow-400"
+                          : "text-gray-300"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-300 italic">
+                  "{t.content}"
+                </p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
+
+
+
+      {/* Overlay gradients pour un effet de fondu sur les bords */}
+      <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-slate-50 via-blue-50 to-transparent dark:from-slate-950 dark:via-slate-900 pointer-events-none"></div>
+      <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-slate-50 via-blue-50 to-transparent dark:from-slate-950 dark:via-slate-900 pointer-events-none"></div>
     </section>
   )
 }

@@ -2,21 +2,25 @@ import React from 'react'
 import Hero from './hero'
 import Features from './features'
 import Testimonials from './testimonials'
-import Cta from './cta'
-import { Pricing } from './pricing'
 import Navbar from '../navbar'
 import SubscribeDialog from '@/components/subscribe-dialog'
+import WhyTurboIntMax from './why'
+import { Pricing } from './pricing'
+import Footer from '../footer'
+import FAQ from './faq'
 
 const AuthScreen = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <SubscribeDialog />
       <Navbar/>
       <Hero />
       <Features />
+      <WhyTurboIntMax/>
       <Pricing/>
       <Testimonials />
-      <Cta />
+      <FAQ/>
+      <Footer/>
     </div>
   )
 }
