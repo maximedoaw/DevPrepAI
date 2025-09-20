@@ -13,12 +13,41 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 enum SubscriptionTier {
   FREE
   PREMIUM
   EXPERT
 }
+
+enum Role {
+  ENTERPRISE
+  BOOTCAMP
+  SCHOOL
+  CANDIDATE
+  RECRUITER
+  CAREER_CHANGER
+}
+
+enum Domain {
+  DEVELOPMENT
+  DATA_SCIENCE
+  FINANCE
+  BUSINESS
+  ENGINEERING
+  DESIGN
+  DEVOPS
+  CYBERSECURITY
+  MARKETING
+  PRODUCT
+  ARCHITECTURE
+  MOBILE
+  WEB
+  COMMUNICATION
+  MANAGEMENT
+  EDUCATION
+  HEALTH
+}
+
 enum Difficulty {
   JUNIOR
   MID
@@ -46,6 +75,8 @@ model User {
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   credits            Int            @default(5000)
+  role               Role           @default(CANDIDATE)
+  domains            Domain[]       // Domaines sélectionnés
   subscription       Subscription?
   quizResults        QuizResult[]
   skillAnalyses      SkillAnalysis[]
@@ -177,3 +208,4 @@ model VoiceInterview {
 
   @@index([userId])
 }
+

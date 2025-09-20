@@ -37,7 +37,7 @@ const faqData = [
   {
     id: "6",
     question: "Quelle est la différence entre TurboIntMax et les autres plateformes de préparation ?",
-    answer: "Contrairement aux solutions génériques, TurboIntMax offre des simulations hyper-réalistes avec un feedback IA avancé, un coaching personnalisé adapté au marché camerounais et africain, et un suivi de progression détaillé pour mesurer vos améliorations."
+    answer: "Contrairement aux solutions génériques, TurboIntMax offre des simulations hyper-réalistes avec un feedback IA avancé, un coaching personnalisé adapté au marché camerounais et africain,un matching intelligent avec des recruteurs entreprises et partenaires, et un suivi de progression détaillé pour mesurer vos améliorations le tout en un."
   }
 ]
 
