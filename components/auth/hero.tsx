@@ -168,7 +168,7 @@ export default function Hero() {
               L'accélérateur de carrière
             </span>
             <span className="title-part block mt-2">
-              pour <span className="font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 dark:from-amber-400 dark:via-orange-400 dark:to-pink-400">TurboIntMax</span>
+              pour <span className="font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 dark:from-amber-400 dark:via-orange-400 dark:to-pink-400">vous</span>
             </span>
           </h1>
           

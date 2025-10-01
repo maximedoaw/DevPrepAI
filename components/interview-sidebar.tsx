@@ -49,7 +49,22 @@ import {
   FileText,
   BarChart,
   Award,
-  ClipboardList
+  ClipboardList,
+  Building,
+  GraduationCap,
+  School,
+  UserCheck,
+  PlusCircle,
+  Calendar,
+  Network,
+  Handshake,
+  MapPin,
+  MessageSquare,
+  Lightbulb,
+  Rocket,
+  Heart,
+  GitBranch,
+  Brain
 } from 'lucide-react'
 import { toast } from "sonner"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
@@ -113,36 +128,30 @@ function InterviewSidebarContent() {
   const { user, isAuthenticated, isLoading } = useKindeBrowserClient()
   const { theme } = useTheme()
 
-  // Utilisation de TanStack Query sans la propriété enabled
   const { data: userData, isLoading: userDataLoading } = useQuery({
     queryKey: ['userRole', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
       const result = await getUserRoleAndDomains(user.id);
+      console.log("Le role de l'utilisateur est :", result);
       return result;
     },
   });
 
-  // Si pas connecté ou en chargement, ne rien afficher
   if (isLoading || !isAuthenticated) return null
 
-  // Déterminer le rôle de l'utilisateur
-  const userRole = userData?.role || 
-                  user?.email?.includes("recruiter") ? "recruiter" : 
-                  user?.email?.includes("admin") ? "admin" : "candidate"
-
-  // Vérifier si l'utilisateur est admin
+  const userRole = userData?.role || "CANDIDATE"
   const isAdmin = userRole === "admin" || userData?.role === "admin" || user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
 
-  // Options de sidebar par rôle
   let sidebarOptions: SidebarOption[] = [];
 
-  if (userRole === "candidate") {
+  // Configuration pour CANDIDATE
+  if (userRole === "CANDIDATE") {
     sidebarOptions = [
       {
         id: "dashboard",
-        title: "Accueil",
-        description: "Vue d'ensemble de votre progression",
+        title: "Tableau de bord",
+        description: "Vue d'ensemble de votre parcours",
         icon: Home,
         color: "text-blue-600 dark:text-blue-400",
         bgColor: "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
@@ -150,125 +159,361 @@ function InterviewSidebarContent() {
         path: "/"
       },
       {
-        id: "vocal-interview",
-        title: "Interview Vocale IA",
-        description: "Entretien technique avec assistant vocal",
+        id: "interviews",
+        title: "Interviews",
+        description: "Simulations pour vos futurs entretiens",
         icon: Mic,
         color: "text-purple-600 dark:text-purple-400",
         bgColor: "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
-        action: () => router.push("/vocal"),
+        action: () => router.push("/interviews"),
         badge: "IA",
         isNew: true,
-        path: "/vocal"
+        path: "/interviews"
       },
       {
-        id: "tech-interview",
-        title: "Entretien Technique",
-        description: "Profils développeur disponibles",
-        icon: Code,
+        id: "assessment",
+        title: "Bilan de compétences",
+        description: "Évaluez vos forces et vos axes d'amélioration",
+        icon: Target,
         color: "text-green-600 dark:text-green-400",
         bgColor: "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
-        action: () => router.push("/developers"),
-        badge: "12 profils",
-        path: "/developers"
+        action: () => router.push("/assessment"),
+        path: "/assessment"
       },
       {
-        id: "learning-path",
-        title: "Parcours d'Apprentissage",
-        description: "Cours et ressources structurés",
+        id: "guides",
+        title: "Guides de progression",
+        description: "Formations et conseils adaptés à vos objectifs",
         icon: BookOpen,
-        color: "text-indigo-600 dark:text-indigo-400",
-        bgColor: "bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700",
-        action: () => router.push("/learning-path"),
-        path: "/learning"
-      },
-      {
-        id: "reputation",
-        title: "Réputation",
-        description: "Vos succès et récompenses",
-        icon: Trophy,
         color: "text-amber-600 dark:text-amber-400",
         bgColor: "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
-        action: () => router.push(`/reputation?id=${user?.id}`),
-        badge: "3 nouveaux",
-        path: "/reputation"
+        action: () => router.push("/guides"),
+        path: "/guides"
       },
       {
-        id: "job-recommendations",
-        title: "Jobs Recommandés",
-        description: "Offres d'emploi adaptées à votre profil",
-        icon: Briefcase,
+        id: "matching",
+        title: "Matching emploi",
+        description: "Offres correspondant à votre profil",
+        icon: Network,
+        color: "text-indigo-600 dark:text-indigo-400",
+        bgColor: "bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700",
+        action: () => router.push("/matching"),
+        badge: "Nouvelles offres",
+        path: "/matching"
+      },
+      {
+        id: "my-interviews",
+        title: "Mes entretiens",
+        description: "Planification et suivi de vos entretiens",
+        icon: Calendar,
         color: "text-cyan-600 dark:text-cyan-400",
         bgColor: "bg-gradient-to-r from-cyan-500 to-cyan-600 dark:from-cyan-600 dark:to-cyan-700",
-        action: () => router.push("/jobs"),
-        badge: "Job",
-        path: "/jobs"
+        action: () => router.push("/my-interviews"),
+        badge: "3 planifiés",
+        path: "/my-interviews"
       }
     ];
   }
 
-  if (userRole === "recruiter") {
+  // Configuration pour CAREER_CHANGER
+  if (userRole === "CAREER_CHANGER") {
     sidebarOptions = [
       {
         id: "dashboard",
-        title: "Accueil",
-        description: "Tableau de bord recruteur",
+        title: "Mon parcours",
+        description: "Vue globale de votre reconversion",
         icon: Home,
         color: "text-blue-600 dark:text-blue-400",
         bgColor: "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
-        action: () => router.push("/recruiter"),
-        path: "/recruiter"
+        action: () => router.push("/"),
+        path: "/"
       },
       {
-        id: "vocal-evaluation",
-        title: "Évaluations IA",
-        description: "Évaluer les candidats avec l'IA",
+        id: "interviews",
+        title: "Interviews",
+        description: "Simulations adaptées à votre nouveau métier",
         icon: Mic,
         color: "text-purple-600 dark:text-purple-400",
         bgColor: "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
-        action: () => router.push("/evaluations"),
-        badge: "IA",
-        path: "/evaluations"
+        action: () => router.push("/interviews"),
+        isNew: true,
+        path: "/interviews"
+      },
+      {
+        id: "plan",
+        title: "Plan de transition",
+        description: "Feuille de route personnalisée pour votre reconversion",
+        icon: TrendingUp,
+        color: "text-green-600 dark:text-green-400",
+        bgColor: "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
+        action: () => router.push("/plan"),
+        path: "/plan"
+      },
+      {
+        id: "skills",
+        title: "Passerelles de compétences",
+        description: "Valorisez vos acquis pour le nouveau domaine",
+        icon: GitBranch,
+        color: "text-amber-600 dark:text-amber-400",
+        bgColor: "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
+        action: () => router.push("/skills"),
+        path: "/skills"
+      },
+      {
+        id: "formations",
+        title: "Formations intensives",
+        description: "Programmes rapides pour accélérer votre transition",
+        icon: GraduationCap,
+        color: "text-indigo-600 dark:text-indigo-400",
+        bgColor: "bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700",
+        action: () => router.push("/formations"),
+        path: "/formations"
+      }
+  
+    ];
+  }
+
+  // Configuration pour RECRUITER
+  if (userRole === "RECRUITER") {
+    sidebarOptions = [
+      {
+        id: "dashboard",
+        title: "Dashboard RH",
+        description: "Vue globale de vos recrutements",
+        icon: Home,
+        color: "text-blue-600 dark:text-blue-400",
+        bgColor: "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
+        action: () => router.push("/"),
+        path: "/"
       },
       {
         id: "talents",
-        title: "Gestion des Talents",
-        description: "Parcourir et gérer les talents",
+        title: "Marketplace de talents",
+        description: "Accédez à la base de candidats qualifiés",
         icon: Users,
-        color: "text-green-600 dark:text-green-400",
-        bgColor: "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
+        color: "text-purple-600 dark:text-purple-400",
+        bgColor: "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
         action: () => router.push("/talents"),
         path: "/talents"
       },
       {
-        id: "offers",
-        title: "Mes Offres d'Emploi",
-        description: "Créer et gérer vos offres",
-        icon: Briefcase,
-        color: "text-amber-600 dark:text-amber-400",
-        bgColor: "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
-        action: () => router.push("/offers"),
-        path: "/offers"
+        id: "matching",
+        title: "Matching candidats",
+        description: "IA pour trouver les meilleurs profils",
+        icon: Brain,
+        color: "text-green-600 dark:text-green-400",
+        bgColor: "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
+        action: () => router.push("/matching"),
+        path: "/matching"
       },
       {
-        id: "communities",
-        title: "Communautés",
-        description: "Interagir avec les communautés",
+        id: "interviews",
+        title: "Planification d’interviews",
+        description: "Organisez vos entretiens avec les candidats",
+        icon: Calendar,
+        color: "text-amber-600 dark:text-amber-400",
+        bgColor: "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
+        action: () => router.push("/interviews"),
+        path: "/interviews"
+      },
+      {
+        id: "rapports",
+        title: "Analyse RH",
+        description: "Rapports et indicateurs clés sur vos recrutements",
+        icon: BarChart3,
+        color: "text-cyan-600 dark:text-cyan-400",
+        bgColor: "bg-gradient-to-r from-cyan-500 to-cyan-600 dark:from-cyan-600 dark:to-cyan-700",
+        action: () => router.push("/rapports"),
+        path: "/rapports"
+      }
+    ];
+  }
+
+  // Configuration pour ENTERPRISE
+  if (userRole === "ENTERPRISE") {
+    sidebarOptions = [
+      {
+        id: "dashboard",
+        title: "Espace entreprise",
+        description: "Pilotage de vos besoins en talents",
+        icon: Building,
+        color: "text-blue-600 dark:text-blue-400",
+        bgColor: "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
+        action: () => router.push("/enterprise"),
+        path: "/enterprise"
+      },
+      {
+        id: "interview-planning",
+        title: "Planification d'entretiens",
+        description: "Organisez vos entretiens en interne",
+        icon: Calendar,
+        color: "text-purple-600 dark:text-purple-400",
+        bgColor: "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
+        action: () => router.push("/enterprise-interviews"),
+        badge: "15 cette semaine",
+        path: "/enterprise-interviews"
+      },
+      {
+        id: "talent-matching",
+        title: "Matching de talents",
+        description: "Trouvez les profils parfaits pour vos postes",
+        icon: Network,
+        color: "text-green-600 dark:text-green-400",
+        bgColor: "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
+        action: () => router.push("/talent-matching"),
+        path: "/talent-matching"
+      },
+      {
+        id: "workforce-planning",
+        title: "Planification RH",
+        description: "Anticipez vos besoins en compétences",
+        icon: Target,
+        color: "text-amber-600 dark:text-amber-400",
+        bgColor: "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
+        action: () => router.push("/workforce-planning"),
+        path: "/workforce-planning"
+      },
+      {
+        id: "bulk-hiring",
+        title: "Recrutement en volume",
+        description: "Solutions pour vos recrutements massifs",
         icon: UsersRound,
         color: "text-indigo-600 dark:text-indigo-400",
         bgColor: "bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700",
-        action: () => router.push("/communities"),
-        path: "/communities"
+        action: () => router.push("/bulk-hiring"),
+        path: "/bulk-hiring"
       },
       {
-        id: "analytics",
-        title: "Analytics",
-        description: "Statistiques et performances",
-        icon: BarChart,
+        id: "training-programs",
+        title: "Programmes de formation",
+        description: "Formation sur-mesure pour vos équipes",
+        icon: GraduationCap,
         color: "text-cyan-600 dark:text-cyan-400",
         bgColor: "bg-gradient-to-r from-cyan-500 to-cyan-600 dark:from-cyan-600 dark:to-cyan-700",
-        action: () => router.push("/analytics"),
-        path: "/analytics"
+        action: () => router.push("/training-programs"),
+        path: "/training-programs"
+      }
+    ];
+  }
+
+  // Configuration pour BOOTCAMP
+  if (userRole === "BOOTCAMP") {
+    sidebarOptions = [
+      {
+        id: "dashboard",
+        title: "Espace bootcamp",
+        description: "Vue d'ensemble de votre cohorte",
+        icon: Home,
+        color: "text-blue-600 dark:text-blue-400",
+        bgColor: "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
+        action: () => router.push("/"),
+        path: "/"
+      },
+      {
+        id: "participants",
+        title: "Gestion des apprenants",
+        description: "Suivi individuel et collectif",
+        icon: Users,
+        color: "text-purple-600 dark:text-purple-400",
+        bgColor: "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
+        action: () => router.push("/participants"),
+        path: "/participants"
+      },
+      {
+        id: "curriculum",
+        title: "Curriculum dynamique",
+        description: "Programmes de formation ajustables",
+        icon: BookOpen,
+        color: "text-green-600 dark:text-green-400",
+        bgColor: "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
+        action: () => router.push("/curriculum"),
+        path: "/curriculum"
+      },
+      {
+        id: "placement",
+        title: "Placement professionnel",
+        description: "Statistiques et suivi d’insertion",
+        icon: Briefcase,
+        color: "text-amber-600 dark:text-amber-400",
+        bgColor: "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
+        action: () => router.push("/placement"),
+        path: "/placement"
+      },
+      {
+        id: "matching",
+        title: "Matching entreprises",
+        description: "Mettez en relation vos apprenants avec les recruteurs",
+        icon: Handshake,
+        color: "text-cyan-600 dark:text-cyan-400",
+        bgColor: "bg-gradient-to-r from-cyan-500 to-cyan-600 dark:from-cyan-600 dark:to-cyan-700",
+        action: () => router.push("/matching"),
+        path: "/matching"
+      }
+    ];
+  }
+
+  // Configuration pour SCHOOL
+  if (userRole === "SCHOOL") {
+    sidebarOptions = [
+      {
+        id: "dashboard",
+        title: "Espace école",
+        description: "Vue globale de votre établissement",
+        icon: Home,
+        color: "text-blue-600 dark:text-blue-400",
+        bgColor: "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
+        action: () => router.push("/"),
+        path: "/"
+      },
+      {
+        id: "pedagogie",
+        title: "Espace pédagogique",
+        description: "Gestion des cours et ressources",
+        icon: BookOpen,
+        color: "text-purple-600 dark:text-purple-400",
+        bgColor: "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
+        action: () => router.push("/pedagogie"),
+        path: "/pedagogie"
+      },
+      {
+        id: "sessions",
+        title: "Sessions de travail",
+        description: "Calendrier et organisation des sessions",
+        icon: Calendar,
+        color: "text-green-600 dark:text-green-400",
+        bgColor: "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
+        action: () => router.push("/sessions"),
+        path: "/sessions"
+      },
+      {
+        id: "etudiants",
+        title: "Suivi étudiant",
+        description: "Progression et résultats des étudiants",
+        icon: Users,
+        color: "text-amber-600 dark:text-amber-400",
+        bgColor: "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
+        action: () => router.push("/etudiants"),
+        path: "/etudiants"
+      },
+      {
+        id: "carriere",
+        title: "Services carrière",
+        description: "Accompagnement à l’insertion professionnelle",
+        icon: Briefcase,
+        color: "text-cyan-600 dark:text-cyan-400",
+        bgColor: "bg-gradient-to-r from-cyan-500 to-cyan-600 dark:from-cyan-600 dark:to-cyan-700",
+        action: () => router.push("/carriere"),
+        path: "/carriere"
+      },
+      {
+        id: "visibilite",
+        title: "Visibilité & partenariats",
+        description: "Mettre en avant vos étudiants auprès des entreprises",
+        icon: Handshake,
+        color: "text-indigo-600 dark:text-indigo-400",
+        bgColor: "bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700",
+        action: () => router.push("/visibilite"),
+        path: "/visibilite"
       }
     ];
   }
@@ -289,10 +534,32 @@ function InterviewSidebarContent() {
     });
   }
 
+  // Fonction pour obtenir le titre et la description du rôle
+  const getRoleInfo = () => {
+    switch (userRole) {
+      case "CANDIDATE":
+        return { title: "Accélérateur Carrière", subtitle: "Votre tremplin professionnel" };
+      case "CAREER_CHANGER":
+        return { title: "Reconversion Pro", subtitle: "Votre nouvelle carrière" };
+      case "RECRUITER":
+        return { title: "Espace Recruteur", subtitle: "Trouvez les meilleurs talents" };
+      case "ENTERPRISE":
+        return { title: "Solutions Entreprise", subtitle: "Talents à grande échelle" };
+      case "BOOTCAMP":
+        return { title: "Bootcamp Manager", subtitle: "Excellence pédagogique" };
+      case "SCHOOL":
+        return { title: "École & Université", subtitle: "Insertion professionnelle" };
+      default:
+        return { title: "Accélérateur Carrière", subtitle: "Développez votre potentiel" };
+    }
+  };
+
+  const roleInfo = getRoleInfo();
+
   return (
     <Sidebar 
       collapsible="icon" 
-      className="border-r border-slate-200 dark:border-slate-800 overflow-y-auto bg-white dark:bg-slate-950 shadow-sm transition-colors custom-scrollbar"
+      className="border-r border-slate-200 dark:border-slate-800 overflow-y-auto bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 custom-scrollbar"
       style={{ 
         width: state === "expanded" ? "280px" : "72px",
         minWidth: state === "expanded" ? "280px" : "72px",
@@ -307,11 +574,10 @@ function InterviewSidebarContent() {
           {state === "expanded" && (
             <div className="min-w-0 flex-1">
               <h2 className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent truncate">
-                DevPrepAi
+                {roleInfo.title}
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
-                {userRole === "candidate" ? "Votre assistant de préparation" : 
-                 userRole === "recruiter" ? "Espace recruteur" : "Administration"}
+                {roleInfo.subtitle}
               </p>
             </div>
           )}
@@ -334,7 +600,7 @@ function InterviewSidebarContent() {
                       className={`h-auto p-3 transition-all duration-200 group relative overflow-hidden rounded-lg
                         ${isActive 
                           ? "bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 shadow-md font-semibold text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" 
-                          : "hover:bg-slate-50 dark:hover:bg-slate 800/50 shadow-sm"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-800/50 shadow-sm"
                         }
                         ${option.isAdmin ? "border-l-4 border-red-500 dark:border-red-400" : ""}
                       `}
@@ -444,6 +710,37 @@ function InterviewSidebarContent() {
                       </div>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+
+                  {/* Section Communication pour certains rôles */}
+                  {(userRole === "RECRUITER" || userRole === "ENTERPRISE" || userRole === "BOOTCAMP" || userRole === "SCHOOL") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        onClick={() => router.push("/messages")}
+                        className="h-auto p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-200 group relative overflow-hidden rounded-lg"
+                        onMouseEnter={() => setHoveredOption("messages")}
+                        onMouseLeave={() => setHoveredOption(null)}
+                      >
+                        <div className="flex items-center gap-4 w-full">
+                          <div className="p-2.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0">
+                            <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div className="flex-1 text-left min-w-0">
+                            <h3 className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
+                              Messages
+                            </h3>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">
+                              Communications et notifications
+                            </p>
+                          </div>
+                          <ChevronRight
+                            className={`h-4 w-4 text-slate-400 transition-all duration-200 flex-shrink-0 ${
+                              hoveredOption === "messages" ? "translate-x-1 text-slate-600 dark:text-slate-300" : ""
+                            }`}
+                          />
+                        </div>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -466,8 +763,12 @@ function InterviewSidebarContent() {
                   {user.given_name} {user.family_name}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                  {userRole === "candidate" ? "Candidat" : 
-                   userRole === "recruiter" ? "Recruteur" : "Administrateur"}
+                  {userRole === "CANDIDATE" ? "Candidat" : 
+                   userRole === "CAREER_CHANGER" ? "En reconversion" :
+                   userRole === "RECRUITER" ? "Recruteur" : 
+                   userRole === "ENTERPRISE" ? "Entreprise" :
+                   userRole === "BOOTCAMP" ? "Bootcamp" :
+                   userRole === "SCHOOL" ? "École" : "Utilisateur"}
                 </p>
               </div>
               <ModeToggle />
@@ -524,7 +825,6 @@ export default function InterviewSidebar({ children }: { children: React.ReactNo
   const { isAuthenticated, isLoading } = useKindeBrowserClient()
   const { theme } = useTheme()
   
-  // Si pas connecté ou en chargement, ne rien afficher (ni wrapper, ni sidebar)
   if (isLoading || !isAuthenticated) return null
   
   return (

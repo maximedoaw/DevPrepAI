@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import TanStackProvider from "@/components/tan-stack-provider";
 import { Toaster } from "sonner";
 import ClientRoot from "@/components/client-root";
+import { RouteGuard } from "@/components/protected-routes";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,7 +31,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TanStackProvider>
-            <ClientRoot>{children}</ClientRoot>
+            <ClientRoot>
+              <RouteGuard>{children}</RouteGuard>
+            </ClientRoot>
           </TanStackProvider>
         </ThemeProvider>
 

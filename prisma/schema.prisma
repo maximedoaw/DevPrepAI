@@ -13,6 +13,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// schema.prisma - Version optimisée
+
 enum SubscriptionTier {
   FREE
   PREMIUM
@@ -55,10 +57,10 @@ enum Difficulty {
 }
 
 enum QuizType {
-  CODING
   QCM 
   MOCK_INTERVIEW
   SOFT_SKILLS
+  TECHNICAL
 }
 
 enum InterviewRoomType {
@@ -70,11 +72,13 @@ enum InterviewRoomType {
 model User {
   id                 String         @id @default(cuid())
   email              String         @unique
+  kindeId            String?        @unique
   firstName          String?
   lastName           String?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   credits            Int            @default(5000)
+  matchingJobs       Int            @default(0)
   role               Role           @default(CANDIDATE)
   domains            Domain[]       // Domaines sélectionnés
   subscription       Subscription?
@@ -85,19 +89,27 @@ model User {
   interviewRooms     InterviewRoom[]
   voiceInterviews    VoiceInterview[]
   recommendations    Recommendation[]
+
+  @@index([createdAt])
+  @@index([role])
+  @@map("users")
 }
 
 model Subscription {
   id               String          @id @default(cuid())
   userId           String          @unique
-  user             User            @relation(fields: [userId], references: [id])
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   tier             SubscriptionTier @default(FREE)
   startDate        DateTime        @default(now())
   endDate          DateTime?
   isActive         Boolean         @default(true)
   stripeCustomerId String?
   stripeSubscriptionId String?
-  features         Json? // Pour stocker les features spécifiques au plan
+  features         Json?
+
+  @@index([isActive])
+  @@index([endDate])
+  @@map("subscriptions")
 }
 
 model Quiz {
@@ -105,7 +117,7 @@ model Quiz {
   title       String
   description String?
   type        QuizType
-  questions   Json       // Structure flexible pour différents types de questions
+  questions   Json
   difficulty  Difficulty @default(JUNIOR)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -114,98 +126,127 @@ model Quiz {
   results     QuizResult[]
   duration    Int
   totalPoints Int
+
+  @@index([type])
+  @@index([difficulty])
+  @@index([technology])
+  @@index([createdAt])
+  @@map("quizzes")
 }
 
 model QuizResult {
   id          String     @id @default(cuid())
   userId      String
-  user        User       @relation(fields: [userId], references: [id])
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   quizId      String
-  quiz        Quiz       @relation(fields: [quizId], references: [id])
+  quiz        Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
   skillAnalysis SkillAnalysis[]
   score       Float
-  answers     Json      // Réponses de l'utilisateur
-  analysis    String     // Analyse détaillée (points forts/faibles)
-  duration    Int?       // Temps passé en secondes
+  answers     Json
+  analysis    String
+  duration    Int?
   completedAt DateTime   @default(now())
-  
-  @@index([userId, quizId])
+
+  @@index([userId, completedAt])
+  @@index([quizId])
+  @@index([score])
+  @@index([completedAt])
+  @@map("quiz_results")
 }
 
 model SkillAnalysis {
   id              String     @id @default(cuid())
   userId          String
-  user            User       @relation(fields: [userId], references: [id])
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   quizResultId    String?
-  quizResult      QuizResult? @relation(fields: [quizResultId], references: [id])
-  skills          Json       // Compétences évaluées avec scores
+  quizResult      QuizResult? @relation(fields: [quizResultId], references: [id], onDelete: Cascade)
+  skills          Json
   aiFeedback      String?
   improvementTips String[]
   analyzedAt      DateTime   @default(now())
+
+  @@index([userId, analyzedAt])
+  @@index([quizResultId])
+  @@map("skill_analyses")
 }
 
 model ProgressTracking {
   id          String     @id @default(cuid())
   userId      String
-  user        User       @relation(fields: [userId], references: [id])
-  metric      String     // Ex: "coding_score", "interview_performance"
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  metric      String
   value       Float
   date        DateTime   @default(now())
-  context     Json?      // Contexte supplémentaire (quizId, etc.)
+  context     Json?
+
+  @@index([userId, metric, date])
+  @@index([date])
+  @@map("progress_tracking")
 }
 
 model Recommendation {
   id           String     @id @default(cuid())
   userId       String
-  user         User       @relation(fields: [userId], references: [id])
-  source       String     // "quiz", "ai_analysis", "system"
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source       String
   content      String
-  vector       Json?      // Embedding vector pour similarité
-  relatedItems Json?      // IDs des éléments connexes
+  vector       Json?
+  relatedItems Json?
   weight       Float      @default(1.0)
   viewed       Boolean    @default(false)
   createdAt    DateTime   @default(now())
+
+  @@index([userId, viewed])
+  @@index([createdAt])
+  @@map("recommendations")
 }
 
 model ChatSession {
   id           String     @id @default(cuid())
   userId       String
-  user         User       @relation(fields: [userId], references: [id])
-  messages     Json       // Historique des messages
-  sessionType  String     // "hr_interview", "tech_qna", etc.
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     Json
+  sessionType  String
   startedAt    DateTime   @default(now())
   lastActivity DateTime   @updatedAt
-  feedback     Json?      // Feedback généré par l'IA
+  feedback     Json?
+
+  @@index([userId, lastActivity])
+  @@map("chat_sessions")
 }
 
 model InterviewRoom {
   id           String           @id @default(cuid())
   userId       String
-  user         User             @relation(fields: [userId], references: [id])
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   roomType     InterviewRoomType
-  roomData     Json             // Configuration de la salle 3D
-  participants Json?            // Pour les sessions multi-joueurs
+  roomData     Json
+  participants Json?
   startedAt    DateTime         @default(now())
   endedAt      DateTime?
   recordingUrl String?
+
+  @@index([userId, startedAt])
+  @@map("interview_rooms")
 }
 
 model VoiceInterview {
   id              String     @id @default(cuid())
   userId          String
-  user            User       @relation(fields: [userId], references: [id])
-  technologies    String[]   // Technologies sélectionnées pour l'entretien
-  context         String     // Contexte de l'entretien
-  duration        Int        // Durée prévue de l'entretien en minutes
-  conversationId  String?    // ID de la conversation ElevenLabs
-  transcription   Json?      // Transcription complète de la conversation
-  actualDuration  Int?       // Durée réelle de l'appel en secondes
-  status          String     @default("pending") // pending, active, completed, failed
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  technologies    String[]
+  context         String
+  duration        Int
+  conversationId  String?
+  transcription   Json?
+  actualDuration  Int?
+  status          String     @default("pending")
   startedAt       DateTime   @default(now())
   endedAt         DateTime?
-  feedback        Json?      // Feedback généré par l'IA
-  score           Float?     // Score de performance
+  feedback        Json?
+  score           Float?
 
-  @@index([userId])
+  @@index([userId, startedAt])
+  @@index([status])
+  @@map("voice_interviews")
 }
-

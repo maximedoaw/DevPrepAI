@@ -1,739 +1,918 @@
-"use client"
+// home-screen.tsx - Version complète et optimisée
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Clock, Target, ArrowRight, Filter, Grid3X3, Table, ChevronLeft, ChevronRight, Trophy } from "lucide-react"
-import { MOCK_USER_STATS, DIFFICULTY_CONFIG, TYPE_CONFIG } from "@/constants"
-import { DashboardStats } from "@/components/interviews/dashboard-stats"
-import { WeeklyChart } from "@/components/interviews/weekly-chart"
-import { SkillsProgress } from "@/components/interviews/skills-progress"
-import { RecentInterviews } from "@/components/interviews/recent-interviews"
-import { AIRecommendationsCarousel } from "@/components/interviews/ai-recommendations"
-//import { InterviewSidebar } from "@/components/youtube-style-sidebar"
-import { toast } from "sonner"
-import { useMutation, useQuery } from "@tanstack/react-query"
-import { getInterviews, interviewSave, getUserStats, getGeminiRecommendations } from "@/actions/interview.action"
-import InterviewSkeleton from "../interview-skeleton"
-import { ProtectedSection } from "@/components/protected-routes"
-import InterviewSidebar from "../interview-sidebar"
-import SeedDatabase from "../seed-database"
-import ReputationLink from "../reputation-link"
-import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
-import { useSubscribeStore } from '@/store/subscribe-store'
-import SubscribeDialog from "@/components/subscribe-dialog"
+import React, { JSX, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
+import { 
+  LineChart, Line, AreaChart, Area, 
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+} from 'recharts';
+import { 
+  Zap, Target, Trophy, Rocket, TrendingUp, 
+  Brain, Code, Video, Award,
+  Flame, Crown, Sparkles, Play,
+  Users, Briefcase, Star, RefreshCw
+} from 'lucide-react';
+import { getDailyMissions, getUserAchievements, getUserDashboardData, getFullUserData } from '@/actions/user.action';
+import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs';
 
-interface SearchFilters {
-  difficulty: string[]
-  type: string[]
-  technology: string[]
-  duration: string[]
+// Types optimisés
+interface DashboardData {
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+    domains: string[];
+    credits: number;
+    matchingJobs: number;
+    createdAt: string;
+  };
+  stats: {
+    totalQuizzes: number;
+    averageScore: number;
+    bestScore: number;
+    streak: number;
+    level: number;
+  };
+  recentQuizzes: Array<{
+    id: string;
+    title: string;
+    technology: string[];
+    type: string;
+    score: number;
+    duration?: number;
+    completedAt: string;
+    xp: number;
+  }>;
+  skills: Array<{
+    id: string;
+    skill: string;
+    current: number;
+    target: number;
+  }>;
+  progress: Array<{
+    date: string;
+    metric: string;
+    value: number;
+  }>;
+  recommendations: Array<{
+    id: string;
+    title: string;
+    type: string;
+    priority: 'LOW' | 'MEDIUM' | 'HIGH';
+    description: string;
+    createdAt: string;
+  }>;
 }
 
-export default function HomeScreenContent() {
-  const { user } = useKindeBrowserClient()
-  const { isOpen, open, pendingAfterAuth, setPendingAfterAuth } = useSubscribeStore()
-  const [isLoading, setIsLoading] = useState(false)
-  const [filters, setFilters] = useState<SearchFilters>({
-    difficulty: [],
-    type: [],
-    technology: [],
-    duration: [],
-  })
-  const [showFilters, setShowFilters] = useState(false)
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid")
-  const [page, setPage] = useState(1)
-  const interviewsPerPage = 6
+interface Mission {
+  id: number;
+  title: string;
+  xp: number;
+  progress: number;
+  total: number;
+  type: 'quiz' | 'interview' | 'skill';
+}
 
-  // Ajout de la récupération des recommandations IA réelles
-  const { data: stats } = useQuery({
-    queryKey: ["userStats"],
-    queryFn: getUserStats,
-  })
-  const { data: interviews, isLoading: isLoadingInterviewCard } = useQuery({
-    queryKey: ["interviews"],
-    queryFn: getInterviews,
-  })
-  const { data: aiRecs, isLoading: isLoadingAIRecs } = useQuery({
-    queryKey: ["ai-recommendations", stats, interviews],
+interface Achievement {
+  id: number;
+  title: string;
+  icon: string;
+  unlocked: boolean;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+}
+
+// Hooks TanStack Query optimisés avec prévention du lag
+function useDashboardData(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['dashboard', userId],
+    enabled: !!userId,
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
-      if (!stats || !interviews) return []
-      const res = await getGeminiRecommendations({ stats, interviews })
-      if (res && res.recommendations) {
-        // On ne garde que les 4 premiers résultats
-        return res.recommendations.slice(0, 4)
-      }
-      return []
+      if (!userId) throw new Error('User ID required');
+      const data = await getUserDashboardData(userId);
+      if (!data) throw new Error('No dashboard data');
+      return data;
     },
-    enabled: !!stats && !!interviews,
-  })
+  });
+}
 
-  const { data: mutationSaveInterview } = useMutation({
-    mutationKey: ["saveinterview"],
-    mutationFn: async () => await interviewSave(),
-  })
+function useDailyMissions(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['missions', userId],
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+    queryFn: () => {
+      if (!userId) throw new Error('User ID required');
+      return getDailyMissions(userId);
+    },
+  });
+}
 
-  useEffect(() => {
-    toast.success("Bienvenue")
-    // Ouvre le dialog d'abonnement si pendingAfterAuth est à true
-    if (pendingAfterAuth) {
-      open()
-      setPendingAfterAuth(false)
-    }
-  }, [pendingAfterAuth, open, setPendingAfterAuth])
-  const router = useRouter()
+function useUserAchievements(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['achievements', userId],
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+    queryFn: () => {
+      if (!userId) throw new Error('User ID required');
+      return getUserAchievements(userId);
+    },
+  });
+}
 
-  const handleStartInterview = (interviewId: string) => {
-    toast.success("Démarrage de l'interview...")
-    router.push(`/interview/${interviewId}`)
-  }
+function useFullUser(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['full-user', userId],
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+    queryFn: () => {
+      if (!userId) throw new Error('User ID required');
+      return getFullUserData(userId);
+    },
+  });
+}
 
-  // Fonction pour filtrer les interviews
-  const filteredInterviews =
-    interviews?.filter((interview) => {
-      // Filtre par difficulté
-      if (filters.difficulty.length > 0 && !filters.difficulty.includes(interview.difficulty)) {
-        return false
-      }
+// Composants Skeleton optimisés
+const DashboardSkeleton = () => (
+  <div className="min-h-screen bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    {/* Header Skeleton */}
+    <div className="border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Skeleton className="w-16 h-16 rounded-2xl" />
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-48" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+            {[...Array(3)].map((_, i) => (
+              <Skeleton key={i} className="h-16 w-24 rounded-lg" />
+            ))}
+          </div>
+        </div>
+        <div className="mt-6 space-y-2">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-3 w-full rounded-full" />
+        </div>
+      </div>
+    </div>
 
-      // Filtre par type
-      if (filters.type.length > 0 && !filters.type.includes(interview.type)) {
-        return false
-      }
+    {/* Main Content Skeleton */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Missions */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-40 mb-2" />
+              <Skeleton className="h-4 w-64" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex gap-3 p-4">
+                  <Skeleton className="w-10 h-10 rounded-lg" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-2 w-full" />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
 
-      // Filtre par technologie
-      if (filters.technology.length > 0) {
-        const hasMatchingTech = interview.technology.some((tech: string) => filters.technology.includes(tech))
-        if (!hasMatchingTech) return false
-      }
+          {/* Chart */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32 mb-2" />
+              <Skeleton className="h-4 w-48" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[300px] w-full rounded-lg" />
+            </CardContent>
+          </Card>
 
-      // Filtre par durée
-      if (filters.duration.length > 0 && !filters.duration.includes(interview.duration.toString())) {
-        return false
-      }
+          {/* Activity */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex gap-4 items-center">
+                  <Skeleton className="w-12 h-12 rounded-xl" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
 
-      return true
-    }) || []
+        {/* Right Column */}
+        <div className="space-y-6">
+          {/* Skills */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-24 mb-2" />
+              <Skeleton className="h-4 w-32" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-[250px] w-full rounded-lg" />
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="space-y-1">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-2 w-full" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-  const totalPages = Math.ceil(filteredInterviews.length / interviewsPerPage)
-  const paginatedInterviews = filteredInterviews.slice((page - 1) * interviewsPerPage, page * interviewsPerPage)
+          {/* Achievements */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-28 mb-2" />
+              <Skeleton className="h-4 w-36" />
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-3">
+                {[...Array(6)].map((_, i) => (
+                  <Skeleton key={i} className="aspect-square rounded-xl" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-  const clearFilters = () => {
-    setFilters({
-      difficulty: [],
-      type: [],
-      technology: [],
-      duration: [],
-    })
-  }
+          {/* Quick Actions */}
+          <Card>
+            <CardContent className="p-6 space-y-3">
+              <Skeleton className="h-6 w-32 mb-4" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
-  const hasActiveFilters = Object.values(filters).some((arr) => arr.length > 0)
+const HomeScreenContent: React.FC = () => {
+  const queryClient = useQueryClient();
+  const { user } = useKindeBrowserClient();
+  const userId = user?.id;
 
+  // Utilisation des hooks TanStack Query avec optimisation des performances
+  const dashboard = useDashboardData(userId);
+  const missions = useDailyMissions(userId);
+  const achievements = useUserAchievements(userId);
+  const fullUser = useFullUser(userId);
+
+  // Mutation pour rafraîchir les données
+  const refreshData = useMutation({
+    mutationFn: async () => {
+      if (!userId) throw new Error('User ID required');
+      // On vide d'abord le cache serveur pour forcer une reconstruction côté action
+      const actions = await import('@/actions/user.action');
+      await actions.clearUserCache(userId);
+      // Puis on recharge
+      return await getUserDashboardData(userId);
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['dashboard', userId], data);
+      queryClient.invalidateQueries({ queryKey: ['missions', userId] });
+      queryClient.invalidateQueries({ queryKey: ['achievements', userId] });
+    },
+  });
+
+  // États combinés avec useMemo pour éviter les recalculs inutiles
+  const isLoading = useMemo(() => 
+    dashboard.isLoading && !dashboard.data, 
+    [dashboard.isLoading, dashboard.data]
+  );
+
+  const isError = useMemo(() => 
+    dashboard.isError || missions.isError || achievements.isError || fullUser.isError,
+    [dashboard.isError, missions.isError, achievements.isError, fullUser.isError]
+  );
+
+  const data = dashboard.data;
+
+  // Données transformées avec useMemo pour optimiser les performances
+  const transformedData = useMemo(() => {
+    if (!data) return null;
+
+    const userData = data.user;
+    const stats = data.stats;
+    const levelProgress = Math.min((stats.averageScore / 100) * 100, 100);
+
+    // Transformer les données de progression pour le graphique
+    const progressData = data.progress
+      .filter((p: { metric: string; value: number; }) => p.metric === 'quizzes_completed' || p.metric === 'xp_earned')
+      .slice(-7) // 7 derniers jours
+      .map((p: {metric: string, value: number}, index : number) => ({
+        day: `J-${6 - index}`,
+        quizzes: p.metric === 'quizzes_completed' ? p.value : 0,
+        xp: p.metric === 'xp_earned' ? p.value : 0,
+      }));
+
+    // Transformer l'activité récente
+    const recentActivity = data.recentQuizzes.map((quiz: {id: string, title: string, score: number, xp: number}, index: number) => ({
+      id: quiz.id,
+      type: 'quiz' as const,
+      title: quiz.title,
+      score: quiz.score,
+      xp: quiz.xp,
+      time: index === 0 ? "Aujourd'hui" : 
+            index === 1 ? "Hier" : 
+            `Il y a ${index + 1}j`,
+    }));
+
+    return {
+      userData,
+      stats,
+      levelProgress,
+      progressData,
+      recentActivity,
+      skills: data.skills,
+      recommendations: data.recommendations,
+    };
+  }, [data]);
+
+  // Fonctions utilitaires mémoïsées
+  const getRarityColor = React.useCallback((rarity: Achievement['rarity']): string => {
+    const colors = {
+      common: 'bg-slate-500',
+      rare: 'bg-blue-500',
+      epic: 'bg-purple-500',
+      legendary: 'bg-yellow-500'
+    };
+    return colors[rarity] || colors.common;
+  }, []);
+
+  const getTypeIcon = React.useCallback((type: string): JSX.Element => {
+    const icons = {
+      quiz: <Brain className="w-4 h-4" />,
+      interview: <Video className="w-4 h-4" />,
+      skill: <Code className="w-4 h-4" />,
+    };
+    return icons[type as keyof typeof icons] || <Star className="w-4 h-4" />;
+  }, []);
+
+  const getActivityBgColor = React.useCallback((type: string): string => {
+    const colors = {
+      quiz: 'bg-blue-500',
+      interview: 'bg-purple-500',
+      skill: 'bg-green-500',
+    };
+    return colors[type as keyof typeof colors] || 'bg-slate-500';
+  }, []);
+
+  const getPriorityColor = React.useCallback((priority: string): string => {
+    const colors = {
+      HIGH: 'bg-red-500',
+      MEDIUM: 'bg-yellow-500',
+      LOW: 'bg-green-500'
+    };
+    return colors[priority as keyof typeof colors] || 'bg-slate-500';
+  }, []);
+
+  // Affichage du skeleton pendant le chargement
   if (isLoading) {
-    return <LoadingSkeleton />
+    return <DashboardSkeleton />;
   }
+
+  // Gestion des erreurs
+  if (isError || !data || !transformedData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Sparkles className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+            Données indisponibles
+          </h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-4">
+            Nous rencontrons un problème pour charger vos données.
+          </p>
+          <Button 
+            onClick={() => refreshData.mutate()}
+            disabled={refreshData.isPending}
+            className="bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshData.isPending ? 'animate-spin' : ''}`} />
+            {refreshData.isPending ? "Rechargement..." : "Réessayer"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const { userData, stats, levelProgress, progressData, recentActivity, skills, recommendations } = transformedData;
+  const subscription = fullUser.data?.subscription;
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <SubscribeDialog />
-      {/* Header avec gradient */}
-      {/*<SeedDatabase/>*/}
-      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white rounded-2xl mb-8">
-        <div className="px-8 py-12">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold mb-2">Préparez vos Entretiens Tech 🚀</h1>
-              <p className="text-blue-100 text-lg">
-                Entraînez-vous avec des interviews réalistes et boostez vos compétences
-              </p>
+<div className="min-h-screen bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+  {/* En-tête avec indicateurs de performance */}
+  <div className="border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        {/* Informations du profil */}
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+              {userData.firstName[0]}{userData.lastName[0]}
             </div>
-            <div className="hidden lg:block">
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
-                <div className="text-center">
-                  <div className="text-3xl font-bold">{MOCK_USER_STATS.streak}</div>
-                  <div className="text-blue-100">jours de suite</div>
+            <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-lg border-2 border-white dark:border-slate-900">
+              <span className="text-xs font-bold text-white">{stats.level}</span>
+            </div>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+              Bienvenue, {userData.firstName} 👋
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400">
+              {userData.matchingJobs > 0 
+                ? `${userData.matchingJobs} opportunités correspondent à votre profil` 
+                : "Développez vos compétences pour accéder à de nouvelles opportunités"}
+            </p>
+          </div>
+        </div>
+
+        {/* Indicateurs de performance avec actualisation */}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refreshData.mutate()}
+            disabled={refreshData.isPending}
+            className="hidden sm:flex"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshData.isPending ? 'animate-spin' : ''}`} />
+            Actualiser
+          </Button>
+
+          <div className="flex gap-3">
+            {subscription ? (
+              <Card className="flex-1 sm:flex-none bg-gradient-to-br from-sky-500 to-blue-600 border-0 shadow-lg">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <span className="text-white text-xs font-medium">Formule</span>
+                  <div className="text-white text-sm font-bold capitalize">
+                    {subscription.tier.toLowerCase()} {!subscription.isActive && '(inactif)'}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
+            
+            <Card className="flex-1 sm:flex-none bg-gradient-to-br from-orange-500 to-red-500 border-0 shadow-lg">
+              <CardContent className="p-4 flex items-center gap-3">
+                <Flame className="w-8 h-8 text-white" />
+                <div>
+                  <p className="text-white/80 text-xs font-medium">Engagement</p>
+                  <p className="text-white text-xl font-bold">{stats.streak} jours</p>
                 </div>
-              </div>
-            </div>
-            {user && (
-              <div className="hidden lg:block ml-4">
-                <ReputationLink 
-                  userId={user.id} 
-                  variant="default"
-                  className="bg-white/20 hover:bg-white/30 text-white border-white/30"
-                />
-              </div>
-            )}
+              </CardContent>
+            </Card>
+            
+            <Card className="flex-1 sm:flex-none bg-gradient-to-br from-yellow-400 to-orange-500 border-0 shadow-lg">
+              <CardContent className="p-4 flex items-center gap-3">
+                <Zap className="w-8 h-8 text-white" />
+                <div>
+                  <p className="text-white/80 text-xs font-medium">Crédits</p>
+                  <p className="text-white text-xl font-bold">{userData.credits}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="flex-1 sm:flex-none bg-gradient-to-br from-green-500 to-emerald-500 border-0 shadow-lg">
+              <CardContent className="p-4 flex items-center gap-3">
+                <Briefcase className="w-8 h-8 text-white" />
+                <div>
+                  <p className="text-white/80 text-xs font-medium">Correspondances</p>
+                  <p className="text-white text-xl font-bold">{userData.matchingJobs}</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
 
-      {/* Dashboard Stats */}
-      <ProtectedSection>
-        <DashboardStats />
-      </ProtectedSection>
-
-      {/* AI Recommendations Carousel */}
-      <ProtectedSection>
-        <div className="mt-8">
-          {isLoadingAIRecs ? (
-            <div className="h-48 flex items-center justify-center"><span>Chargement des recommandations IA...</span></div>
-          ) : (
-            <AIRecommendationsCarousel recommendations={aiRecs || []} />
-          )}
+      {/* Barre de progression du niveau */}
+      <div className="mt-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Crown className="w-5 h-5 text-yellow-500" />
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Niveau {stats.level}
+            </span>
+          </div>
+          <span className="text-sm text-slate-600 dark:text-slate-400">
+            Performance moyenne : {stats.averageScore.toFixed(1)}%
+          </span>
         </div>
-      </ProtectedSection>
+        <div className="relative h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div 
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-500 shadow-lg"
+            style={{ width: `${levelProgress}%` }}
+          >
+            <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-        {/* Left Column - Progress & Charts */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Weekly Progress */}
-          <ProtectedSection>
-            <WeeklyChart />
-          </ProtectedSection>
-
-          {/* Interview Categories */}
-          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
-                    <Target className="h-5 w-5 text-white" />
+  {/* Contenu principal */}
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Colonne de gauche - Objectifs & Activité */}
+      <div className="lg:col-span-2 space-y-6">
+        {/* Objectifs quotidiens */}
+        <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Target className="w-6 h-6 text-blue-500" />
+                <CardTitle className="text-slate-900 dark:text-white">Objectifs du Jour</CardTitle>
+              </div>
+              <Badge className="bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0">
+                {(missions.data?.filter((m: {progress: number; total: number}) => m.progress === m.total).length) || 0}/{missions.data?.length || 0} ✓
+              </Badge>
+            </div>
+            <CardDescription className="dark:text-slate-400">
+              Atteignez vos objectifs quotidiens pour optimiser votre progression
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {missions.isLoading ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex gap-3 p-4">
+                    <Skeleton className="w-10 h-10 rounded-lg" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-5 w-3/4" />
+                      <Skeleton className="h-2 w-full" />
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="text-xl flex items-center gap-2">
-                      Interviews Disponibles
-                      <span className="text-sm font-normal text-gray-500">
-                        ({viewMode === "grid" ? "Vue Grille" : "Vue Tableau"})
-                      </span>
-                    </CardTitle>
-                    <CardDescription>
-                      {filteredInterviews.length} interview{filteredInterviews.length > 1 ? "s" : ""} trouvé
-                      {filteredInterviews.length > 1 ? "s" : ""}
-                      {hasActiveFilters && ` (${interviews?.length || 0} au total)`}
-                    </CardDescription>
+                ))}
+              </div>
+            ) : missions.data && missions.data.length > 0 ? (
+              missions.data.map((mission: {id: number; title: string; xp: number; progress: number; total: number; type: string}) => (
+                <div 
+                  key={mission.id}
+                  className="group p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 hover:border-blue-500 dark:hover:border-blue-500 transition-all cursor-pointer"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0 text-white">
+                      {getTypeIcon(mission.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-500 transition-colors">
+                          {mission.title}
+                        </h4>
+                        <Badge className="bg-yellow-400 text-yellow-900 border-0 ml-2">
+                          +{mission.xp} points
+                        </Badge>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">
+                            Avancement
+                          </span>
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            {mission.progress}/{mission.total}
+                          </span>
+                        </div>
+                        <Progress 
+                          value={(mission.progress / mission.total) * 100} 
+                          className="h-2"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Toggle View Mode */}
-                  <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                    <Button
-                      variant={viewMode === "grid" ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setViewMode("grid")}
-                      className={`h-8 px-3 ${viewMode === "grid" ? "bg-white shadow-sm" : "hover:bg-gray-200"}`}
-                      title="Vue Grille"
-                    >
-                      <Grid3X3 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={viewMode === "table" ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setViewMode("table")}
-                      className={`h-8 px-3 ${viewMode === "table" ? "bg-white shadow-sm" : "hover:bg-gray-200"}`}
-                      title="Vue Tableau"
-                    >
-                      <Table className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="border-gray-300 hover:bg-gray-50"
-                    title="Filtrer les interviews"
+              ))
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                Aucun objectif défini pour aujourd'hui
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Analyse de progression */}
+        <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-6 h-6 text-green-500" />
+              <CardTitle className="text-slate-900 dark:text-white">Évolution des Performances</CardTitle>
+            </div>
+            <CardDescription className="dark:text-slate-400">
+              Votre activité sur les 7 derniers jours
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {progressData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={progressData}>
+                  <defs>
+                    <linearGradient id="colorXp" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorQuizzes" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
+                  <XAxis dataKey="day" stroke="#94a3b8" />
+                  <YAxis stroke="#94a3b8" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(15, 23, 42, 0.9)', 
+                      border: 'none', 
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 40px rgba(0,0,0,0.3)'
+                    }}
+                    labelStyle={{ color: '#fff' }}
+                  />
+                  <Legend />
+                  <Area 
+                    type="monotone" 
+                    dataKey="xp" 
+                    stroke="#3b82f6" 
+                    fillOpacity={1} 
+                    fill="url(#colorXp)"
+                    name="Points acquis"
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="quizzes" 
+                    stroke="#8b5cf6" 
+                    fillOpacity={1} 
+                    fill="url(#colorQuizzes)"
+                    name="Évaluations"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-slate-500">
+                Aucune donnée d'activité disponible
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Historique récent */}
+        <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-purple-500" />
+              <CardTitle className="text-slate-900 dark:text-white">Activité Récente</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {recentActivity.length > 0 ? (
+                recentActivity.map((activity: {id: string, title: string, score: number, xp: number, type: string, time: string}) => (
+                  <div 
+                    key={activity.id}
+                    className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   >
-                    <Filter className="h-4 w-4 mr-2" />
-                    <span className="hidden sm:inline">Filtres</span>
-                    {hasActiveFilters && (
-                      <Badge className="ml-2 h-5 w-5 rounded-full bg-blue-500 text-white text-xs">
-                        {Object.values(filters).reduce((acc, arr) => acc + arr.length, 0)}
-                      </Badge>
-                    )}
-                  </Button>
+                    <div className={`w-12 h-12 rounded-xl ${getActivityBgColor(activity.type)} flex items-center justify-center shadow-lg text-white`}>
+                      {getTypeIcon(activity.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-slate-900 dark:text-white truncate">
+                        {activity.title}
+                      </h4>
+                      <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                        <span>Résultat : {activity.score}%</span>
+                        <span>•</span>
+                        <span className="text-yellow-600 dark:text-yellow-500 font-semibold">
+                          +{activity.xp} points
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-xs text-slate-500 dark:text-slate-500">
+                      {activity.time}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-slate-500">
+                  Aucune activité récente enregistrée
                 </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Colonne de droite - Compétences & Réalisations */}
+      <div className="space-y-6">
+        {/* Profil de compétences */}
+        <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Brain className="w-6 h-6 text-purple-500" />
+              <CardTitle className="text-slate-900 dark:text-white">Profil de Compétences</CardTitle>
+            </div>
+            <CardDescription className="dark:text-slate-400">
+              Analyse de vos compétences techniques actuelles
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {skills.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={250}>
+                  <RadarChart data={skills}>
+                    <PolarGrid stroke="#64748b" />
+                    <PolarAngleAxis 
+                      dataKey="skill" 
+                      tick={{ fill: '#94a3b8', fontSize: 12 }}
+                    />
+                    <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} />
+                    <Radar 
+                      name="Niveau actuel" 
+                      dataKey="current" 
+                      stroke="#3b82f6" 
+                      fill="#3b82f6" 
+                      fillOpacity={0.6} 
+                    />
+                    <Legend />
+                  </RadarChart>
+                </ResponsiveContainer>
+                
+                <div className="mt-4 space-y-2">
+                  {skills.slice(0, 3).map((skill: {id: string, skill: string, current: number}) => (
+                    <div key={skill.id} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
+                          {skill.skill}
+                        </span>
+                        <span className="text-slate-600 dark:text-slate-400">
+                          {skill.current}%
+                        </span>
+                      </div>
+                      <Progress value={skill.current} className="h-2" />
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                Évaluation des compétences en cours
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Réalisations professionnelles */}
+        <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Trophy className="w-6 h-6 text-yellow-500" />
+              <CardTitle className="text-slate-900 dark:text-white">Réalisations</CardTitle>
+            </div>
+            <CardDescription className="dark:text-slate-400">
+              Jalons atteints dans votre parcours professionnel
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {achievements.isLoading ? (
+              <div className="grid grid-cols-3 gap-3">
+                {[...Array(6)].map((_, i) => (
+                  <Skeleton key={i} className="aspect-square rounded-xl" />
+                ))}
+              </div>
+            ) : achievements.data && achievements.data.length > 0 ? (
+              <div className="grid grid-cols-3 gap-3">
+                {achievements.data.map((achievement: {id: number; icon: string; title: string; unlocked: boolean; rarity: Achievement['rarity']}) => (
+                  <div 
+                    key={achievement.id}
+                    className={`relative aspect-square rounded-xl flex flex-col items-center justify-center p-3 transition-all cursor-pointer
+                      ${achievement.unlocked 
+                        ? `${getRarityColor(achievement.rarity)} shadow-lg hover:scale-105` 
+                        : 'bg-slate-200 dark:bg-slate-800 opacity-50 grayscale'
+                      }`}
+                  >
+                    {achievement.unlocked && (
+                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                        <Award className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                    <span className="text-3xl mb-1">{achievement.icon}</span>
+                    <span className={`text-[10px] text-center font-medium leading-tight
+                      ${achievement.unlocked ? 'text-white' : 'text-slate-600 dark:text-slate-400'}`}>
+                      {achievement.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                Aucune réalisation enregistrée
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recommandations stratégiques */}
+        {recommendations.length > 0 ? (
+          <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Users className="w-6 h-6 text-green-500" />
+                <CardTitle className="text-slate-900 dark:text-white">Recommandations</CardTitle>
               </div>
             </CardHeader>
-
-            {/* Section des filtres */}
-            {showFilters && (
-              <div className="px-6 pb-6 border-b border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {/* Difficulté */}
-                  <div>
-                    <h3 className="font-semibold text-sm text-gray-700 mb-3">Difficulté</h3>
-                    <div className="space-y-2">
-                      {["JUNIOR", "MID", "SENIOR"].map((option) => (
-                        <label key={option} className="flex items-center space-x-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={filters.difficulty.includes(option)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setFilters((prev) => ({
-                                  ...prev,
-                                  difficulty: [...prev.difficulty, option],
-                                }))
-                              } else {
-                                setFilters((prev) => ({
-                                  ...prev,
-                                  difficulty: prev.difficulty.filter((d) => d !== option),
-                                }))
-                              }
-                            }}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-600">{option}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Type */}
-                  <div>
-                    <h3 className="font-semibold text-sm text-gray-700 mb-3">Type</h3>
-                    <div className="space-y-2">
-                      {["QCM", "CODING", "MOCK_INTERVIEW", "SOFT_SKILLS"].map((option) => (
-                        <label key={option} className="flex items-center space-x-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={filters.type.includes(option)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setFilters((prev) => ({
-                                  ...prev,
-                                  type: [...prev.type, option],
-                                }))
-                              } else {
-                                setFilters((prev) => ({
-                                  ...prev,
-                                  type: prev.type.filter((t) => t !== option),
-                                }))
-                              }
-                            }}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-600">
-                            {option === "MOCK_INTERVIEW" ? "Mock Interview" : option}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Technologies */}
-                  <div>
-                    <h3 className="font-semibold text-sm text-gray-700 mb-3">Technologies</h3>
-                    <div className="space-y-2">
-                      {["React", "JavaScript", "TypeScript", "Node.js", "Python", "Java", "SQL"].map((option) => (
-                        <label key={option} className="flex items-center space-x-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={filters.technology.includes(option)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setFilters((prev) => ({
-                                  ...prev,
-                                  technology: [...prev.technology, option],
-                                }))
-                              } else {
-                                setFilters((prev) => ({
-                                  ...prev,
-                                  technology: prev.technology.filter((t) => t !== option),
-                                }))
-                              }
-                            }}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-600">{option}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Durée */}
-                  <div>
-                    <h3 className="font-semibold text-sm text-gray-700 mb-3">Durée</h3>
-                    <div className="space-y-2">
-                      {["15", "30", "45", "60"].map((option) => (
-                        <label key={option} className="flex items-center space-x-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={filters.duration.includes(option)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setFilters((prev) => ({
-                                  ...prev,
-                                  duration: [...prev.duration, option],
-                                }))
-                              } else {
-                                setFilters((prev) => ({
-                                  ...prev,
-                                  duration: prev.duration.filter((d) => d !== option),
-                                }))
-                              }
-                            }}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-600">{option} min</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions des filtres */}
-                <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
-                  <Button variant="ghost" onClick={clearFilters} className="text-gray-600 hover:text-gray-800">
-                    Effacer tous les filtres
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowFilters(false)} className="border-gray-300">
-                    Fermer
-                  </Button>
-                </div>
-              </div>
-            )}
-
             <CardContent>
-              {(isLoading || !interviews) ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[...Array(4)].map((_, i) => (
-                    <InterviewSkeleton key={i} />
-                  ))}
-                </div>
-              ) : filteredInterviews.length === 0 ? (
-                <div className="text-center py-12">
-                  <Target className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-gray-500 mb-2">
-                    {hasActiveFilters ? "Aucune interview ne correspond à vos filtres" : "Aucune interview disponible"}
-                  </p>
-                  {hasActiveFilters && (
-                    <Button onClick={clearFilters} variant="outline" className="mt-2">
-                      Effacer les filtres
-                    </Button>
-                  )}
-                </div>
-              ) : viewMode === "grid" ? (
-                <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {paginatedInterviews.map((interview) => (
-                    <InterviewCard
-                      key={interview.id}
-                      interview={interview}
-                      onStart={() => handleStartInterview(interview.id)}
-                    />
-                  ))}
-                </div>
-                  <Pagination page={page} setPage={setPage} totalPages={totalPages} />
-                </>
-              ) : (
-                <>
-                  <InterviewTableView interviews={paginatedInterviews} onStart={handleStartInterview} />
-                  <Pagination page={page} setPage={setPage} totalPages={totalPages} />
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Column - Skills & Recent */}
-        <div className="space-y-6">
-          <ProtectedSection>
-            <SkillsProgress skills={MOCK_USER_STATS.skillsProgress} isLoading={false} />
-          </ProtectedSection>
-          <ProtectedSection>
-            <RecentInterviews />
-          </ProtectedSection>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-
-
-// Composant pour la vue tableau
-function InterviewTableView({ interviews, onStart }: { interviews: any[]; onStart: (id: string) => void }) {
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "CODING":
-        return "bg-blue-100 text-blue-700"
-      case "QCM":
-        return "bg-purple-100 text-purple-700"
-      case "MOCK_INTERVIEW":
-        return "bg-orange-100 text-orange-700"
-      case "SOFT_SKILLS":
-        return "bg-green-100 text-green-700"
-      default:
-        return "bg-gray-100 text-gray-700"
-    }
-  }
-
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case "JUNIOR":
-        return "bg-green-100 text-green-700"
-      case "MID":
-        return "bg-yellow-100 text-yellow-700"
-      case "SENIOR":
-        return "bg-red-100 text-red-700"
-      default:
-        return "bg-gray-100 text-gray-700"
-    }
-  }
-
-  return (
-    <>
-      {/* Version Desktop - Tableau */}
-      <div className="hidden lg:block overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-4 font-semibold text-gray-700">Interview</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-700">Difficulté</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-700">Technologies</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-700">Durée</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-700">Questions</th>
-              <th className="text-right py-3 px-4 font-semibold text-gray-700">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {interviews.map((interview) => (
-              <tr key={interview.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                <td className="py-4 px-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{interview.title}</h3>
-                    <p className="text-sm text-gray-500 line-clamp-1">{interview.description}</p>
-                  </div>
-                </td>
-                <td className="py-4 px-4">
-                  <Badge className={`text-xs ${getTypeColor(interview.type)}`}>
-                    {interview.type.replace("_", " ")}
-                  </Badge>
-                </td>
-                <td className="py-4 px-4">
-                  <Badge className={`text-xs ${getDifficultyColor(interview.difficulty)}`}>
-                    {interview.difficulty}
-                  </Badge>
-                </td>
-                <td className="py-4 px-4">
-                  <div className="flex flex-wrap gap-1">
-                    {interview.technology.slice(0, 2).map((tech: string) => (
-                      <span key={tech} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                        {tech}
-                      </span>
-                    ))}
-                    {interview.technology.length > 2 && (
-                      <span className="text-xs text-gray-500">+{interview.technology.length - 2}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="py-4 px-4">
-                  <div className="flex items-center gap-1 text-sm text-gray-600">
-                    <Clock className="h-4 w-4" />
-                    {interview.duration} min
-                  </div>
-                </td>
-                <td className="py-4 px-4">
-                  <span className="text-sm text-gray-600">{interview.questions.length}</span>
-                </td>
-                <td className="py-4 px-4 text-right">
-                  <Button
-                    onClick={() => onStart(interview.id)}
-                    size="sm"
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0"
-                  >
-                    Commencer
-                    <ArrowRight className="ml-1 h-3 w-3" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Version Mobile - Cartes */}
-      <div className="lg:hidden space-y-4">
-        {interviews.map((interview) => (
-          <Card key={interview.id} className="border border-gray-200 hover:shadow-md transition-shadow">
-            <CardContent className="p-4">
               <div className="space-y-3">
-                {/* Header avec titre et badges */}
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-1">{interview.title}</h3>
-                    <p className="text-sm text-gray-500 line-clamp-2">{interview.description}</p>
-                  </div>
-                </div>
-
-                {/* Badges Type et Difficulté */}
-                <div className="flex flex-wrap gap-2">
-                  <Badge className={`text-xs ${getTypeColor(interview.type)}`}>
-                    {interview.type.replace("_", " ")}
-                  </Badge>
-                  <Badge className={`text-xs ${getDifficultyColor(interview.difficulty)}`}>
-                    {interview.difficulty}
-                  </Badge>
-                </div>
-
-                {/* Technologies */}
-                <div className="flex flex-wrap gap-1">
-                  {interview.technology.slice(0, 3).map((tech: string) => (
-                    <span key={tech} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                      {tech}
-                    </span>
-                  ))}
-                  {interview.technology.length > 3 && (
-                    <span className="text-xs text-gray-500">+{interview.technology.length - 3}</span>
-                  )}
-                </div>
-
-                {/* Métriques et Action */}
-                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      {interview.duration} min
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Target className="h-4 w-4" />
-                      {interview.questions.length} questions
-                    </div>
-                  </div>
-                  <Button
-                    onClick={() => onStart(interview.id)}
-                    size="sm"
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0"
+                {recommendations.slice(0, 3).map((rec: {id: string, title: string, description: string, priority: string}) => (
+                  <div 
+                    key={rec.id}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   >
-                    Commencer
-                    <ArrowRight className="ml-1 h-3 w-3" />
-                  </Button>
-                </div>
+                    <div className={`w-3 h-3 rounded-full mt-1.5 ${getPriorityColor(rec.priority)}`}></div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-slate-900 dark:text-white text-sm mb-1">
+                        {rec.title}
+                      </h4>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
+                        {rec.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
-    </>
-  )
-}
+        ) : (
+          <Card className="border-dashed border-2 border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl">
+            <CardContent className="p-6 text-center">
+              <Users className="w-8 h-8 mx-auto text-slate-400 mb-2" />
+              <div className="text-slate-700 dark:text-slate-300 font-semibold">Analyse en cours</div>
+              <div className="text-slate-500 dark:text-slate-400 text-sm">Vos recommandations personnalisées seront disponibles prochainement</div>
+            </CardContent>
+          </Card>
+        )}
 
-function InterviewCard({ interview, onStart }: { interview: any; onStart: () => void }) {
-  const typeConfig = TYPE_CONFIG[interview.type as "qcm" | "mock" | "soft-skills" | "coding"]
-  const difficultyConfig = DIFFICULTY_CONFIG[interview.difficulty as "junior" | "mid" | "senior"]
-
-  return (
-    <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 hover:scale-[1.02]">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className={`p-3 rounded-xl bg-gradient-to-r`}>
-            <span className="text-2xl"></span>
-          </div>
-          <Badge className={`border-0`}>{interview.difficulty}</Badge>
-        </div>
-
-        <h3 className="font-semibold text-lg mb-2 group-hover:text-blue-600 transition-colors">{interview.title}</h3>
-
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{interview.description}</p>
-
-        <div className="space-y-3 mb-4">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Clock className="h-4 w-4" />
-            <span>{interview.duration} min</span>
-            <span className="text-gray-400">•</span>
-            <span>{interview.questions.length} questions</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex flex-wrap gap-1">
-              {interview.technology.slice(0, 2).map((tech: string) => (
-                <Badge key={tech} variant="secondary" className="text-xs bg-blue-50 text-blue-700">
-                  {tech}
-                </Badge>
-              ))}
-              {interview.technology.length > 2 && (
-                <Badge variant="secondary" className="text-xs bg-gray-100">
-                  +{interview.technology.length - 2}
-                </Badge>
-              )}
+        {/* Actions rapides */}
+        <Card className="border-slate-200 dark:border-slate-800 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 shadow-xl">
+          <CardContent className="p-6">
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Rocket className="w-6 h-6" />
+              Démarrez Votre Session
+            </h3>
+            <div className="space-y-3">
+              <Button className="w-full bg-white text-slate-900 hover:bg-slate-100 shadow-lg font-semibold">
+                <Play className="w-4 h-4 mr-2" />
+                Nouvelle Évaluation
+              </Button>
+              <Button className="w-full bg-white/20 text-white hover:bg-white/30 backdrop-blur-xl border border-white/30 font-semibold">
+                <Video className="w-4 h-4 mr-2" />
+                Simulation d'Entretien
+              </Button>
             </div>
-          </div>
-        </div>
-
-        <Button
-          onClick={onStart}
-          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0"
-        >
-          Commencer
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
-      </CardContent>
-    </Card>
-  )
-}
-
-function LoadingSkeleton() {
-  return (
-    <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white rounded-2xl mb-8">
-        <div className="px-8 py-12">
-          <Skeleton className="h-10 w-96 mb-2 bg-white/20" />
-          <Skeleton className="h-6 w-64 bg-white/20" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        {[...Array(4)].map((_, i) => (
-          <Skeleton key={i} className="h-32 rounded-xl" />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <Skeleton className="h-80 rounded-xl" />
-          <Skeleton className="h-96 rounded-xl" />
-        </div>
-        <div className="space-y-6">
-          <Skeleton className="h-64 rounded-xl" />
-          <Skeleton className="h-80 rounded-xl" />
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
-  )
-}
+  </div>
+</div>
+  );
+};
 
-function Pagination({ page, setPage, totalPages }: { page: number; setPage: (p: number) => void; totalPages: number }) {
-  if (totalPages <= 1) return null
-  return (
-    <div className="flex justify-center items-center gap-2 mt-8">
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => setPage(page - 1)}
-        disabled={page === 1}
-        className="rounded-full"
-        aria-label="Page précédente"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </Button>
-      <span className="font-mono text-lg px-4">
-        Page {page} / {totalPages}
-      </span>
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => setPage(page + 1)}
-        disabled={page === totalPages}
-        className="rounded-full"
-        aria-label="Page suivante"
-      >
-        <ChevronRight className="h-5 w-5" />
-      </Button>
-    </div>
-  )
-}
+export default HomeScreenContent;
