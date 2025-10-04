@@ -5,6 +5,7 @@ import prisma from "@/db/prisma"
 import { nanoid } from "nanoid"
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { GoogleGenAI } from "@google/genai"
+import { getAllQuizzes as getAllPractiseQuizzes } from "@/constants/practise"
 
 
 export async function interviewSave() {
@@ -36,9 +37,23 @@ export async function interviewSave() {
 
 export async function getInterviews() {
   try {
+    // Fallback: appelle directement la DB côté serveur; compatible avec appel client via route API
     const interviews = await prisma.quiz.findMany({
-      orderBy: { createdAt: "desc" },
-    })
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        questions: true,
+        type: true,
+        difficulty: true,
+        createdAt: true,
+        updatedAt: true,
+        company: true,
+        technology: true,
+        duration: true,
+        totalPoints: true,
+      }
+    }) 
     return interviews
   } catch (error) {
     console.error("Error fetching interviews:", error)
@@ -444,6 +459,34 @@ export async function seedMockInterviews(interviews: any[]) {
       })
     }
     return { success: true }
+  } catch (e: any) {
+    return { success: false, error: e.message || "Erreur serveur" }
+  }
+}
+
+export async function seedPractiseFromConstants() {
+  try {
+    const quizzes = getAllPractiseQuizzes()
+    if (!Array.isArray(quizzes) || quizzes.length === 0) {
+      return { success: false, error: "Aucune donnée de practise disponible" }
+    }
+
+    for (const quiz of quizzes) {
+      await prisma.quiz.create({
+        data: {
+          title: quiz.title,
+          description: quiz.description,
+          type: quiz.type,
+          questions: JSON.parse(JSON.stringify(quiz.questions)),
+          company: quiz.company,
+          technology: quiz.technology || [],
+          difficulty: quiz.difficulty,
+          duration: quiz.duration,
+          totalPoints: quiz.totalPoints,
+        },
+      })
+    }
+    return { success: true, count: quizzes.length }
   } catch (e: any) {
     return { success: false, error: e.message || "Erreur serveur" }
   }

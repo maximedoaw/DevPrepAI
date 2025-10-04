@@ -129,8 +129,6 @@ model Quiz {
 
   @@index([type])
   @@index([difficulty])
-  @@index([technology])
-  @@index([createdAt])
   @@map("quizzes")
 }
 

@@ -1,8 +1,81 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Code, Brain, Sparkles, Zap, ArrowRight, Rocket, Target, BarChart, Users, ChevronRight } from "lucide-react"
-import { useRef, useEffect } from "react"
+import { Rocket, Target, BarChart, Users, ChevronRight, ArrowRight } from "lucide-react"
+import { useRef, useEffect, Suspense } from "react"
 import gsap from "gsap"
+import { Canvas, useFrame } from "@react-three/fiber"
+import { Float, MeshDistortMaterial, Sphere } from "@react-three/drei"
+import * as THREE from "three"
+
+// Composant de cube 3D flottant
+function FloatingCube({ position, scale, color }: { position: [number, number, number], scale: number, color: string }) {
+  const meshRef = useRef<THREE.Mesh>(null)
+  
+  useFrame((state) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.x = state.clock.getElapsedTime() * 0.3
+      meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.2
+    }
+  })
+  
+  return (
+    <Float speed={1.5} rotationIntensity={1} floatIntensity={2}>
+      <mesh ref={meshRef} position={position} scale={scale}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial 
+          color={color} 
+          metalness={0.6} 
+          roughness={0.2}
+          emissive={color}
+          emissiveIntensity={0.3}
+        />
+      </mesh>
+    </Float>
+  )
+}
+
+// Composant de sphère distordue
+function DistortedSphere({ position, color }: { position: [number, number, number], color: string }) {
+  return (
+    <Float speed={2} rotationIntensity={0.5} floatIntensity={1.5}>
+      <Sphere args={[0.8, 64, 64]} position={position}>
+        <MeshDistortMaterial 
+          color={color}
+          attach="material"
+          distort={0.4}
+          speed={2}
+          metalness={0.8}
+          roughness={0.2}
+          emissive={color}
+          emissiveIntensity={0.2}
+        />
+      </Sphere>
+    </Float>
+  )
+}
+
+// Scène 3D de fond
+function Scene3D() {
+  return (
+    <>
+      <ambientLight intensity={0.5} />
+      <pointLight position={[10, 10, 10]} intensity={1} />
+      <pointLight position={[-10, -10, -10]} intensity={0.5} color="#8b5cf6" />
+      
+      {/* Cubes flottants */}
+      <FloatingCube position={[-4, 2, -5]} scale={0.5} color="#3b82f6" />
+      <FloatingCube position={[4, -1, -4]} scale={0.4} color="#8b5cf6" />
+      <FloatingCube position={[-3, -2, -6]} scale={0.3} color="#ec4899" />
+      <FloatingCube position={[3, 3, -5]} scale={0.35} color="#06b6d4" />
+      
+      {/* Sphères distordues */}
+      <DistortedSphere position={[5, 1, -8]} color="#6366f1" />
+      <DistortedSphere position={[-5, -1, -7]} color="#a855f7" />
+    </>
+  )
+}
 
 export default function Hero() {
   const heroRef = useRef<HTMLElement>(null)
@@ -14,18 +87,20 @@ export default function Hero() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // Animation du titre
+      // Animation du titre avec effet élastique
       gsap.fromTo(".title-part", 
         { 
           opacity: 0, 
-          y: 30,
+          y: 50,
+          scale: 0.9
         },
         { 
           opacity: 1, 
           y: 0,
+          scale: 1,
           duration: 1.2,
           ease: "elastic.out(1, 0.8)",
-          stagger: 0.15
+          stagger: 0.2
         }
       )
 
@@ -33,107 +108,91 @@ export default function Hero() {
       gsap.fromTo(subtitleRef.current, 
         { 
           opacity: 0, 
-          y: 20 
+          y: 30 
         },
         { 
           opacity: 1, 
           y: 0, 
           duration: 1, 
-          delay: 0.6,
-          ease: "power2.out" 
+          delay: 0.8,
+          ease: "power3.out" 
         }
       )
 
-      // Animation du slogan
+      // Animation du slogan avec rotation
       gsap.fromTo(".slogan-word", 
         { 
           opacity: 0, 
-          y: 15,
-          rotation: -5
+          y: 20,
+          rotation: -8,
+          scale: 0.8
         },
         { 
           opacity: 1, 
           y: 0,
           rotation: 0, 
-          duration: 0.8, 
-          delay: 1.0,
-          stagger: 0.1,
-          ease: "back.out(1.7)" 
+          scale: 1,
+          duration: 0.9, 
+          delay: 1.2,
+          stagger: 0.12,
+          ease: "back.out(2)" 
         }
       )
 
-      // Animation des zigzag underlines
-      gsap.fromTo(".zigzag-underline", 
-        { 
-          scaleX: 0 
-        },
-        { 
-          scaleX: 1, 
-          duration: 0.8, 
-          delay: 1.4,
-          stagger: 0.1,
-          ease: "power2.out" 
-        }
-      )
-
-      // Animation du CTA
+      // Animation du CTA avec bounce
       gsap.fromTo(ctaRef.current, 
         { 
           opacity: 0, 
-          scale: 0.9 
+          scale: 0.8,
+          y: 30
         },
         { 
           opacity: 1, 
           scale: 1, 
-          duration: 0.8, 
-          delay: 1.6,
+          y: 0,
+          duration: 1, 
+          delay: 1.8,
           ease: "back.out(1.7)" 
         }
       )
 
-      // Animation des features
+      // Animation des features avec profondeur
       gsap.fromTo(".feature-block", 
         { 
           opacity: 0, 
-          y: 40 
+          y: 60,
+          scale: 0.9,
+          rotateX: 45
         },
         { 
           opacity: 1, 
           y: 0, 
-          duration: 0.8, 
-          delay: 1.8,
-          stagger: 0.15,
-          ease: "power2.out" 
+          scale: 1,
+          rotateX: 0,
+          duration: 1, 
+          delay: 2.0,
+          stagger: 0.2,
+          ease: "power3.out" 
         }
       )
 
-      // Animation des icônes
+      // Animation des icônes avec rotation 3D
       gsap.fromTo(".feature-icon", 
         { 
           opacity: 0, 
           scale: 0,
-          rotation: -180 
+          rotateY: 180
         },
         { 
           opacity: 1, 
           scale: 1,
-          rotation: 0, 
-          duration: 0.6, 
-          delay: 2.0,
-          stagger: 0.1,
-          ease: "back.out(1.7)" 
+          rotateY: 0, 
+          duration: 0.8, 
+          delay: 2.3,
+          stagger: 0.15,
+          ease: "back.out(2)" 
         }
       )
-
-      // Animation continue des éléments de fond
-      gsap.to(".floating-element", {
-        y: 15,
-        duration: 4,
-        repeat: -1,
-        yoyo: true,
-        ease: "sine.inOut",
-        stagger: 0.3
-      })
     }, heroRef)
 
     return () => ctx.revert()
@@ -142,129 +201,173 @@ export default function Hero() {
   return (
     <section 
       ref={heroRef}
-      className="py-20 md:py-28 relative overflow-hidden min-h-screen flex items-center bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100"
+      className="relative overflow-hidden min-h-screen flex items-center bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100"
     >
-      {/* Background avec éléments animés */}
-      <div className="absolute inset-0 dark:bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] dark:from-indigo-900/10 dark:via-transparent dark:to-transparent bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-100/30 via-transparent to-transparent" />
+      {/* Canvas Three.js en arrière-plan */}
+      <div className="absolute inset-0 opacity-60 dark:opacity-40">
+        <Canvas
+          camera={{ position: [0, 0, 5], fov: 75 }}
+          style={{ background: 'transparent' }}
+        >
+          <Suspense fallback={null}>
+            <Scene3D />
+          </Suspense>
+        </Canvas>
+      </div>
+
+      {/* Gradient overlay pour améliorer la lisibilité */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/10 to-white/30 dark:via-slate-900/30 dark:to-slate-900/60 pointer-events-none" />
       
-      {/* Éléments décoratifs flottants */}
-      <div className="absolute top-20 left-20 floating-element">
-        <div className="w-12 h-12 rounded-full dark:bg-indigo-500/20 dark:blur-xl bg-blue-400/30 blur-lg"></div>
-      </div>
-      <div className="absolute top-1/3 right-20 floating-element">
-        <div className="w-16 h-16 rounded-full dark:bg-purple-500/15 dark:blur-xl bg-purple-400/20 blur-lg"></div>
-      </div>
-      <div className="absolute bottom-40 left-1/4 floating-element">
-        <div className="w-14 h-14 rounded-full dark:bg-pink-500/15 dark:blur-xl bg-pink-400/20 blur-lg"></div>
-      </div>
-      <div className="absolute top-1/2 right-1/3 floating-element">
-        <div className="w-10 h-10 rounded-full dark:bg-blue-500/15 dark:blur-xl bg-cyan-400/20 blur-lg"></div>
+      {/* Ombres portées dynamiques */}
+      <div className="absolute inset-0">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/20 dark:bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/20 dark:bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
       
-      <div className="container relative z-10">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
-            <span className="title-part block">
+      <div className="container relative z-10 py-20 md:py-28">
+        <div className="max-w-5xl mx-auto text-center">
+          {/* Titre principal */}
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight mb-8">
+            <span className="title-part block drop-shadow-2xl">
               L'accélérateur de carrière
             </span>
-            <span className="title-part block mt-2">
-              pour <span className="font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 dark:from-amber-400 dark:via-orange-400 dark:to-pink-400">vous</span>
+            <span className="title-part block mt-3">
+              propulsé par{" "}
+              <span className="inline-block relative">
+                <span className="font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 dark:from-amber-400 dark:via-orange-400 dark:to-pink-400 drop-shadow-lg">
+                  l'IA
+                </span>
+                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20 dark:from-amber-400/20 dark:via-orange-400/20 dark:to-pink-400/20 blur-xl -z-10" />
+              </span>
             </span>
           </h1>
           
-          <p ref={subtitleRef} className="text-xl md:text-2xl dark:text-slate-300 text-slate-700 mb-10 max-w-2xl mx-auto">
-            Propulsé par l'IA, notre plateforme transforme votre préparation aux entretiens en <span className="font-semibold dark:text-amber-300 text-blue-600">avantage compétitif</span>
+          {/* Sous-titre */}
+          <p ref={subtitleRef} className="text-xl md:text-2xl lg:text-3xl dark:text-slate-300 text-slate-700 mb-12 max-w-3xl mx-auto leading-relaxed drop-shadow-lg">
+            Transforme ta préparation aux entretiens en{" "}
+            <span className="font-bold dark:text-amber-300 text-blue-600 relative inline-block">
+              avantage décisif
+              <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 8" preserveAspectRatio="none">
+                <path d="M0,4 Q50,0 100,4 T200,4" stroke="currentColor" strokeWidth="3" fill="none" className="text-blue-500 dark:text-amber-400" />
+              </svg>
+            </span>
           </p>
           
-          <div ref={sloganRef} className="mb-12 text-lg md:text-xl font-medium">
-            <p className="mb-4">
-              <span className="slogan-word inline-block dark:text-amber-400 text-blue-600 font-bold -rotate-2 mx-1">Perfectionne</span>
-              <span className="dark:text-slate-300 text-slate-700">tes réponses,</span>
-              <span className="slogan-word inline-block dark:text-purple-400 text-purple-600 font-bold rotate-1 mx-1">impressionne</span>
-              <span className="dark:text-slate-300 text-slate-700">les recruteurs</span>
+          {/* Slogan avec effets */}
+          <div ref={sloganRef} className="mb-14 text-lg md:text-xl lg:text-2xl font-bold space-y-3">
+            <p className="drop-shadow-lg">
+              <span className="slogan-word inline-block dark:text-amber-400 text-blue-600 px-3 py-1 -rotate-2 bg-amber-400/10 dark:bg-amber-400/10 rounded-lg shadow-lg">
+                Perfectionne
+              </span>
+              <span className="dark:text-slate-300 text-slate-700 mx-2">tes réponses,</span>
+              <span className="slogan-word inline-block dark:text-purple-400 text-purple-600 px-3 py-1 rotate-2 bg-purple-400/10 dark:bg-purple-400/10 rounded-lg shadow-lg">
+                impressionne
+              </span>
+              <span className="dark:text-slate-300 text-slate-700 mx-2">les recruteurs</span>
             </p>
-            <p>
-              <span className="slogan-word inline-block dark:text-cyan-400 text-cyan-600 font-bold -rotate-1 mx-1">Maîtrise</span>
-              <span className="dark:text-slate-300 text-slate-700">les défis,</span>
-              <span className="slogan-word inline-block dark:text-pink-400 text-pink-600 font-bold rotate-2 mx-1">décroche</span>
-              <span className="dark:text-slate-300 text-slate-700">le poste</span>
+            <p className="drop-shadow-lg">
+              <span className="slogan-word inline-block dark:text-cyan-400 text-cyan-600 px-3 py-1 -rotate-1 bg-cyan-400/10 dark:bg-cyan-400/10 rounded-lg shadow-lg">
+                Maîtrise
+              </span>
+              <span className="dark:text-slate-300 text-slate-700 mx-2">les défis,</span>
+              <span className="slogan-word inline-block dark:text-pink-400 text-pink-600 px-3 py-1 rotate-1 bg-pink-400/10 dark:bg-pink-400/10 rounded-lg shadow-lg">
+                décroche
+              </span>
+              <span className="dark:text-slate-300 text-slate-700 mx-2">le poste</span>
             </p>
-            
-            {/* Zigzag Underlines */}
-            <svg className="w-full h-4 mt-4" viewBox="0 0 400 20" preserveAspectRatio="none">
-              <path 
-                className="zigzag-underline stroke-blue-500 dark:stroke-amber-400 stroke-2 origin-left"
-                d="M0,10 L40,2 L80,10 L120,2 L160,10 L200,2 L240,10 L280,2 L320,10 L360,2 L400,10" 
-                fill="none" 
-                strokeLinecap="round"
-              />
-            </svg>
           </div>
           
-          <div ref={ctaRef} className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button asChild size="lg" className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-amber-500 dark:to-orange-500 dark:hover:from-amber-600 dark:hover:to-orange-600 text-white text-lg px-8 py-6 rounded-2xl shadow-lg hover:shadow-blue-500/25 dark:hover:shadow-amber-500/25">
+          {/* CTAs */}
+          <div ref={ctaRef} className="flex flex-col sm:flex-row gap-5 justify-center items-center">
+            <Button 
+              asChild 
+              size="lg" 
+              className="group relative gap-3 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 dark:from-amber-500 dark:via-orange-500 dark:to-pink-500 dark:hover:from-amber-600 dark:hover:via-orange-600 dark:hover:to-pink-600 text-white text-lg px-10 py-7 rounded-2xl shadow-2xl hover:shadow-blue-500/50 dark:hover:shadow-amber-500/50 hover:scale-105 transition-all duration-300"
+            >
               <Link href="/signup">
-                <Rocket className="h-5 w-5" />
+                <Rocket className="h-6 w-6 group-hover:rotate-12 transition-transform" />
                 Propulser ma carrière
+                <div className="absolute inset-0 rounded-2xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity blur-xl -z-10" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="gap-2 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:text-white hover:bg-slate-800 dark:hover:text-white dark:hover:bg-slate-800 text-lg px-8 py-6 rounded-2xl">
+            <Button 
+              asChild 
+              variant="outline" 
+              size="lg" 
+              className="group gap-3 border-2 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:text-white hover:bg-gradient-to-r hover:from-slate-800 hover:to-slate-900 dark:hover:from-slate-700 dark:hover:to-slate-800 text-lg px-10 py-7 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 backdrop-blur-xl bg-white/50 dark:bg-slate-800/50"
+            >
               <Link href="/demo">
                 Voir la démo
-                <ArrowRight className="h-5 w-5" />
+                <ArrowRight className="h-6 w-6 group-hover:translate-x-2 transition-transform" />
               </Link>
             </Button>
           </div>
         </div>
 
-        <div ref={featuresRef} className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          <div className="feature-block group relative bg-gradient-to-br dark:from-slate-800/50 dark:to-slate-900/80 dark:border-slate-700/50 from-white/70 to-slate-100/90 border border-slate-200/60 p-7 rounded-3xl backdrop-blur-md hover:shadow-2xl transition-all duration-500 hover:-translate-y-2">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500"></div>
+        {/* Features cards avec effets 3D */}
+        <div ref={featuresRef} className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto perspective-1000">
+          {/* Feature 1 */}
+          <div className="feature-block group relative bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900/90 from-white/80 to-slate-100/90 border-2 border-slate-200/60 dark:border-slate-700/60 p-8 rounded-3xl backdrop-blur-xl hover:shadow-2xl hover:shadow-blue-500/20 transition-all duration-500 hover:-translate-y-3 hover:rotate-y-2 transform-gpu">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500" />
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/50 to-purple-500/50 rounded-3xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity duration-500 -z-10" />
+            
             <div className="relative z-10">
-              <div className="feature-icon-wrapper mb-5 inline-flex rounded-2xl bg-blue-500/10 dark:bg-blue-500/10 p-3 group-hover:bg-blue-500/20 transition-colors duration-300">
-                <Target className="feature-icon h-8 w-8 text-blue-600 dark:text-blue-400" />
+              <div className="mb-6 inline-flex rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-600/30 p-4 group-hover:scale-110 group-hover:rotate-12 transition-all duration-300 shadow-xl">
+                <Target className="feature-icon h-10 w-10 text-blue-600 dark:text-blue-400 drop-shadow-lg" />
               </div>
-              <h3 className="text-xl font-bold mb-3 dark:text-white text-slate-800">Préparation Ciblée</h3>
-              <p className="dark:text-slate-300 text-slate-600 mb-4">
-                Des exercices adaptés à votre domaine et niveau pour maximiser votre impact.
+              <h3 className="text-2xl font-black mb-4 dark:text-white text-slate-800 drop-shadow-sm">
+                Préparation Ciblée
+              </h3>
+              <p className="dark:text-slate-300 text-slate-600 mb-5 leading-relaxed">
+                Des exercices adaptés à ton domaine et niveau pour maximiser ton impact.
               </p>
-              <div className="flex items-center text-blue-600 dark:text-blue-400 font-medium">
+              <div className="flex items-center text-blue-600 dark:text-blue-400 font-bold group-hover:gap-3 gap-2 transition-all">
                 <span>Commencer</span>
-                <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight className="h-5 w-5 group-hover:translate-x-2 transition-transform" />
               </div>
             </div>
           </div>
           
-          <div className="feature-block group relative bg-gradient-to-br dark:from-slate-800/50 dark:to-slate-900/80 dark:border-slate-700/50 from-white/70 to-slate-100/90 border border-slate-200/60 p-7 rounded-3xl backdrop-blur-md hover:shadow-2xl transition-all duration-500 hover:-translate-y-2">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500"></div>
+          {/* Feature 2 */}
+          <div className="feature-block group relative bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900/90 from-white/80 to-slate-100/90 border-2 border-slate-200/60 dark:border-slate-700/60 p-8 rounded-3xl backdrop-blur-xl hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 hover:-translate-y-3 hover:rotate-y-2 transform-gpu">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500" />
+            <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/50 to-pink-500/50 rounded-3xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity duration-500 -z-10" />
+            
             <div className="relative z-10">
-              <div className="feature-icon-wrapper mb-5 inline-flex rounded-2xl bg-purple-500/10 dark:bg-purple-500/10 p-3 group-hover:bg-purple-500/20 transition-colors duration-300">
-                <BarChart className="feature-icon h-8 w-8 text-purple-600 dark:text-purple-400" />
+              <div className="mb-6 inline-flex rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-600/30 p-4 group-hover:scale-110 group-hover:rotate-12 transition-all duration-300 shadow-xl">
+                <BarChart className="feature-icon h-10 w-10 text-purple-600 dark:text-purple-400 drop-shadow-lg" />
               </div>
-              <h3 className="text-xl font-bold mb-3 dark:text-white text-slate-800">Progression Mesurable</h3>
-              <p className="dark:text-slate-300 text-slate-600 mb-4">
-                Suivez vos progrès avec des analytics détaillés et des recommandations personnalisées.
+              <h3 className="text-2xl font-black mb-4 dark:text-white text-slate-800 drop-shadow-sm">
+                Progression Mesurable
+              </h3>
+              <p className="dark:text-slate-300 text-slate-600 mb-5 leading-relaxed">
+                Suis tes progrès avec des analytics détaillés et des recommandations IA.
               </p>
-              <div className="flex items-center text-purple-600 dark:text-purple-400 font-medium">
+              <div className="flex items-center text-purple-600 dark:text-purple-400 font-bold group-hover:gap-3 gap-2 transition-all">
                 <span>Progresser</span>
-                <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight className="h-5 w-5 group-hover:translate-x-2 transition-transform" />
               </div>
             </div>
           </div>
           
-          <div className="feature-block group relative bg-gradient-to-br dark:from-slate-800/50 dark:to-slate-900/80 dark:border-slate-700/50 from-white/70 to-slate-100/90 border border-slate-200/60 p-7 rounded-3xl backdrop-blur-md hover:shadow-2xl transition-all duration-500 hover:-translate-y-2">
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500"></div>
+          {/* Feature 3 */}
+          <div className="feature-block group relative bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900/90 from-white/80 to-slate-100/90 border-2 border-slate-200/60 dark:border-slate-700/60 p-8 rounded-3xl backdrop-blur-xl hover:shadow-2xl hover:shadow-cyan-500/20 transition-all duration-500 hover:-translate-y-3 hover:rotate-y-2 transform-gpu">
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-transparent opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500" />
+            <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/50 to-blue-500/50 rounded-3xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity duration-500 -z-10" />
+            
             <div className="relative z-10">
-              <div className="feature-icon-wrapper mb-5 inline-flex rounded-2xl bg-cyan-500/10 dark:bg-cyan-500/10 p-3 group-hover:bg-cyan-500/20 transition-colors duration-300">
-                <Users className="feature-icon h-8 w-8 text-cyan-600 dark:text-cyan-400" />
+              <div className="mb-6 inline-flex rounded-2xl bg-gradient-to-br from-cyan-500/20 to-cyan-600/30 p-4 group-hover:scale-110 group-hover:rotate-12 transition-all duration-300 shadow-xl">
+                <Users className="feature-icon h-10 w-10 text-cyan-600 dark:text-cyan-400 drop-shadow-lg" />
               </div>
-              <h3 className="text-xl font-bold mb-3 dark:text-white text-slate-800">Communauté d'Experts</h3>
-              <p className="dark:text-slate-300 text-slate-600 mb-4">
-                Échangez avec une communauté de professionnels et bénéficiez de conseils experts.
+              <h3 className="text-2xl font-black mb-4 dark:text-white text-slate-800 drop-shadow-sm">
+                Communauté d'Experts
+              </h3>
+              <p className="dark:text-slate-300 text-slate-600 mb-5 leading-relaxed">
+                Échange avec une communauté de pros et bénéficie de conseils experts.
               </p>
-              <div className="flex items-center text-cyan-600 dark:text-cyan-400 font-medium">
+              <div className="flex items-center text-cyan-600 dark:text-cyan-400 font-bold group-hover:gap-3 gap-2 transition-all">
                 <span>Rejoindre</span>
-                <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight className="h-5 w-5 group-hover:translate-x-2 transition-transform" />
               </div>
             </div>
           </div>

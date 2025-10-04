@@ -1,124 +1,169 @@
-🗓️ Roadmap MVP sur 3 mois (10 étapes)
-Mois 1 : Fondations techniques & core features
+🗓️ Roadmap MVP : du simple au complexe
+Mois 1 : Fondations & Core
 
-1. Semaine 1 → Setup & architecture
+Setup projet & stack
 
-Mise en place du repo Git + CI/CD avec Vercel.
+Next.js + TypeScript + Tailwind + shadcnUI.
 
-Setup Next.js (frontend + backend API routes).
+Prisma + Neon (PostgreSQL).
 
-Intégration Tailwind + shadcnUI.
+Upstash Redis (sessions, cache).
 
-Setup Neon (PostgreSQL) + Prisma ORM.
+Sentry (monitoring).
 
-Ajout monitoring (Sentry) & analytics (Vercel).
+Auth (LinkedIn OAuth via NextAuth/BetterAuth).
+🎯 Cas : un utilisateur peut se connecter en 1 clic et créer un compte.
 
-🎯 Livrable : stack prête à coder, base de données fonctionnelle.
+Profil utilisateur basique
 
-2. Semaine 2 → Authentification LinkedIn
+Import LinkedIn : nom, photo, expériences, compétences.
 
-Implémentation OAuth2 avec API LinkedIn.
+Stockage en DB.
 
-Import automatique : nom, photo, expériences, éducation, compétences.
+Dashboard → affichage profil minimal.
+🎯 Cas : un étudiant peut voir son profil enrichi.
 
-Stockage utilisateur en DB.
+QCM simple (premier test)
 
-🎯 Livrable : connexion en 1 clic → profil importé dans la DB.
+Stockage questions/réponses en DB.
 
-3. Semaine 3 → Profil enrichi + CV auto
+UI QCM avec score auto.
 
-Utilisation OpenAI pour classer compétences en hard skills / soft skills.
+Enregistrement résultat (QuizResult).
+🎯 Cas : un développeur peut passer un test technique basique.
 
-Génération d’un CV optimisé (format PDF via Inngest).
+Mois 2 : Fonctionnalités IA & enrichissement
 
-Interface profil utilisateur avec prévisualisation du CV.
+CV auto-généré
 
-🎯 Livrable : chaque utilisateur a un profil enrichi + CV généré.
+OpenAI → classification Hard Skills / Soft Skills.
 
-4. Semaine 4 → Tests IA (première version)
+Génération PDF via Inngest.
 
-Définir 2 tests par métier (ex : développeur → QCM logique, commercial → scénario client).
+Section « CV » dans le dashboard.
+🎯 Cas : un candidat obtient un CV optimisé à partir de LinkedIn.
 
-Correction automatique avec OpenAI (texte/choix multiples).
+Badges & progression
 
-Attribution de badges (stockés en DB).
+Ajout modèle Badge + ProgressTracking.
 
-🎯 Livrable : tests disponibles, scoring auto, badges visibles sur profil.
+Attribution automatique après tests réussis.
 
-Mois 2 : Fonctionnalités utilisateur avancées
+Progression affichée dans dashboard.
+🎯 Cas : un étudiant voit ses progrès gamifiés.
 
-5. Semaine 5 → Portfolio dynamique
+Mock Interview IA (v1)
 
-Import projets depuis LinkedIn.
+Chat IA simulant un entretien.
 
-Génération de portfolio en ligne (mini-site SSG via Vercel).
+OpenAI → génération questions + analyse réponses.
 
-Ajout export PDF portfolio.
+Stockage des retours en DB.
+🎯 Cas : un commercial s’entraîne à gérer une objection client.
 
-🎯 Livrable : chaque utilisateur a un portfolio public + PDF exportable.
+Portfolio dynamique
 
-6. Semaine 6 → Matching intelligent (v1 basique)
+Import projets LinkedIn.
 
-Stockage embeddings des profils (Upstash Redis + OpenAI).
+Génération mini-site portfolio (hébergé sur Vercel → SSG).
 
-Matching candidat ↔ entreprise basé sur compétences + secteur.
+Export PDF.
+🎯 Cas : un ingénieur affiche ses projets en ligne.
 
-Dashboard utilisateur → suggestions d’opportunités.
+Mois 3 : Cibles B2B & Matching
 
-🎯 Livrable : moteur de matching simple fonctionnel.
+Matching IA basique
 
-7. Semaine 7 → Dashboard Écoles (lite)
+Générer embeddings candidats & offres via OpenAI.
 
-Création comptes “Écoles / Bootcamps”.
+Stockage dans Upstash Vector.
 
-Vue liste étudiants + progression (badges obtenus, CV, portfolio).
+Matching → suggestions d’opportunités (Redis cache).
+🎯 Cas : une entreprise voit 5 candidats pertinents pour son offre.
 
-Statistiques insertion de base (données LinkedIn importées).
+Dashboard Écoles / Bootcamps (lite)
 
-🎯 Livrable : écoles peuvent suivre progression de leurs étudiants.
+Vue liste étudiants.
 
-8. Semaine 8 → Dashboard Entreprises (lite)
+Progression, badges, CV.
 
-Création comptes “Entreprise / Recruteur”.
+Statistiques insertion (connecté LinkedIn).
+🎯 Cas : un bootcamp suit la progression d’une promo.
 
-Vue liste candidats disponibles.
+Dashboard Entreprises / Recruteurs (lite)
 
-Accès aux CV optimisés & portfolios.
+Liste candidats filtrables.
 
-Filtrage par compétences + badges.
+Accès CV + portfolio.
 
-🎯 Livrable : entreprises peuvent consulter candidats filtrés.
+Matching intégré.
+🎯 Cas : un recruteur trouve un profil junior qualifié.
 
-Mois 3 : Finalisation & polish
+Paiements & abonnements
 
-9. Semaine 9-10 → UX/UI + tests utilisateurs
+Stripe pour gestion paiements.
 
-Amélioration design (dark/light mode).
+Plans : Gratuit, Pro, Expert, École, Entreprise.
+🎯 Cas : une école s’abonne pour 100 étudiants.
 
-Tests utilisateurs (étudiants, freelances, entreprises locales).
+⚙️ Stack technique et détails
 
-Optimisation performance + corrections bugs.
+Frontend : Next.js 13 App Router + Tailwind CSS + shadcnUI.
 
-🎯 Livrable : MVP utilisable et stable, design épuré & responsive.
+Backend API : API Routes Next.js (peut évoluer en microservices).
 
-10. Semaine 11-12 → Packaging & Go-To-Market
+DB : Neon (PostgreSQL) + Prisma ORM.
 
-Mise en place plans tarifaires (Stripe intégration).
+Temps réel : Upstash Redis (sessions interview, matching live).
 
-Rédaction documentation & onboarding.
+IA : OpenAI (analyse tests, génération CV), HumeAI (émotions mock interviews).
 
-Déploiement production Vercel + annonces.
+Queue/Jobs : Upstash QStash (emails, batch CV, CRON mensuels).
 
-Préparation roadmap Scale (phase 2).
+Matching IA : Upstash Vector (embeddings pour candidats ↔ offres).
 
-🎯 Livrable : MVP lancé officiellement → premiers 500 utilisateurs onboardés.
+Workflow orchestration : Inngest (entretiens multi-étapes, onboarding).
 
-📊 Résumé visuel
+Monitoring : Sentry.
 
-Mois 1 (sem. 1-4) : Fondations techniques + Auth LinkedIn + CV auto + tests IA + badges.
+Déploiement : Vercel (app + portfolios dynamiques).
 
-Mois 2 (sem. 5-8) : Portfolio + matching intelligent + dashboards écoles & entreprises.
+Media : AWS S3 (images, vidéos, audio).
 
-Mois 3 (sem. 9-12) : UX/UI + tests utilisateurs + intégration paiements + lancement.
+📈 Scales futures (6-24 mois)
 
-👉 En 3 mois, tu obtiens un MVP fonctionnel complet, adressant individus, écoles, entreprises, avec features monétisables dès le jour 1 (abonnements + lifetime).
+Amélioration IA
+
+Mock Interviews voix + émotion (HumeAI deep integration).
+
+Correction code live (Judge0 API).
+
+Marketplace intégrée
+
+Relier recruteurs ↔ candidats avec commissions.
+
+Matching avancé : soft skills + personnalité.
+
+Microtransactions
+
+Achat de CV premium, audits de code, portfolios brandés.
+
+API B2B
+
+API pour écoles (intégrer PrepwiseAI dans leurs LMS).
+
+API entreprises (recrutement en marque blanche).
+
+Internationalisation
+
+Extension vers Afrique francophone (Sénégal, Côte d’Ivoire).
+
+Traduction multi-langue (anglais/français).
+
+Multi-domaines
+
+Étendre au-delà dev : finance, santé, ingénierie, management.
+
+IA personnalisée
+
+Coach personnel par utilisateur (fine-tuning embeddings).

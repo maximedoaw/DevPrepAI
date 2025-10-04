@@ -5,6 +5,8 @@ import { ProgressCard } from "./progress-card"
 import { QuestionCard } from "./question-card"
 import { NavigationControls } from "./navigation-controls"
 import { CompletionScreen } from "./completion-screen"
+import React from "react"
+import { quizSaveAnswer } from "@/actions/interview.action"
 
 interface Question {
   id: string
@@ -61,6 +63,35 @@ export function InterviewContent({
   isSaving,
   saveError,
 }: InterviewContentProps) {
+  const [saving, setSaving] = React.useState(false)
+  const [saveErr, setSaveErr] = React.useState<Error | null>(null)
+  const hasSavedRef = React.useRef(false)
+
+  // Enregistrer automatiquement le résultat quand l'interview est complétée
+  React.useEffect(() => {
+    const save = async () => {
+      try {
+        setSaving(true)
+        setSaveErr(null)
+        const payload = {
+          quizId: interview.id,
+          answers: answers,
+          timeSpent: Math.max(0, (interview.duration || 0) - (timeLeft || 0)),
+          score: calculateScore(),
+        }
+        await quizSaveAnswer(payload)
+        setSaving(false)
+      } catch (e: any) {
+        setSaving(false)
+        setSaveErr(new Error(e?.message || "Erreur lors de l'enregistrement"))
+      }
+    }
+
+    if (isCompleted && !hasSavedRef.current) {
+      hasSavedRef.current = true
+      void save()
+    }
+  }, [isCompleted, interview.id, answers, timeLeft, calculateScore])
   // Completion screen
   if (isCompleted) {
     return (
@@ -68,16 +99,34 @@ export function InterviewContent({
     )
   }
 
-  const currentQuestion = interview.questions[currentQuestionIndex]
+  // Normaliser les types de question pour supporter plusieurs formats
+  const rawQuestion = interview.questions[currentQuestionIndex]
+  const normalizedType = ((): Question["type"] => {
+    const t = (rawQuestion as any)?.type
+    if (t === "multiple_choice" || t === "multiple-choice") return "multiple-choice"
+    if (t === "coding") return "coding"
+    if (t === "open-ended" || t === "text" || t === "scenario") return "open-ended"
+    return "multiple-choice"
+  })()
+  const currentQuestion: Question = {
+    id: rawQuestion.id,
+    question: (rawQuestion as any).question,
+    type: normalizedType,
+    points: (rawQuestion as any).points ?? 0,
+    options: (rawQuestion as any).options,
+    correctAnswer: typeof (rawQuestion as any).correctAnswer === 'number' ? (rawQuestion as any).correctAnswer : undefined,
+    codeTemplate: (rawQuestion as any).codeSnippet || (rawQuestion as any).codeTemplate,
+    expectedOutput: (rawQuestion as any).expectedOutput,
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <InterviewHeader interview={interview} timeLeft={timeLeft} isRunning={isRunning} formatTime={formatTime} />
 
       <div className="max-w-6xl mx-auto px-6 py-8">
-        {saveError && (
+        {(saveError || saveErr) && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
-            {saveError.message}
+            {(saveError || saveErr)?.message}
           </div>
         )}
 
@@ -94,7 +143,7 @@ export function InterviewContent({
           totalQuestions={interview.questions.length}
           onPrevious={onPreviousQuestion}
           onNext={onNextQuestion}
-          isSaving={isSaving}
+          isSaving={isSaving || saving}
         />
       </div>
     </div>

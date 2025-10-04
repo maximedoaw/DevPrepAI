@@ -159,18 +159,6 @@ function InterviewSidebarContent() {
         path: "/"
       },
       {
-        id: "interviews",
-        title: "Interviews",
-        description: "Simulations pour vos futurs entretiens",
-        icon: Mic,
-        color: "text-purple-600 dark:text-purple-400",
-        bgColor: "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
-        action: () => router.push("/interviews"),
-        badge: "IA",
-        isNew: true,
-        path: "/interviews"
-      },
-      {
         id: "assessment",
         title: "Bilan de compétences",
         description: "Évaluez vos forces et vos axes d'amélioration",
@@ -200,6 +188,18 @@ function InterviewSidebarContent() {
         action: () => router.push("/matching"),
         badge: "Nouvelles offres",
         path: "/matching"
+      },   
+      {
+        id: "interviews",
+        title: "Interviews",
+        description: "Simulations pour vos futurs entretiens",
+        icon: Mic,
+        color: "text-purple-600 dark:text-purple-400",
+        bgColor: "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
+        action: () => router.push("/interviews"),
+        badge: "IA",
+        isNew: true,
+        path: "/interviews"
       },
       {
         id: "my-interviews",

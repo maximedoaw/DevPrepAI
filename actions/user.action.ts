@@ -250,7 +250,7 @@ export async function getUserDashboardData(userId: string) {
         select: { skills: true }
       }),
       prisma.progressTracking.findMany({
-        where: {
+        where: { 
           userId,
           date: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
           metric: { in: ['quizzes_completed', 'xp_earned'] }

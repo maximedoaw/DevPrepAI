@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { useEffect, useRef, useState } from "react"
 import gsap from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
+import { timelineSteps } from "@/constants"
+import CareerIncubator from "../career-incubator"
 
 // Enregistrer le plugin ScrollTrigger
 if (typeof window !== 'undefined') {
@@ -44,14 +46,12 @@ const AnimatedTerminal = ({ code, language, isVisible, onComplete }: {
     } else if (!isComplete) {
       setIsComplete(true)
       onComplete?.()
-      // Faire disparaître après 3 secondes
       setTimeout(() => {
         setShowCursor(false)
       }, 3000)
     }
   }, [isVisible, currentIndex, code, isComplete, onComplete])
 
-  // Masquer la barre de scroll par défaut, mais permettre le scroll tactile
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       if (terminalRef.current && Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
@@ -94,7 +94,6 @@ const AnimatedTerminal = ({ code, language, isVisible, onComplete }: {
         </pre>
       </div>
       
-      {/* Indicateur de scroll sur mobile */}
       <div className="md:hidden absolute right-2 top-12 bg-slate-800/70 rounded-full p-1 animate-bounce">
         <ChevronDown className="h-4 w-4 text-slate-300 rotate-90" />
       </div>
@@ -435,7 +434,7 @@ const MatchingAnimation = ({ isActive }: { isActive: boolean }) => {
         <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
           {matchProgress < 50 && "Recherche de correspondances..."}
           {matchProgress >= 50 && matchProgress < 100 && "Analyse des compétences..."}
-          {matchProgress === 100 && "✅ 12 entreprises correspondent à votre profil"}
+          {matchProgress === 100 && "12 entreprises correspondent à votre profil"}
         </p>
         <div className="flex justify-center space-x-1">
           {[1, 2, 3, 4, 5].map((star) => (
@@ -474,8 +473,6 @@ const TimelineStep = ({
       ([entry]) => {
         if (entry.isIntersecting) {
           setIsVisible(true)
-          
-          // Animation de la barre de progression
           const progressInterval = setInterval(() => {
             setAnimationProgress(prev => {
               if (prev >= progress) {
@@ -500,7 +497,6 @@ const TimelineStep = ({
   useEffect(() => {
     if (!stepRef.current || !isVisible) return
 
-    // Animation GSAP pour l'étape
     gsap.fromTo(stepRef.current, 
       {
         opacity: 0,
@@ -520,7 +516,6 @@ const TimelineStep = ({
       }
     )
 
-    // Animation des détails
     const detailsElements = stepRef.current.querySelectorAll('.detail-item')
     gsap.fromTo(detailsElements, 
       { opacity: 0, x: -20 },
@@ -597,7 +592,6 @@ const TimelineStep = ({
 
   return (
     <div ref={stepRef} className="relative mb-16 lg:mb-24 opacity-0">
-      {/* Ligne verticale qui s'allonge au scroll */}
       <div className="absolute left-4 lg:left-1/2 top-0 bottom-0 w-px bg-slate-200 dark:bg-slate-700 lg:transform lg:-translate-x-1/2 overflow-hidden">
         <div 
           className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-blue-500 via-purple-500 to-pink-500 origin-top transition-transform duration-1000 ease-out"
@@ -608,20 +602,16 @@ const TimelineStep = ({
         />
       </div>
       
-      {/* Point sur la ligne */}
       <div 
         className={`absolute left-4 lg:left-1/2 top-8 w-4 h-4 lg:w-6 lg:h-6 rounded-full bg-gradient-to-r ${colorClasses.gradient} border-4 border-white dark:border-slate-900 lg:transform lg:-translate-x-1/2 z-10 transition-all duration-700 ${
           isVisible ? 'animate-pulse shadow-lg scale-100 opacity-100' : 'scale-0 opacity-0'
         }`}
       />
 
-      {/* Contenu */}
       <div className="ml-12 lg:ml-0 lg:grid lg:grid-cols-2 lg:gap-12 items-start">
-        {/* Contenu principal - alterne sur desktop */}
         <div className={`${step % 2 === 0 ? 'lg:order-1' : 'lg:order-2'} mb-8 lg:mb-0`}>
           <Card className={`bg-white/80 dark:bg-slate-800/80 border-2 backdrop-blur-sm hover:shadow-xl dark:hover:shadow-2xl transition-all duration-500 transform hover:scale-[1.02] ${isVisible ? colorClasses.border + ' shadow-lg' : 'border-slate-200 dark:border-slate-700'} group`}>
             <CardContent className="p-6 lg:p-8">
-              {/* Header */}
               <div className="flex items-start gap-4 mb-6">
                 <div className={`flex-shrink-0 p-3 lg:p-4 rounded-2xl bg-gradient-to-r ${colorClasses.gradient} shadow-lg transform group-hover:rotate-6 transition-transform duration-300`}>
                   <Icon className="h-6 w-6 lg:h-8 lg:w-8 text-white" />
@@ -635,7 +625,6 @@ const TimelineStep = ({
                 </div>
               </div>
 
-              {/* Barre de progression */}
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-3">
                   <span className="text-xs lg:text-sm font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-300">
@@ -647,7 +636,6 @@ const TimelineStep = ({
                 <Progress value={animationProgress} className="h-2 lg:h-3 rounded-full" />
               </div>
 
-              {/* Détails */}
               <ul className="space-y-3 lg:space-y-4 mb-6">
                 {details.map((detail: any, index: number) => {
                   const DetailIcon = detail.icon
@@ -662,7 +650,6 @@ const TimelineStep = ({
                 })}
               </ul>
 
-              {/* Métiers animés pour l'étape 2 */}
               {step === 2 && (
                 <div className="mb-6">
                   <h4 className="text-sm font-semibold mb-3 text-slate-700 dark:text-slate-300 flex items-center">
@@ -676,12 +663,24 @@ const TimelineStep = ({
           </Card>
         </div>
 
-        {/* Animation - alterne sur desktop */}
         <div className={`${step % 2 === 0 ? 'lg:order-2' : 'lg:order-1'} ${step % 2 === 0 ? 'lg:pl-8' : 'lg:pr-8'}`}>
           <div className="sticky top-24">
             {renderAnimation()}
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+
+const CareerIncubatorSection = () => {
+  const sectionRef = useRef<HTMLDivElement>(null)
+  
+  return (
+    <div ref={sectionRef} className="relative py-20 bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="container mx-auto px-4">        
+        <CareerIncubator/>
       </div>
     </div>
   )
@@ -696,7 +695,6 @@ export default function Features() {
   useEffect(() => {
     if (!containerRef.current) return
 
-    // Animation du titre principal
     gsap.fromTo(titleRef.current, 
       { opacity: 0, y: 40, scale: 0.95 },
       { 
@@ -727,7 +725,6 @@ export default function Features() {
       }
     )
 
-    // Animation de la timeline globale
     if (timelineRef.current) {
       gsap.fromTo(timelineRef.current, 
         { opacity: 0 },
@@ -743,9 +740,8 @@ export default function Features() {
       )
     }
 
-    // Animation fluide de la ligne de timeline
     const timelineSteps = containerRef.current.querySelectorAll('.relative.mb-16')
-    timelineSteps.forEach((step, index) => {
+    timelineSteps.forEach((step) => {
       gsap.to(step.querySelector('.absolute.w-px > div'), {
         scaleY: 1,
         duration: 1.5,
@@ -760,161 +756,40 @@ export default function Features() {
     })
   }, [])
 
-  const timelineSteps = [
-    {
-      step: 1,
-      title: "Optimisation LinkedIn avec IA",
-      description: "Notre IA analyse et optimise ton profil LinkedIn pour maximiser ta visibilité auprès des recruteurs et algorithmes de matching.",
-      icon: Linkedin,
-      color: "blue",
-      progress: 90,
-      animationType: "linkedinOptimization",
-      details: [
-        { icon: Search, text: "Analyse des tendances du marché" },
-        { icon: TrendingUp, text: "Optimisation des mots-clés stratégiques" },
-        { icon: Network, text: "Suggestions de connexions pertinentes" },
-        { icon: ThumbsUp, text: "Augmentation de l'engagement de 300%" }
-      ]
-    },
-    {
-      step: 2,
-      title: "Choisis ton métier et ton niveau",
-      description: "Sélectionne ton domaine d'expertise et ton niveau d'expérience pour recevoir des préparations ultra-personnalisées adaptées à tes objectifs de carrière.",
-      icon: Target,
-      color: "purple",
-      progress: 85,
-      details: [
-        { icon: Code, text: "Développement (Frontend, Backend, FullStack)" },
-        { icon: Database, text: "Data Science & Analytics (ML, BI, Big Data)" },
-        { icon: Calculator, text: "Finance & Trading (Quant, Risk, Investment)" },
-        { icon: BarChart, text: "Business & Marketing (Growth, Strategy, Digital)" },
-        { icon: Building2, text: "Ingénierie (DevOps, Cloud, Cybersécurité)" }
-      ],
-      codeExample: {
-        language: "JavaScript",
-        code: `const careerProfile = {
-  role: "Senior Frontend Developer",
-  level: "5+ years",
-  skills: ["React", "TypeScript", "Next.js"],
-  targetCompanies: ["FAANG", "Unicorns"],
-  salaryRange: "80k-120k€"
-};
-
-// Génération personnalisée
-const questions = await generateQuestions(careerProfile);
-const difficulty = calculateDifficulty(careerProfile.level);
-
-return personalizedInterviewPrep(questions, difficulty);`
-      }
-    },
-    {
-      step: 3,
-      title: "Matching intelligent avec les entreprises",
-      description: "Notre algorithme de matching connecte ton profil optimisé avec les entreprises qui recherchent exactement tes compétences.",
-      icon: Target,
-      color: "green",
-      progress: 75,
-      animationType: "matching",
-      details: [
-        { icon: Building, text: "Accès à 500+ entreprises partenaires" },
-        { icon: Bell, text: "Alertes personnalisées sur les offres correspondantes" },
-        { icon: Zap, text: "Taux de matching 2.5x supérieur à la moyenne" },
-        { icon: UserCheck, text: "Introduction directe aux recruteurs" }
-      ]
-    },
-    {
-      step: 4,
-      title: "Simulations IA réalistes & Feedback",
-      description: "Passe des entretiens techniques avec notre IA de nouvelle génération et reçois des feedbacks détaillés pour t'améliorer.",
-      icon: Brain,
-      color: "pink",
-      progress: 95,
-      details: [
-        { icon: Users, text: "Entretiens techniques ultra-réalistes (98% précision)" },
-        { icon: Brain, text: "Questions comportementales adaptées au poste" },
-        { icon: Award, text: "Certification de compétences reconnue" },
-        { icon: TrendingUp, text: "Suivi de progression détaillé" }
-      ],
-      codeExample: {
-        language: "Python",
-        code: `class AIInterviewSimulator:
-    def __init__(self, candidate_profile):
-        self.ai_model = load_interview_ai_model()
-        self.profile = candidate_profile
-        self.difficulty = self.calculate_difficulty()
-    
-    def start_technical_interview(self):
-        questions = self.generate_questions(
-            role=self.profile.role,
-            difficulty=self.difficulty
-        )
-        
-        for question in questions:
-            answer = self.capture_candidate_response()
-            feedback = self.ai_model.evaluate_response(
-                question, answer, self.profile
-            )
-            yield feedback`
-      }
-    }
-  ]
-
   return (
-    <section className="py-16 lg:py-32 relative overflow-hidden bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <div className="container relative z-10 max-w-7xl mx-auto px-4 lg:px-8" ref={containerRef}>
-        {/* Header */}
-        <div className="text-center mb-16 lg:mb-24">
-          <Badge variant="outline" className="mb-6 bg-gradient-to-r from-indigo-500/10 to-pink-500/10 border-indigo-400/30 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-400 px-4 lg:px-6 py-2 lg:py-3">
-            <Sparkles className="h-4 w-4 mr-2" />
-            Parcours d'excellence professionnel
-          </Badge>
-          
-          <h2 ref={titleRef} className="text-3xl lg:text-5xl xl:text-6xl font-bold mb-6 lg:mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 leading-tight">
-            Ton voyage vers le succès
-            <br />
-            <span className="text-xl lg:text-2xl xl:text-3xl text-slate-600 dark:text-slate-400 font-normal">
-              étape par étape
-            </span>
-          </h2>
-          
-          <p ref={subtitleRef} className="text-lg lg:text-xl xl:text-2xl text-slate-600 dark:text-slate-400 max-w-4xl mx-auto leading-relaxed px-4">
-            Découvre comment <span className="font-semibold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">TurboIntMax</span> 
-            révolutionne ta préparation aux entretiens avec une approche scientifique et personnalisée
-          </p>
-        </div>
+    <section className="relative overflow-hidden mt-15">
+      <CareerIncubatorSection />
+      {/* Section Timeline avec fond approprié */}
+      <div className="py-16 lg:py-32 relative z-10 bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        <div className="container relative max-w-7xl mx-auto px-4 lg:px-8" ref={containerRef}>
+          {/* Header */}
+          <div className="text-center mb-16 lg:mb-24">
+            <Badge variant="outline" className="mb-6 bg-gradient-to-r from-indigo-500/10 to-pink-500/10 border-indigo-400/30 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-400 px-4 lg:px-6 py-2 lg:py-3">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Parcours d'excellence professionnel
+            </Badge>
+            
+            <h2 ref={titleRef} className="text-3xl lg:text-5xl xl:text-6xl font-bold mb-6 lg:mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 leading-tight">
+              Ton voyage vers le succès
+              <br />
+              <span className="text-xl lg:text-2xl xl:text-3xl text-slate-600 dark:text-slate-400 font-normal">
+                étape par étape
+              </span>
+            </h2>
+          </div>
 
-        {/* Timeline verticale */}
-        <div ref={timelineRef} className="relative max-w-6xl mx-auto opacity-0">
-          {timelineSteps.map((step) => (
-            <TimelineStep
-              key={step.step}
-              {...step}
-              isActive={true}
-            />
-          ))}
+          {/* Timeline verticale */}
+          <div ref={timelineRef} className="relative max-w-6xl mx-auto">
+            {timelineSteps.map((step) => (
+              <TimelineStep
+                key={step.step}
+                {...step}
+                isActive={true}
+              />
+            ))}
+          </div>
         </div>
       </div>
-
-      {/* Styles pour masquer/montrer la barre de scroll */}
-      <style jsx>{`
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-default {
-          -ms-overflow-style: auto;
-          scrollbar-width: auto;
-        }
-        .scrollbar-default::-webkit-scrollbar {
-          display: block;
-        }
-        .hover\:scrollbar-visible:hover::-webkit-scrollbar {
-          display: block;
-        }
-      `}</style>
     </section>
   )
 }

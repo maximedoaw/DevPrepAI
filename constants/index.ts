@@ -1,4 +1,4 @@
-import { TypeConfig } from "@/types"
+import { CheckCircle, Code, Users, Brain, Zap, BarChart, Clock, Linkedin, Github, Database, Calculator, TrendingUp, Target, Award, Rocket, FileText, Building2, Sparkles, Eye, Play, ChevronDown, Cpu, Palette, Cloud, Shield, MessageSquare, GitBranch, Server, BarChart3, Smartphone, Globe, Mail, Calendar, BookOpen, Heart, Search, Check, Star, Loader, FileCheck, UserCheck, Building, Network, Bell, ThumbsUp } from "lucide-react"
 
 
 export type Difficulty = "JUNIOR" | "MID" | "SENIOR"
@@ -585,3 +585,102 @@ export const TYPE_ICONS = {
   "soft-skills": "🗣️",
   mock: "🎭",
 }
+
+export const timelineSteps = [
+  {
+    step: 1,
+    title: "Optimisation LinkedIn avec IA",
+    description: "Notre IA analyse et optimise ton profil LinkedIn pour maximiser ta visibilité auprès des recruteurs et algorithmes de matching.",
+    icon: Linkedin,
+    color: "blue",
+    progress: 90,
+    animationType: "linkedinOptimization",
+    details: [
+      { icon: Search, text: "Analyse des tendances du marché" },
+      { icon: TrendingUp, text: "Optimisation des mots-clés stratégiques" },
+      { icon: Network, text: "Suggestions de connexions pertinentes" },
+      { icon: ThumbsUp, text: "Augmentation de l'engagement de 300%" }
+    ]
+  },
+  {
+    step: 2,
+    title: "Choisis ton métier et ton niveau",
+    description: "Sélectionne ton domaine d'expertise et ton niveau d'expérience pour recevoir des préparations ultra-personnalisées adaptées à tes objectifs de carrière.",
+    icon: Target,
+    color: "purple",
+    progress: 85,
+    details: [
+      { icon: Code, text: "Développement (Frontend, Backend, FullStack)" },
+      { icon: Database, text: "Data Science & Analytics (ML, BI, Big Data)" },
+      { icon: Calculator, text: "Finance & Trading (Quant, Risk, Investment)" },
+      { icon: BarChart, text: "Business & Marketing (Growth, Strategy, Digital)" },
+      { icon: Building2, text: "Ingénierie (DevOps, Cloud, Cybersécurité)" }
+    ],
+    codeExample: {
+      language: "JavaScript",
+      code: `const careerProfile = {
+role: "Senior Frontend Developer",
+level: "5+ years",
+skills: ["React", "TypeScript", "Next.js"],
+targetCompanies: ["FAANG", "Unicorns"],
+salaryRange: "80k-120k€"
+};
+
+// Génération personnalisée
+const questions = await generateQuestions(careerProfile);
+const difficulty = calculateDifficulty(careerProfile.level);
+
+return personalizedInterviewPrep(questions, difficulty);`
+    }
+  },
+  {
+    step: 3,
+    title: "Matching intelligent avec les entreprises",
+    description: "Notre algorithme de matching connecte ton profil optimisé avec les entreprises qui recherchent exactement tes compétences.",
+    icon: Target,
+    color: "green",
+    progress: 75,
+    animationType: "matching",
+    details: [
+      { icon: Building, text: "Accès à 500+ entreprises partenaires" },
+      { icon: Bell, text: "Alertes personnalisées sur les offres correspondantes" },
+      { icon: Zap, text: "Taux de matching 2.5x supérieur à la moyenne" },
+      { icon: UserCheck, text: "Introduction directe aux recruteurs" }
+    ]
+  },
+  {
+    step: 4,
+    title: "Simulations IA réalistes & Feedback",
+    description: "Passe des entretiens techniques avec notre IA de nouvelle génération et reçois des feedbacks détaillés pour t'améliorer.",
+    icon: Brain,
+    color: "pink",
+    progress: 95,
+    details: [
+      { icon: Users, text: "Entretiens techniques ultra-réalistes (98% précision)" },
+      { icon: Brain, text: "Questions comportementales adaptées au poste" },
+      { icon: Award, text: "Certification de compétences reconnue" },
+      { icon: TrendingUp, text: "Suivi de progression détaillé" }
+    ],
+    codeExample: {
+      language: "Python",
+      code: `class AIInterviewSimulator:
+  def __init__(self, candidate_profile):
+      self.ai_model = load_interview_ai_model()
+      self.profile = candidate_profile
+      self.difficulty = self.calculate_difficulty()
+  
+  def start_technical_interview(self):
+      questions = self.generate_questions(
+          role=self.profile.role,
+          difficulty=self.difficulty
+      )
+      
+      for question in questions:
+          answer = self.capture_candidate_response()
+          feedback = self.ai_model.evaluate_response(
+              question, answer, self.profile
+          )
+          yield feedback`
+    }
+  }
+]

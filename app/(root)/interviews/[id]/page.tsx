@@ -1,4 +1,4 @@
-import { InterviewContainer } from "./components/interview-container"
+import { InterviewContainer } from "../../interviews/components/interview-container"
 import ProtectedPage from "@/components/protected-routes"
 
 interface InterviewPageProps {
