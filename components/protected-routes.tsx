@@ -82,7 +82,7 @@ const ProtectedPage = ({ children, fallback }: ProtectedPageProps) => {
       // Ajouter un petit délai pour éviter les redirections trop rapides
       const timer = setTimeout(() => {
         router.push('/')
-      }, 2000)
+      }, 20000)
       
       return () => clearTimeout(timer)
     }

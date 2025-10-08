@@ -95,6 +95,7 @@ const targetAudiences = [
       "Feedback instantané par IA",
       "Portfolio auto-généré",
       "Suivi de progression détaillé",
+      "Mise en relation avec entreprise pour stage ou recrutement",
     ],
   },
   {
@@ -221,9 +222,9 @@ export default function WhyTurboIntMax() {
           {/* Tableau Desktop */}
           <div ref={tableRef} className="hidden lg:block">
             <Card className="rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm shadow-xl overflow-hidden">
-              <CardContent className="p-0">
-                {/* En-tête du tableau */}
-                <div className="grid grid-cols-[2fr_repeat(4,1fr)] border-b border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-800/60 p-4">
+              <CardContent className="p-0 overflow-hidden">
+                {/* En-tête du tableau - CORRIGÉ */}
+                <div className="grid grid-cols-[2fr_repeat(4,1fr)] bg-slate-100/60 dark:bg-slate-800/60 p-4 border-b border-slate-200 dark:border-slate-800">
                   <div className="text-left">
                     <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
                       Fonctionnalités
@@ -253,7 +254,7 @@ export default function WhyTurboIntMax() {
                   {turboIntMax.points.map((feature, featureIndex) => (
                     <div
                       key={featureIndex}
-                      className="grid grid-cols-[2fr_repeat(4,1fr)] hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                      className="feature-row grid grid-cols-[2fr_repeat(4,1fr)] hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                     >
                       {/* Colonne des fonctionnalités */}
                       <div className="flex items-center px-4 py-3 border-r border-slate-200 dark:border-slate-800">

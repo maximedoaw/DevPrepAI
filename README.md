@@ -1,169 +1,160 @@
-🗓️ Roadmap MVP : du simple au complexe
-Mois 1 : Fondations & Core
+🧩 Fonctionnalités principales du MVP
+1. 🔐 Authentification & Profil
 
-Setup projet & stack
+Connexion LinkedIn OAuth2 → import automatique du nom, photo, poste, parcours, compétences.
 
-Next.js + TypeScript + Tailwind + shadcnUI.
+Sélection du rôle dès l’inscription :
 
-Prisma + Neon (PostgreSQL).
+Étudiant / Reconverti / Recruteur / École / Bootcamp / Entreprise.
 
-Upstash Redis (sessions, cache).
+Stockage utilisateur dans Neon (PostgreSQL) avec Prisma ORM.
 
-Sentry (monitoring).
+🛠️ Stack utilisée :
 
-Auth (LinkedIn OAuth via NextAuth/BetterAuth).
-🎯 Cas : un utilisateur peut se connecter en 1 clic et créer un compte.
+NextAuth + LinkedIn Provider pour auth.
 
-Profil utilisateur basique
+Prisma + Neon pour gestion du profil.
 
-Import LinkedIn : nom, photo, expériences, compétences.
+Upstash Redis pour cache sessions.
 
-Stockage en DB.
+2. 🧠 Système d’entretiens IA (le cœur du MVP)
+Types d’entretiens disponibles :
 
-Dashboard → affichage profil minimal.
-🎯 Cas : un étudiant peut voir son profil enrichi.
+QCM → logique et connaissances de base (toutes disciplines).
 
-QCM simple (premier test)
+TECHNICAL → code ou cas technique selon domaine.
 
-Stockage questions/réponses en DB.
+SOFT_SKILLS → analyse émotionnelle et comportementale via Hume AI.
 
-UI QCM avec score auto.
+MOCK_INTERVIEW → simulation vocale/texte complète avec IA.
 
-Enregistrement résultat (QuizResult).
-🎯 Cas : un développeur peut passer un test technique basique.
+Fonctionnement :
 
-Mois 2 : Fonctionnalités IA & enrichissement
+L’utilisateur choisit son métier ou domaine (dev, finance, santé, management…).
 
-CV auto-généré
+L’IA génère automatiquement un test adapté via OpenAI GPT-4-turbo.
 
-OpenAI → classification Hard Skills / Soft Skills.
+Les réponses sont analysées :
 
-Génération PDF via Inngest.
+QCM → auto-correction instantanée.
 
-Section « CV » dans le dashboard.
-🎯 Cas : un candidat obtient un CV optimisé à partir de LinkedIn.
+SOFT_SKILLS → ton émotionnel, vocabulaire, confiance.
 
-Badges & progression
+MOCK_INTERVIEW → via speech-to-text et scoring IA.
 
-Ajout modèle Badge + ProgressTracking.
+Résultats stockés + badge débloqué.
 
-Attribution automatique après tests réussis.
+Exemple :
 
-Progression affichée dans dashboard.
-🎯 Cas : un étudiant voit ses progrès gamifiés.
+👨‍💻 Développeur → QCM JavaScript + correction code + simulation RH IA.
+👩‍⚕️ Santé → scénario empathie patient + soft skill + gestion stress.
+👨‍💼 Manager → mock interview sur leadership + résolution de conflit.
 
-Mock Interview IA (v1)
+🛠️ Stack utilisée :
 
-Chat IA simulant un entretien.
+OpenAI API (questions, corrections, génération feedback).
 
-OpenAI → génération questions + analyse réponses.
+Hume AI (analyse émotionnelle dans mock interview).
 
-Stockage des retours en DB.
-🎯 Cas : un commercial s’entraîne à gérer une objection client.
+Upstash Workflow → orchestration des interviews et scoring.
 
-Portfolio dynamique
+Inngest → génération PDF des rapports d’entretien.
 
-Import projets LinkedIn.
+Redis → stockage temporaire des conversations IA.
 
-Génération mini-site portfolio (hébergé sur Vercel → SSG).
+3. 📇 CV & Portfolio IA
 
-Export PDF.
-🎯 Cas : un ingénieur affiche ses projets en ligne.
+Transformation automatique du profil LinkedIn en CV optimisé IA.
 
-Mois 3 : Cibles B2B & Matching
+Portfolio web généré dynamiquement (hébergé automatiquement sur Vercel).
 
-Matching IA basique
+Export PDF (via Inngest).
 
-Générer embeddings candidats & offres via OpenAI.
+Possibilité de partager un lien public “portfolio.turboIntMax.ai/[username]”.
 
-Stockage dans Upstash Vector.
+🛠️ Stack utilisée :
 
-Matching → suggestions d’opportunités (Redis cache).
-🎯 Cas : une entreprise voit 5 candidats pertinents pour son offre.
+Next.js SSG pour génération portfolio statique.
 
-Dashboard Écoles / Bootcamps (lite)
+Inngest pour générer et envoyer CV PDF.
 
-Vue liste étudiants.
+AWS S3 pour stockage des images/media.
 
-Progression, badges, CV.
+Neon pour stocker métadonnées du portfolio.
 
-Statistiques insertion (connecté LinkedIn).
-🎯 Cas : un bootcamp suit la progression d’une promo.
+4. 💼 Matching intelligent IA
 
-Dashboard Entreprises / Recruteurs (lite)
+Algorithme de mise en relation candidats ↔ entreprises ↔ écoles.
 
-Liste candidats filtrables.
+Fonctionne via embeddings vectoriels :
 
-Accès CV + portfolio.
+Les profils (LinkedIn + résultats tests) sont vectorisés.
 
-Matching intégré.
-🎯 Cas : un recruteur trouve un profil junior qualifié.
+Les offres ou besoins d’entreprises aussi.
 
-Paiements & abonnements
+Upstash Vector fait le matching sémantique rapide.
 
-Stripe pour gestion paiements.
+Les entreprises voient les profils recommandés avec un score de pertinence.
 
-Plans : Gratuit, Pro, Expert, École, Entreprise.
-🎯 Cas : une école s’abonne pour 100 étudiants.
+Les candidats reçoivent les opportunités les plus proches de leurs forces.
 
-⚙️ Stack technique et détails
+🛠️ Stack utilisée :
 
-Frontend : Next.js 13 App Router + Tailwind CSS + shadcnUI.
+OpenAI Embeddings API → encodage vectoriel des profils.
 
-Backend API : API Routes Next.js (peut évoluer en microservices).
+Upstash Vector → recherche de similarité.
 
-DB : Neon (PostgreSQL) + Prisma ORM.
+Redis Streams → synchronisation temps réel du matching.
 
-Temps réel : Upstash Redis (sessions interview, matching live).
+Next.js Server Actions → matching instantané sur demande.
 
-IA : OpenAI (analyse tests, génération CV), HumeAI (émotions mock interviews).
+5. 🏫 Dashboards différenciés par rôle
+Étudiant / Reconverti :
 
-Queue/Jobs : Upstash QStash (emails, batch CV, CRON mensuels).
+Vue progression (badges, tests, niveau IA).
 
-Matching IA : Upstash Vector (embeddings pour candidats ↔ offres).
+Historique des entretiens.
 
-Workflow orchestration : Inngest (entretiens multi-étapes, onboarding).
+Statut du matching (opportunités disponibles).
 
-Monitoring : Sentry.
+Recommandations IA personnalisées.
 
-Déploiement : Vercel (app + portfolios dynamiques).
+École / Bootcamp :
 
-Media : AWS S3 (images, vidéos, audio).
+Vue globale des étudiants.
 
-📈 Scales futures (6-24 mois)
+Stats insertion + progression.
 
-Amélioration IA
+Génération de rapports mensuels (via Inngest).
 
-Mock Interviews voix + émotion (HumeAI deep integration).
+Invitation automatique d’étudiants.
 
-Correction code live (Judge0 API).
+Entreprise / Recruteur :
 
-Marketplace intégrée
+Liste de candidats filtrés.
 
-Relier recruteurs ↔ candidats avec commissions.
+Matching intelligent avec filtres métiers/diplômes.
 
-Matching avancé : soft skills + personnalité.
+Simulation IA intégrée pour présélectionner.
 
-Microtransactions
+Export rapport de recrutement.
 
-Achat de CV premium, audits de code, portfolios brandés.
+🛠️ Stack utilisée :
 
-API B2B
+Next.js Route Groups pour séparer les dashboards.
 
-API pour écoles (intégrer PrepwiseAI dans leurs LMS).
+Upstash Redis pour cache global des analytics.
 
-API entreprises (recrutement en marque blanche).
+Prisma pour relations (User, ProgressTracking, InterviewResult, Recommendation).
 
-Internationalisation
+6. 🔔 Automatisation & Sécurité
 
-Extension vers Afrique francophone (Sénégal, Côte d’Ivoire).
+Emails automatiques (onboarding, résultats, rappels) via QStash + Upstash Workflow.
 
-Traduction multi-langue (anglais/français).
+Rate limiting / anti-abus via Redis.
 
-Multi-domaines
+Sentry pour surveillance d’erreurs.
 
-Étendre au-delà dev : finance, santé, ingénierie, management.
+JWT + NextAuth pour sécurité auth & session.
 
-IA personnalisée
-
-Coach personnel par utilisateur (fine-tuning embeddings).
+RGPD-like compliance (opt-out IA, suppression compte).

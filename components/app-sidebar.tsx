@@ -64,7 +64,8 @@ import {
   Rocket,
   Heart,
   GitBranch,
-  Brain
+  Brain,
+  BrainCircuit
 } from 'lucide-react'
 import { toast } from "sonner"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
@@ -180,25 +181,25 @@ function InterviewSidebarContent() {
       },
       {
         id: "matching",
-        title: "Matching emploi",
+        title: "Portail d'emploi",
         description: "Offres correspondant à votre profil",
         icon: Network,
         color: "text-indigo-600 dark:text-indigo-400",
         bgColor: "bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700",
-        action: () => router.push("/matching"),
+        action: () => router.push("/jobs"),
         badge: "Nouvelles offres",
-        path: "/matching"
+        path: "/jobs"
       },   
       {
         id: "interviews",
         title: "Interviews",
         description: "Simulations pour vos futurs entretiens",
-        icon: Mic,
+        icon: BrainCircuit,
         color: "text-purple-600 dark:text-purple-400",
         bgColor: "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
         action: () => router.push("/interviews"),
         badge: "IA",
-        isNew: true,
+        //isNew: true,
         path: "/interviews"
       },
       {

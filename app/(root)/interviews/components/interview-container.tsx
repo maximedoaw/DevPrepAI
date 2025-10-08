@@ -8,9 +8,11 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { getInterviewById, quizSaveAnswer } from "@/actions/interview.action"
+import { validateInterviewAnswers, calculateTotalScore } from "@/lib/interview-validation"
+import { formatTimeDetailed } from "@/lib/time-utils"
 import { InterviewContent } from "./interview-content"
 import DevLoader from "@/components/dev-loader"
-import AIVocalInterview from "@/components/interviews/ai-vocal-interview"
+import VocalInterview from "@/components/interviews/vocal-interview"
 
 interface Question {
   id: string
@@ -32,6 +34,8 @@ interface Interview {
   type: string
   questions: Question[]
   totalPoints: number
+  description?: string
+  technology?: string[]
 }
 
 interface InterviewContainerProps {
@@ -132,9 +136,7 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
   }, [isRunning, timeLeft])
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+    return formatTimeDetailed(seconds)
   }
 
   const handleAnswerChange = (questionId: string, answer: any) => {
@@ -177,22 +179,13 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
   const calculateScore = () => {
     if (!interview) return 0
 
-    let totalPoints = 0
-    let earnedPoints = 0
-
-    interview.questions.forEach((question: Question) => {
-      totalPoints += question.points
-      if (question.type === "multiple-choice" && answers[question.id] === question.correctAnswer) {
-        earnedPoints += question.points
-      } else if (question.type === "open-ended" && answers[question.id]?.trim()) {
-        earnedPoints += question.points * 0.8
-      } else if (question.type === "coding" && answers[question.id]?.trim()) {
-        earnedPoints += question.points * 0.7
-      }
-    })
-
-    return Math.round((earnedPoints / totalPoints) * 100)
+    // Utiliser la nouvelle fonction de validation
+    const validations = validateInterviewAnswers(interview.questions, answers)
+    const scoreResult = calculateTotalScore(validations)
+    
+    return scoreResult.percentage
   }
+
 
   // Loading state
   if (isLoading) {
@@ -207,7 +200,7 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold mb-2">Interview non trouvée</h2>
           <p className="text-gray-600 mb-4">L'interview avec l'ID "{interviewId}" n'existe pas.</p>
-          <Button onClick={() => router.push("/")}>Retour à l'accueil</Button>
+          <Button onClick={() => router.push("/interviews")}>Retour aux interviews</Button>
         </Card>
       </div>
     )
@@ -221,7 +214,7 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold mb-2">Aucune question trouvée</h2>
           <p className="text-gray-600 mb-4">Cette interview ne contient aucune question valide.</p>
-          <Button onClick={() => router.push("/")}>Retour à l'accueil</Button>
+          <Button onClick={() => router.push("/interviews")}>Retour aux interviews</Button>
         </Card>
       </div>
     )
@@ -229,12 +222,39 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
 
   // Affichage spécifique pour MOCK_INTERVIEW (vocal)
   if (interview.type === "MOCK_INTERVIEW") {
-    return <AIVocalInterview />
+    return (
+      <VocalInterview 
+        interviewData={{
+          id: interview.id,
+          title: interview.title,
+          company: interview.company,
+          domain: interview.technology?.[0] || "DEVELOPMENT",
+          technologies: interview.technology || [],
+          description: interview.description || "",
+          duration: interview.duration,
+          difficulty: interview.difficulty
+        }}
+        onComplete={(score, answers) => {
+          // Sauvegarder les résultats de l'interview vocal
+          const payload = {
+            quizId: interview.id,
+            answers: answers,
+            timeSpent: Math.max(0, (interview.duration || 0) - (timeLeft || 0)),
+            score: score,
+          }
+          saveQuiz(payload)
+        }}
+      />
+    )
   }
 
   return (
     <InterviewContent
-      interview={interview}
+      interview={{
+        ...interview,
+        description: interview.description || undefined,
+        technology: interview.technology || []
+      }}
       currentQuestionIndex={currentQuestionIndex}
       answers={answers}
       timeLeft={timeLeft}

@@ -1,9 +1,10 @@
+import { VocalInterview } from "@/components/interviews/vocal-interview"
+import ProtectedPage from "@/components/protected-routes"
 
-import AIVocalInterview from '@/components/interviews/ai-vocal-interview'
-import React from 'react'
-
-const MockInterviewPage = () => {
-  return <AIVocalInterview/>
+export default function VocalInterviewPage() {
+  return (
+    <ProtectedPage>
+      <VocalInterview showConfig={true} />
+    </ProtectedPage>
+  )
 }
-
-export default MockInterviewPage

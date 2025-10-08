@@ -2,7 +2,7 @@
 "use client";
 
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
-import InterviewSidebar from "@/components/interview-sidebar";
+import InterviewSidebar from "@/components/app-sidebar";
 import AuthScreen from "@/components/auth/auth-screen";
 import DevLoader from "@/components/dev-loader";
 import SubscribeDialog from "@/components/subscribe-dialog";

@@ -6,34 +6,9 @@ import { nanoid } from "nanoid"
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { GoogleGenAI } from "@google/genai"
 import { getAllQuizzes as getAllPractiseQuizzes } from "@/constants/practise"
+import { Domain } from "@prisma/client";
 
 
-export async function interviewSave() {
-  try {
-    for (const interview of MOCK_INTERVIEWS) {
-      await prisma.quiz.create({
-        data: {
-          id: nanoid(),
-          title: interview.title,
-          description: interview.description,
-          // On suppose que interview.type est de type string, il faut le caster ou le valider comme 'QuizType'
-          type: interview.type as any, // Remplacez 'any' par 'QuizType' si possible
-          // On doit sérialiser les questions en JSON pour correspondre à InputJsonValue
-          questions: JSON.parse(JSON.stringify(interview.questions)),
-          company: interview.company,
-          technology: interview.technology || [],
-          difficulty: interview.difficulty,
-          duration: interview.duration,
-          totalPoints: interview.totalPoints,
-        },
-      })
-    }
-    return { success: true }
-  } catch (error) {
-    console.error("Error saving interviews:", error)
-    return { success: false, error }
-  }
-}
 
 export async function getInterviews() {
   try {
@@ -438,31 +413,6 @@ function calculateStreak(quizResults: any[]) {
   return streak
 }
 
-export async function seedMockInterviews(interviews: any[]) {
-  try {
-    if (!Array.isArray(interviews)) {
-      return { success: false, error: "Aucun tableau d'interviews fourni" }
-    }
-    for (const interview of interviews) {
-      await prisma.quiz.create({
-        data: {
-          title: interview.title,
-          description: interview.description,
-          type: interview.type.toUpperCase(),
-          questions: JSON.parse(JSON.stringify(interview.questions)),
-          company: interview.company,
-          technology: interview.technology || [],
-          difficulty: interview.difficulty.toUpperCase(),
-          duration: interview.duration,
-          totalPoints: interview.totalPoints,
-        },
-      })
-    }
-    return { success: true }
-  } catch (e: any) {
-    return { success: false, error: e.message || "Erreur serveur" }
-  }
-}
 
 export async function seedPractiseFromConstants() {
   try {
@@ -477,6 +427,7 @@ export async function seedPractiseFromConstants() {
           title: quiz.title,
           description: quiz.description,
           type: quiz.type,
+          domain: quiz.domain as Domain,
           questions: JSON.parse(JSON.stringify(quiz.questions)),
           company: quiz.company,
           technology: quiz.technology || [],

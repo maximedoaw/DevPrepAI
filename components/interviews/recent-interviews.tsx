@@ -12,15 +12,15 @@ import { Button } from "../ui/button"
 // Composant Skeleton pour simuler le chargement
 function RecentInterviewsSkeleton() {
   return (
-    <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-      <CardHeader>
+    <Card className="border-0 shadow-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
+      <CardHeader className="border-b border-pink-200/50 dark:border-slate-700/50 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-slate-700/50 dark:to-slate-600/50">
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-gradient-to-r from-pink-500 to-rose-500 rounded-lg">
+          <div className="p-2 bg-gradient-to-r from-pink-500 to-rose-500 rounded-lg shadow-lg">
             <Calendar className="h-5 w-5 text-white" />
           </div>
           <div>
-            <CardTitle className="text-xl">Récents</CardTitle>
-            <CardDescription>Vos dernières interviews</CardDescription>
+            <CardTitle className="text-xl text-gray-900 dark:text-white">Récents</CardTitle>
+            <CardDescription className="text-gray-600 dark:text-gray-400">Vos dernières interviews</CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -29,7 +29,7 @@ function RecentInterviewsSkeleton() {
           {[...Array(5)].map((_, index) => (
             <div
               key={index}
-              className="flex items-center justify-between p-3 rounded-lg bg-gray-50"
+              className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-slate-700/50 border border-gray-200/50 dark:border-slate-600/50"
             >
               <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-3/4" />
@@ -63,7 +63,7 @@ export function RecentInterviews() {
   if (error) {
     return (
       <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-        <CardContent className="p-6 text-center text-red-500">
+        <CardContent className="p-6 text-center text-red-500 dark:text-red-400">
           Une erreur est survenue lors du chargement des interviews
         </CardContent>
       </Card>
@@ -75,23 +75,23 @@ export function RecentInterviews() {
   const hasMore = visibleCount < interviews.length
 
   return (
-    <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-      <CardHeader>
+    <Card className="border-0 shadow-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
+      <CardHeader className="border-b border-pink-200/50 dark:border-slate-700/50 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-slate-700/50 dark:to-slate-600/50">
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-gradient-to-r from-pink-500 to-rose-500 rounded-lg">
+          <div className="p-2 bg-gradient-to-r from-pink-500 to-rose-500 rounded-lg shadow-lg">
             <Calendar className="h-5 w-5 text-white" />
           </div>
           <div>
-            <CardTitle className="text-xl">Récents</CardTitle>
-            <CardDescription>Vos dernières interviews</CardDescription>
+            <CardTitle className="text-xl text-gray-900 dark:text-white">Récents</CardTitle>
+            <CardDescription className="text-gray-600 dark:text-gray-400">Vos dernières interviews</CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {interviews.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
               <p>Aucune interview récente</p>
               <p className="text-sm">Commencez votre première interview !</p>
             </div>
@@ -100,11 +100,11 @@ export function RecentInterviews() {
               {visibleInterviews.map((interview) => (
                 <div
                   key={interview.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                  className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-slate-700/50 hover:bg-gray-100 dark:hover:bg-slate-600/50 transition-all duration-200 border border-gray-200/50 dark:border-slate-600/50 hover:border-pink-300/50 dark:hover:border-slate-500/50 shadow-sm hover:shadow-md"
                 >
                   <div className="flex-1">
-                    <h4 className="font-medium text-sm">{interview.title}</h4>
-                    <p className="text-xs text-gray-600">
+                    <h4 className="font-medium text-sm text-gray-900 dark:text-white">{interview.title}</h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
                       {interview.type} • {interview.date}
                     </p>
                   </div>
@@ -112,11 +112,11 @@ export function RecentInterviews() {
                     <Badge
                       className={`${
                         interview.score >= 80
-                          ? "bg-green-100 text-green-700"
+                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700"
                           : interview.score >= 60
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-red-100 text-red-700"
-                      }`}
+                            ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-700"
+                            : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-700"
+                      } shadow-sm`}
                     >
                       {interview.score}%
                     </Badge>
@@ -127,8 +127,8 @@ export function RecentInterviews() {
               {hasMore && (
                 <div className="flex justify-center mt-4">
                   <Button
-                    className="w-full rounded-full text-blue-500 bg-blue-200 font-bold cursor-pointer
-                     hover:text-blue-600 hover:bg-blue-300 hover:brightness-100 transition-colors text-sm"
+                    className="w-full rounded-full text-blue-500 dark:text-blue-400 bg-blue-200 dark:bg-slate-700 font-bold cursor-pointer
+                     hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-300 dark:hover:bg-slate-600 hover:brightness-100 transition-all duration-200 text-sm border-blue-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-slate-500 shadow-sm hover:shadow-md"
                     onClick={() => setVisibleCount((c) => c + 5)}
                     variant={"outline"}
                   >

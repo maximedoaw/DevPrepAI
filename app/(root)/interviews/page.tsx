@@ -561,21 +561,6 @@ export default function InterviewsHubPage() {
                         </CardHeader>
 
                         <CardContent className="space-y-3">
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-slate-600 dark:text-slate-400 font-medium">
-                                Progression
-                              </span>
-                              <span className="font-bold text-slate-900 dark:text-white">
-                                {recommendation.progress}%
-                              </span>
-                            </div>
-                            <Progress
-                              value={recommendation.progress}
-                              className="h-2 shadow-inner"
-                            />
-                          </div>
-
                           <div className="grid grid-cols-2 gap-2">
                             <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50">
                               <div className="text-base font-bold text-slate-900 dark:text-white">

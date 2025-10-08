@@ -103,22 +103,22 @@ export function InterviewModal({ interview, onClose }: InterviewModalProps) {
     const score = calculateScore()
     return (
       <Dialog open={true} onOpenChange={onClose}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Interview Terminée !</DialogTitle>
-            <DialogDescription>Voici vos résultats pour "{interview.title}"</DialogDescription>
+        <DialogContent className="max-w-2xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50">
+          <DialogHeader className="border-b border-slate-200/50 dark:border-slate-700/50 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-slate-700/50 dark:to-slate-600/50 -m-6 mb-6 p-6 rounded-t-lg">
+            <DialogTitle className="text-gray-900 dark:text-white">Interview Terminée !</DialogTitle>
+            <DialogDescription className="text-gray-600 dark:text-gray-400">Voici vos résultats pour "{interview.title}"</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-center">Votre Score</CardTitle>
+            <Card className="border-0 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-700/50 dark:to-slate-600/50 shadow-lg">
+              <CardHeader className="border-b border-blue-200/50 dark:border-slate-600/50">
+                <CardTitle className="text-center text-gray-900 dark:text-white">Votre Score</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="bg-white/50 dark:bg-slate-800/50">
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-blue-600 mb-2">{score}%</div>
+                  <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">{score}%</div>
                   <Progress value={score} className="h-3 mb-4" />
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 dark:text-gray-400">
                     {score >= 80
                       ? "Excellent travail !"
                       : score >= 60
@@ -130,8 +130,8 @@ export function InterviewModal({ interview, onClose }: InterviewModalProps) {
             </Card>
 
             <div className="flex justify-center gap-4">
-              <Button onClick={onClose}>Fermer</Button>
-              <Button variant="outline" onClick={() => window.location.reload()}>
+              <Button onClick={onClose} className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg">Fermer</Button>
+              <Button variant="outline" onClick={() => window.location.reload()} className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm">
                 Refaire l'Interview
               </Button>
             </div>
@@ -143,25 +143,25 @@ export function InterviewModal({ interview, onClose }: InterviewModalProps) {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50">
+        <DialogHeader className="border-b border-slate-200/50 dark:border-slate-700/50 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-700/50 dark:to-slate-600/50 -m-6 mb-6 p-6 rounded-t-lg">
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle>{interview.title}</DialogTitle>
-              <DialogDescription className="flex items-center gap-2 mt-1">
+              <DialogTitle className="text-gray-900 dark:text-white">{interview.title}</DialogTitle>
+              <DialogDescription className="flex items-center gap-2 mt-1 text-gray-600 dark:text-gray-400">
                 {interview.company} •
-                <Badge className={DIFFICULTY_COLORS[interview.difficulty]}>{interview.difficulty}</Badge>
+                <Badge className={`${DIFFICULTY_COLORS[interview.difficulty.toLowerCase()]} shadow-sm`}>{interview.difficulty}</Badge>
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              <span className={`font-mono ${timeLeft < 300 ? "text-red-600" : ""}`}>{formatTime(timeLeft)}</span>
+              <Clock className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+              <span className={`font-mono ${timeLeft < 300 ? "text-red-600 dark:text-red-400" : "text-gray-700 dark:text-gray-300"}`}>{formatTime(timeLeft)}</span>
               {!isRunning ? (
-                <Button size="sm" onClick={handleStartTimer} disabled={timeLeft === 0}>
+                <Button size="sm" onClick={handleStartTimer} disabled={timeLeft === 0} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg">
                   <Play className="h-4 w-4" />
                 </Button>
               ) : (
-                <Button size="sm" variant="outline" onClick={handlePauseTimer}>
+                <Button size="sm" variant="outline" onClick={handlePauseTimer} className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm">
                   <Pause className="h-4 w-4" />
                 </Button>
               )}
@@ -171,22 +171,22 @@ export function InterviewModal({ interview, onClose }: InterviewModalProps) {
 
         <div className="space-y-6">
           {/* Progress */}
-          <div>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-700/50 dark:to-slate-600/50 rounded-xl p-4 border border-blue-200/50 dark:border-slate-600/50">
             <div className="flex justify-between text-sm mb-2">
-              <span>
+              <span className="text-gray-700 dark:text-gray-300 font-medium">
                 Question {currentQuestionIndex + 1} sur {interview.questions.length}
               </span>
-              <span>{Math.round(progress)}% complété</span>
+              <span className="text-blue-600 dark:text-blue-400 font-medium">{Math.round(progress)}% complété</span>
             </div>
-            <Progress value={progress} className="h-2" />
+            <Progress value={progress} className="h-3 shadow-sm" />
           </div>
 
           {/* Question */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">{currentQuestion.question}</CardTitle>
+          <Card className="border-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-xl">
+            <CardHeader className="border-b border-slate-200/50 dark:border-slate-700/50 bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-700/50 dark:to-slate-600/50">
+              <CardTitle className="text-lg text-gray-900 dark:text-white">{currentQuestion.question}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="bg-white/50 dark:bg-slate-800/50">
               <QuestionRenderer
                 question={currentQuestion}
                 answer={answers[currentQuestion.id]}
@@ -196,11 +196,11 @@ export function InterviewModal({ interview, onClose }: InterviewModalProps) {
           </Card>
 
           {/* Navigation */}
-          <div className="flex justify-between">
-            <Button variant="outline" onClick={handlePreviousQuestion} disabled={currentQuestionIndex === 0}>
+          <div className="flex justify-between gap-4">
+            <Button variant="outline" onClick={handlePreviousQuestion} disabled={currentQuestionIndex === 0} className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm disabled:opacity-50">
               Précédent
             </Button>
-            <Button onClick={handleNextQuestion}>
+            <Button onClick={handleNextQuestion} className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg">
               {currentQuestionIndex === interview.questions.length - 1 ? "Terminer" : "Suivant"}
             </Button>
           </div>
@@ -237,8 +237,8 @@ function QuestionRenderer({ question, answer, onAnswerChange }: QuestionRenderer
         <div className="space-y-4">
           <CodeEditor value={answer || question.codeTemplate || ""} onChange={onAnswerChange} language="javascript" />
           {question.expectedOutput && (
-            <div className="text-sm text-gray-600">
-              <strong>Sortie attendue :</strong> {question.expectedOutput}
+            <div className="text-sm text-gray-600 dark:text-gray-400 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-700/50 dark:to-slate-600/50 rounded-lg p-3 border border-blue-200/50 dark:border-slate-600/50">
+              <strong className="text-gray-900 dark:text-white">Sortie attendue :</strong> {question.expectedOutput}
             </div>
           )}
         </div>

@@ -21,6 +21,22 @@ enum SubscriptionTier {
   EXPERT
 }
 
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  MISSION
+  CDI
+  STAGE
+}
+
+enum WorkMode {
+  REMOTE
+  ON_SITE
+  HYBRID 
+}
+
 enum Role {
   ENTERPRISE
   BOOTCAMP
@@ -89,20 +105,54 @@ model User {
   interviewRooms     InterviewRoom[]
   voiceInterviews    VoiceInterview[]
   recommendations    Recommendation[]
+  applications       Application[]
 
   @@index([createdAt])
   @@index([role])
   @@map("users")
 }
 
+model JobPosting {
+  id          String   @id @default(cuid())
+  companyName   String
+  title       String
+  description String
+  location    String?
+  domains     Domain[] 
+  skills      String[] 
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isActive    Boolean  @default(true)
+  metadata    Json?
+  applications Application[]
+  @@map("job_postings")
+}
+
+model Application {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  jobId       String
+  job         JobPosting @relation(fields: [jobId], references: [id])
+  coverLetter String?
+  portfolioUrl String?
+  resumeUrl   String?
+  status      String   // "applied","prescreen","interview","rejected","hired"
+  score       Int?     // aggregated score from pre-screens
+  reportUrl   String?  // PDF report
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@map("applications")
+}
+
 model Subscription {
-  id               String          @id @default(cuid())
-  userId           String          @unique
-  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String           @id @default(cuid())
+  userId           String           @unique
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   tier             SubscriptionTier @default(FREE)
-  startDate        DateTime        @default(now())
+  startDate        DateTime         @default(now())
   endDate          DateTime?
-  isActive         Boolean         @default(true)
+  isActive         Boolean          @default(true)
   stripeCustomerId String?
   stripeSubscriptionId String?
   features         Json?
@@ -116,7 +166,9 @@ model Quiz {
   id          String     @id @default(cuid())
   title       String
   description String?
+  image       String?
   type        QuizType
+  domain      Domain
   questions   Json
   difficulty  Difficulty @default(JUNIOR)
   createdAt   DateTime   @default(now())
@@ -248,3 +300,5 @@ model VoiceInterview {
   @@index([status])
   @@map("voice_interviews")
 }
+
+
