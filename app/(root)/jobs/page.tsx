@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { JobPosting, JobFilters as JobFiltersType } from "@/types/job";
-import { mockJobs } from "@/data/mockJobs";
+import { useJobQueries } from "@/hooks/use-job-queries";
 import { JobCard } from "@/components/jobs/job-card";
 import { JobDetails } from "@/components/jobs/job-details";
 import { JobFilters } from "@/components/jobs/job-filters";
 import { Pagination } from "@/components/jobs/pagination";
-import { Briefcase, Search } from "lucide-react";
+import { Briefcase, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ApplyDialog } from "@/components/jobs/apply-dialog";
+import { JobCardSkeleton } from "@/components/jobs/job-card-skeleton";
+import { cn } from "@/lib/utils";
 
 const JOBS_PER_PAGE = 6;
 
@@ -19,24 +21,39 @@ const JobsPage = () => {
   const [applyingJob, setApplyingJob] = useState<JobPosting | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Récupération des données depuis la base de données
+  const { 
+    jobs, 
+    jobFilters, 
+    loadingJobs, 
+    loadingFilters 
+  } = useJobQueries(filters);
+
   const filteredJobs = useMemo(() => {
-    return mockJobs.filter((job) => {
+    if (!jobs) return [];
+
+    return jobs.filter((job : JobPosting) => {
+      // Filtre par domaines
       if (filters.domains?.length && !filters.domains.some(d => job.domains.includes(d))) {
         return false;
       }
       
+      // Filtre par localisation
       if (filters.location && !job.location?.toLowerCase().includes(filters.location.toLowerCase())) {
         return false;
       }
 
-      if (filters.jobTypes?.length && job.type && !filters.jobTypes.includes(job.type)) {
+      // Filtre par types de job
+      if (filters.jobTypes?.length && job.type && !filters.jobTypes.includes(job.type as any)) {
         return false;
       }
 
-      if (filters.workModes?.length && job.workMode && !filters.workModes.includes(job.workMode)) {
+      // Filtre par modes de travail
+      if (filters.workModes?.length && job.workMode && !filters.workModes.includes(job.workMode as any)) {
         return false;
       }
       
+      // Filtre par recherche
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         return (
@@ -48,8 +65,8 @@ const JobsPage = () => {
       }
       
       return true;
-    }).sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
-  }, [filters]);
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [jobs, filters]);
 
   const totalPages = Math.ceil(filteredJobs.length / JOBS_PER_PAGE);
   const paginatedJobs = filteredJobs.slice(
@@ -59,39 +76,68 @@ const JobsPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100">
-      <div className="container mx-auto px-4 py-8">
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="flex items-center gap-4 max-w-3xl mx-auto">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                placeholder="Chercher un job"
-                value={filters.search || ""}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                className="pl-10 h-12 text-base"
-              />
+      {/* Header non-sticky avec structure améliorée */}
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+        <div className="container mx-auto px-4 py-6">
+          {/* Section recherche et statistiques */}
+          <div className="flex flex-col gap-6">
+            {/* Barre de recherche - pleine largeur */}
+            <div className="w-full">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  placeholder="Chercher un job par titre, compétence ou entreprise..."
+                  value={filters.search || ""}
+                  onChange={(e) => {
+                    setFilters({ ...filters, search: e.target.value });
+                    setCurrentPage(1);
+                  }}
+                  className="pl-10 h-12 text-base bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 w-full"
+                />
+              </div>
+            </div>
+
+            {/* Ligne avec statistiques et filtre mobile */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              {/* Statistiques */}
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" />
+                  <span>{filteredJobs.length} offres</span>
+                </div>
+              </div>
+
+              {/* Filtre mobile - bouton seulement */}
+              <div className="lg:hidden">
+                <JobFilters 
+                  filters={filters} 
+                  onFiltersChange={(newFilters) => {
+                    setFilters(newFilters);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
             </div>
           </div>
-          <div className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground">
-            <Briefcase className="h-4 w-4" />
-            <span>{filteredJobs.length} offres disponibles</span>
-          </div>
         </div>
+      </div>
 
-        {/* Filters - Mobile First */}
-        <div className="mb-6 lg:hidden">
-          <JobFilters filters={filters} onFiltersChange={setFilters} />
-        </div>
-
+      <div className="container mx-auto px-4 py-8">
         {/* Main Content */}
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Jobs List */}
           <div className="lg:col-span-3 space-y-6">
-            {paginatedJobs.length > 0 ? (
+            {loadingJobs ? (
+              // Skeleton loaders
+              <div className="space-y-4">
+                {Array.from({ length: JOBS_PER_PAGE }).map((_, index) => (
+                  <JobCardSkeleton key={index} />
+                ))}
+              </div>
+            ) : paginatedJobs.length > 0 ? (
               <>
                 <div className="space-y-4">
-                  {paginatedJobs.map((job) => (
+                  {paginatedJobs.map((job: any) => (
                     <JobCard
                       key={job.id}
                       job={job}
@@ -116,7 +162,10 @@ const JobsPage = () => {
                 <Briefcase className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">Aucune offre trouvée</h3>
                 <p className="text-muted-foreground">
-                  Essayez d'ajuster vos filtres pour voir plus de résultats
+                  {jobs.length === 0 
+                    ? "Aucun job n'a été trouvé dans la base de données. Essayez de peupler la base avec des données de démonstration."
+                    : "Essayez d'ajuster vos filtres pour voir plus de résultats"
+                  }
                 </p>
               </div>
             )}
@@ -125,7 +174,13 @@ const JobsPage = () => {
           {/* Filters Sidebar - Desktop Only */}
           <div className="hidden lg:block lg:col-span-1">
             <div className="sticky top-8">
-              <JobFilters filters={filters} onFiltersChange={setFilters} />
+              <JobFilters 
+                filters={filters} 
+                onFiltersChange={(newFilters) => {
+                  setFilters(newFilters);
+                  setCurrentPage(1);
+                }}
+              />
             </div>
           </div>
         </div>

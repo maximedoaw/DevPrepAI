@@ -1,4 +1,7 @@
+import { Difficulty } from "@prisma/client";
+
 export enum Domain {
+  MACHINE_LEARNING = "MACHINE_LEARNING",
   DEVELOPMENT = "DEVELOPMENT",
   DATA_SCIENCE = "DATA_SCIENCE",
   FINANCE = "FINANCE",
@@ -36,6 +39,7 @@ export enum WorkMode {
 
 export interface JobPosting {
   id: string;
+  applications?: Application[];
   companyId: string;
   companyName: string;
   companyLogo?: string;
@@ -46,6 +50,10 @@ export interface JobPosting {
   skills: string[];
   createdAt: Date;
   updatedAt: Date;
+  salaryMin?: number;
+  salaryMax?: number;
+  currency?: string;
+  experienceLevel?: Difficulty; // Corrigé : utilisation de l'enum Difficulty
   isActive: boolean;
   metadata?: Record<string, any>;
   matchScore?: number;
@@ -74,4 +82,5 @@ export interface JobFilters {
   search?: string;
   jobTypes?: JobType[];
   workModes?: WorkMode[];
+  experienceLevels?: Difficulty[]; // Ajouté pour la cohérence
 }

@@ -1,160 +1,165 @@
-🧩 Fonctionnalités principales du MVP
-1. 🔐 Authentification & Profil
+🚀 MVP TurboIntMax – 3 mois (version détaillée et interactive)
+🎯 Objectif général du MVP
 
-Connexion LinkedIn OAuth2 → import automatique du nom, photo, poste, parcours, compétences.
+Créer une plateforme de préparation aux entretiens techniques et de mise en relation intelligente entre talents et recruteurs, intégrant des simulations IA, des dashboards par rôle, et un matching automatique.
 
-Sélection du rôle dès l’inscription :
+🧩 1. Les rôles utilisateurs et leurs actions clés
+👩‍💻 1. Étudiant / Apprenant
 
-Étudiant / Reconverti / Recruteur / École / Bootcamp / Entreprise.
+Crée un compte via LinkedIn (NextAuth + OAuth).
 
-Stockage utilisateur dans Neon (PostgreSQL) avec Prisma ORM.
+Importe ses données (éducation, expériences, compétences) depuis LinkedIn.
 
-🛠️ Stack utilisée :
+Passe des tests IA :
 
-NextAuth + LinkedIn Provider pour auth.
+QCM (logique, culture tech…)
 
-Prisma + Neon pour gestion du profil.
+Tests techniques interactifs (Gemini API)
 
-Upstash Redis pour cache sessions.
+Soft Skills (Hume AI : analyse vocale et émotionnelle)
 
-2. 🧠 Système d’entretiens IA (le cœur du MVP)
-Types d’entretiens disponibles :
+Mock Interviews (simulation avec IA)
 
-QCM → logique et connaissances de base (toutes disciplines).
+Reçoit des badges de compétences et un score global.
 
-TECHNICAL → code ou cas technique selon domaine.
+Génère un portfolio public hébergé automatiquement sur Vercel.
 
-SOFT_SKILLS → analyse émotionnelle et comportementale via Hume AI.
+Consulte son statut de matching avec les entreprises (Redis + OpenAI embeddings).
 
-MOCK_INTERVIEW → simulation vocale/texte complète avec IA.
+Peut postuler à des offres recommandées selon ses résultats.
 
-Fonctionnement :
+🧠 Impact : ses résultats enrichissent le moteur de matching. Les recruteurs voient ses performances, ses soft skills et son portfolio.
 
-L’utilisateur choisit son métier ou domaine (dev, finance, santé, management…).
+🔄 2. Personne en reconversion
 
-L’IA génère automatiquement un test adapté via OpenAI GPT-4-turbo.
+Suit le même parcours que l’étudiant, mais reçoit en plus :
 
-Les réponses sont analysées :
+Des recommandations personnalisées de formation (Gemini API)
 
-QCM → auto-correction instantanée.
+Un bilan de progression après chaque test (Inngest pour automatiser les envois de rapports).
 
-SOFT_SKILLS → ton émotionnel, vocabulaire, confiance.
+Peut comparer son profil actuel à un profil cible dans son nouveau métier.
 
-MOCK_INTERVIEW → via speech-to-text et scoring IA.
+Obtient un plan de montée en compétences IA-guidé.
 
-Résultats stockés + badge débloqué.
+🧠 Impact : améliore les statistiques d’insertion et crée un pipeline de talents qualifiés pour les entreprises.
 
-Exemple :
+🎓 3. École / Bootcamp
 
-👨‍💻 Développeur → QCM JavaScript + correction code + simulation RH IA.
-👩‍⚕️ Santé → scénario empathie patient + soft skill + gestion stress.
-👨‍💼 Manager → mock interview sur leadership + résolution de conflit.
+Crée un compte “organisation”.
 
-🛠️ Stack utilisée :
+Ajoute / gère les étudiants via une interface d’administration.
 
-OpenAI API (questions, corrections, génération feedback).
+Suit en temps réel la progression de chaque étudiant (scores, badges, entretiens passés).
 
-Hume AI (analyse émotionnelle dans mock interview).
+Peut organiser des sessions de tests collectifs.
 
-Upstash Workflow → orchestration des interviews et scoring.
+Exporte les statistiques d’insertion et de performance vers CSV / PDF (Inngest).
 
-Inngest → génération PDF des rapports d’entretien.
+Obtient un tableau de bord analytics : taux de réussite, spécialités fortes, entreprises partenaires.
 
-Redis → stockage temporaire des conversations IA.
+🧠 Impact : les écoles utilisent la plateforme comme outil pédagogique et de placement → favorise les partenariats B2B.
 
-3. 📇 CV & Portfolio IA
+🏢 4. Entreprises / Startups
 
-Transformation automatique du profil LinkedIn en CV optimisé IA.
+Publient des offres d’emploi ciblées (intégration via Prisma + Neon).
 
-Portfolio web généré dynamiquement (hébergé automatiquement sur Vercel).
+Définissent les compétences recherchées (stockées sous forme d’embeddings).
 
-Export PDF (via Inngest).
+Accèdent à un pool de candidats recommandés (via Redis Vector Search).
 
-Possibilité de partager un lien public “portfolio.turboIntMax.ai/[username]”.
+Peuvent lancer des entretiens automatisés IA (Gemini pour les questions, Hume AI pour la détection de ton émotionnel).
 
-🛠️ Stack utilisée :
+Accèdent au profil complet du candidat (CV généré, portfolio, badges, scores).
 
-Next.js SSG pour génération portfolio statique.
+🧠 Impact : recrutement accéléré, moins de biais humains, plus de correspondance technique et culturelle.
 
-Inngest pour générer et envoyer CV PDF.
+🧑‍💼 5. Recruteur / RH
 
-AWS S3 pour stockage des images/media.
+Dispose d’un tableau de bord candidat :
 
-Neon pour stocker métadonnées du portfolio.
+Recherche filtrée (domaine, badges, soft skills, score).
 
-4. 💼 Matching intelligent IA
+Système de messagerie interne (Upstash Redis pub/sub ou Workflows pour notifications).
 
-Algorithme de mise en relation candidats ↔ entreprises ↔ écoles.
+Planification d’entretiens (Google Calendar API + Inngest pour rappel automatique).
 
-Fonctionne via embeddings vectoriels :
+Peut créer un test sur mesure pour un poste (Gemini API).
 
-Les profils (LinkedIn + résultats tests) sont vectorisés.
+Suit le pipeline complet : candidature → entretien → évaluation → embauche.
 
-Les offres ou besoins d’entreprises aussi.
+🧠 Impact : gain de temps massif, meilleure expérience candidat, et historique complet des évaluations.
 
-Upstash Vector fait le matching sémantique rapide.
+⚙️ 2. Workflow technique complet
+🧱 Étape 1 — Setup & Architecture
 
-Les entreprises voient les profils recommandés avec un score de pertinence.
+Next.js + TypeScript → frontend + backend (API Routes).
 
-Les candidats reçoivent les opportunités les plus proches de leurs forces.
+Prisma + Neon → stockage relationnel (users, tests, offres, résultats).
 
-🛠️ Stack utilisée :
+Upstash Redis (cache + vector search) → accélérer le matching et le stockage d’embeddings.
 
-OpenAI Embeddings API → encodage vectoriel des profils.
+NextAuth → auth sécurisée (LinkedIn OAuth2 + JWT).
 
-Upstash Vector → recherche de similarité.
+TailwindCSS + shadcnUI → interface moderne, dark/light mode.
 
-Redis Streams → synchronisation temps réel du matching.
+TanStack Query → gestion des états serveur, cache client, synchronisation.
 
-Next.js Server Actions → matching instantané sur demande.
+Vercel → CI/CD + hébergement SSR/SSG.
 
-5. 🏫 Dashboards différenciés par rôle
-Étudiant / Reconverti :
+Inngest → automatisation des tâches : envoi de mails, rappels, génération PDF.
 
-Vue progression (badges, tests, niveau IA).
+Hume AI → analyse émotionnelle des entretiens oraux.
 
-Historique des entretiens.
+Gemini API → génération de questions, scoring intelligent, feedback personnalisé.
 
-Statut du matching (opportunités disponibles).
+⚙️ Étape 2 — Flux d’interaction entre utilisateurs
+🧍 Étudiant / Reconversion → Système
 
-Recommandations IA personnalisées.
+Auth LinkedIn → import auto des données.
 
-École / Bootcamp :
+Lancement d’un test IA → Gemini génère les questions.
 
-Vue globale des étudiants.
+Réponses stockées dans Neon → scoring instantané (OpenAI/Gemini).
 
-Stats insertion + progression.
+Résultats mis en cache dans Redis → affichage rapide sur dashboard.
 
-Génération de rapports mensuels (via Inngest).
+Portfolio généré + déployé automatiquement (via Vercel API).
 
-Invitation automatique d’étudiants.
+Matching automatique → embeddings candidat ↔ entreprise (Upstash Vector).
 
-Entreprise / Recruteur :
+🏫 École / Bootcamp
 
-Liste de candidats filtrés.
+Admin ajoute étudiants (via interface Prisma CRUD).
 
-Matching intelligent avec filtres métiers/diplômes.
+Accède aux stats (requêtes SQL agrégées via Prisma).
 
-Simulation IA intégrée pour présélectionner.
+Dashboard agrégé (TanStack Query + Redis cache).
 
-Export rapport de recrutement.
+Envoi automatique de rapports hebdomadaires (Inngest job).
 
-🛠️ Stack utilisée :
+🧑‍💼 Recruteur / Entreprise
 
-Next.js Route Groups pour séparer les dashboards.
+Publie une offre → Prisma stocke + Redis indexe.
 
-Upstash Redis pour cache global des analytics.
+L’algorithme de matching recherche les profils correspondants.
 
-Prisma pour relations (User, ProgressTracking, InterviewResult, Recommendation).
+Génère un test sur mesure avec Gemini (selon la fiche de poste).
 
-6. 🔔 Automatisation & Sécurité
+Invite le candidat → test réalisé → résultats affichés en direct.
 
-Emails automatiques (onboarding, résultats, rappels) via QStash + Upstash Workflow.
+Possibilité d’entretien audio IA (Hume AI + WebRTC).
 
-Rate limiting / anti-abus via Redis.
+🔐 3. Sécurité
 
-Sentry pour surveillance d’erreurs.
+NextAuth : tokens JWT signés côté serveur.
 
-JWT + NextAuth pour sécurité auth & session.
+Prisma : Row-Level Security (par utilisateur/organisation).
 
-RGPD-like compliance (opt-out IA, suppression compte).
+Neon : gestion stricte des rôles et accès.
+
+Rate limiting via Upstash Redis (anti-abus API).
+
+HTTPS et headers CSP sur Vercel.
+
+Données sensibles chiffrées (AES ou bcrypt pour mots de passe, si login local ajouté).

@@ -47,6 +47,7 @@ enum Role {
 }
 
 enum Domain {
+  MACHINE_LEARNING
   DEVELOPMENT
   DATA_SCIENCE
   FINANCE
@@ -95,6 +96,7 @@ model User {
   updatedAt          DateTime       @updatedAt
   credits            Int            @default(5000)
   matchingJobs       Int            @default(0)
+  skills             String[]      
   role               Role           @default(CANDIDATE)
   domains            Domain[]       // Domaines sélectionnés
   subscription       Subscription?
@@ -120,6 +122,12 @@ model JobPosting {
   location    String?
   domains     Domain[] 
   skills      String[] 
+  salaryMin   Float?
+  salaryMax   Float?
+  currency    String   @default("FCFA")
+  type        JobType
+  workMode    WorkMode
+  experienceLevel Difficulty?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   isActive    Boolean  @default(true)

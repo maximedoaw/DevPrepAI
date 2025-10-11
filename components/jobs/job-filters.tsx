@@ -15,6 +15,7 @@ interface JobFiltersProps {
 }
 
 const domainLabels: Record<Domain, string> = {
+  [Domain.MACHINE_LEARNING]: "Machine Learning",
   [Domain.DEVELOPMENT]: "Développement",
   [Domain.DATA_SCIENCE]: "Data Science",
   [Domain.FINANCE]: "Finance",
