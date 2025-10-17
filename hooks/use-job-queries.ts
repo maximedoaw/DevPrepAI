@@ -78,7 +78,7 @@ const cacheService = {
         await redis.del(...keys)
       }
     } catch (error) {
-      console.warn('Cache invalidation error:', error)
+      console.log('Cache invalidation error:', error)
     }
   }
 }

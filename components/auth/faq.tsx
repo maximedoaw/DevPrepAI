@@ -68,15 +68,6 @@ export default function FAQSection() {
             </AccordionItem>
           ))}
         </Accordion>
-
-        <div className="text-center mt-12">
-          <p className="text-slate-600 dark:text-slate-300 mb-6">
-            Vous avez d'autres questions ?
-          </p>
-          <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg transition-colors duration-300">
-            Contactez notre équipe
-          </button>
-        </div>
       </div>
     </section>
   )

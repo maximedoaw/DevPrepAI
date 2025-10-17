@@ -6,6 +6,7 @@ import React, { ReactNode, useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { getUserRoleAndDomains } from '@/actions/user.action'
+import DevLoader from './dev-loader'
 
 interface ProtectedPageProps {
   children: ReactNode
@@ -298,7 +299,6 @@ export function RouteGuard({ children }: { children: ReactNode }) {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Chargement de la session...</p>
         </div>
       </div>
     )

@@ -90,6 +90,8 @@ const pricingPlans: PricingPlan[] = [
       "Simulations d’entretien personnalisées",
       "Rapports RH intelligents",
       "Formation continue pour employés",
+      "Automatisation du pipeline de recrutement"
+
     ],
     highlighted: false,
     cta: "Nous contacter",
@@ -272,7 +274,6 @@ export function Pricing() {
           onMouseMove={handleMouseMove}
         >
           {pricingPlans.map((plan) => {
-            const Icon = plan.icon
             return (
               <div
                 key={plan.id}
@@ -296,7 +297,7 @@ export function Pricing() {
 
                 {/* Icon */}
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${plan.gradient} flex items-center justify-center mb-4`}>
-                  <Icon className="w-6 h-6 text-white" />
+                  <plan.icon className="w-6 h-6 text-white" />
                 </div>
 
                 <h3 className="text-xl font-bold mb-2 flex items-center gap-2 text-slate-900 dark:text-slate-100">

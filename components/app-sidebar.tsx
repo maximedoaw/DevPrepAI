@@ -1,111 +1,52 @@
 "use client";
 
 import type React from "react";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-  useSidebar,
-} from "@/components/ui/sidebar";
-import {
-  Mic,
-  Code,
-  Settings,
-  BookOpen,
-  Trophy,
-  Users,
-  ChevronRight,
-  Sparkles,
-  Target,
-  BarChart3,
-  Menu,
-  Shield,
-  Home,
-  TrendingUp,
-  Star,
-  Zap,
-  Briefcase,
-  UsersRound,
-  Moon,
-  Sun,
-  LogOut,
-  User,
-  FileText,
-  BarChart,
-  Award,
-  ClipboardList,
-  Building,
-  GraduationCap,
-  School,
-  UserCheck,
-  PlusCircle,
-  Calendar,
-  Network,
-  Handshake,
-  MapPin,
-  MessageSquare,
-  Lightbulb,
-  Rocket,
-  Heart,
-  GitBranch,
-  Brain,
-  BrainCircuit,
-} from "lucide-react";
-import { toast } from "sonner";
+import Link from "next/link";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { useTheme } from "next-themes";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
 import { getUserRoleAndDomains } from "@/actions/user.action";
 
-function ModeToggle() {
-  const { setTheme, theme } = useTheme();
+// Logo personnalisé
+import Logo from "./logo";
 
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
-          <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          <span className="sr-only">Toggle theme</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>
-          Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
-          Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>
-          System
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
+// Icônes
+import {
+  Home,
+  Network,
+  BrainCircuit,
+  Target,
+  BookOpen,
+  Calendar,
+  TrendingUp,
+  GitBranch,
+  GraduationCap,
+  Users,
+  Brain,
+  BarChart3,
+  Building,
+  UsersRound,
+  Handshake,
+  Briefcase,
+  Shield,
+  Settings,
+  MessageSquare,
+  User,
+  LogOut,
+  Menu,
+  X,
+  ChevronRight,
+  Sparkles,
+  Sun,
+  Moon,
+  Star,
+  Zap,
+  Rocket,
+} from "lucide-react";
 
 interface SidebarOption {
   id: string;
@@ -121,11 +62,26 @@ interface SidebarOption {
   path?: string;
 }
 
-function InterviewSidebarContent() {
+function ModeToggle() {
+  const { setTheme, theme } = useTheme();
+
+  return (
+    <button
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+      aria-label="Toggle theme"
+    >
+      <Sun className="h-4 w-4 text-slate-700 dark:text-slate-300 block dark:hidden" />
+      <Moon className="h-4 w-4 text-slate-300 hidden dark:block" />
+    </button>
+  );
+}
+
+function SidebarContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [hoveredOption, setHoveredOption] = useState<string | null>(null);
-  const { state } = useSidebar();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isAuthenticated, isLoading } = useKindeBrowserClient();
   const { theme } = useTheme();
 
@@ -134,10 +90,24 @@ function InterviewSidebarContent() {
     queryFn: async () => {
       if (!user?.id) return null;
       const result = await getUserRoleAndDomains(user.id);
-      console.log("Le role de l'utilisateur est :", result);
       return result;
     },
   });
+
+  // Ouvrir la sidebar sur desktop au chargement
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setSidebarOpen(false);
+      } else {
+        setSidebarOpen(true);
+      }
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   if (isLoading || !isAuthenticated) return null;
 
@@ -158,9 +128,11 @@ function InterviewSidebarContent() {
         description: "Vue d'ensemble de votre parcours",
         icon: Home,
         color: "text-blue-600 dark:text-blue-400",
-        bgColor:
-          "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
-        action: () => router.push("/"),
+        bgColor: "bg-blue-500 dark:bg-blue-600",
+        action: () => { 
+          router.push("/"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/",
       },
       {
@@ -169,55 +141,66 @@ function InterviewSidebarContent() {
         description: "Offres correspondant à votre profil",
         icon: Network,
         color: "text-indigo-600 dark:text-indigo-400",
-        bgColor:
-          "bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700",
-        action: () => router.push("/jobs"),
+        bgColor: "bg-indigo-500 dark:bg-indigo-600",
+        action: () => { 
+          router.push("/jobs"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         badge: "Nouvelles offres",
         path: "/jobs",
       },
       {
         id: "interviews",
-        title: "Interviews",
+        title: "Interviews IA",
         description: "Simulations pour vos futurs entretiens",
         icon: BrainCircuit,
         color: "text-purple-600 dark:text-purple-400",
-        bgColor:
-          "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
-        action: () => router.push("/interviews"),
+        bgColor: "bg-purple-500 dark:bg-purple-600",
+        action: () => { 
+          router.push("/interviews"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         badge: "IA",
-        //isNew: true,
+        isNew: true,
         path: "/interviews",
       },
       {
-        id: "skill-showcase",
-        title: "Valorisation des compétences",
-        description: "Mettez en lumière vos talents et expertises",
+        id: "portfolio",
+        title: "Portfolio & CV",
+        description: "Mettez en lumière vos talents",
         icon: Target,
         color: "text-green-600 dark:text-green-400",
-        bgColor: "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
-        action: () => router.push("/skills-showcase"),
-        path: "/skills-showcase",
+        bgColor: "bg-green-500 dark:bg-green-600",
+        action: () => { 
+          router.push("/portfolio"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
+        path: "/portfolio",
       },
       {
         id: "guides",
         title: "Guides de progression",
-        description: "Formations et conseils adaptés à vos objectifs",
+        description: "Formations et conseils personnalisés",
         icon: BookOpen,
         color: "text-amber-600 dark:text-amber-400",
-        bgColor:
-          "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
-        action: () => router.push("/guides"),
+        bgColor: "bg-amber-500 dark:bg-amber-600",
+        action: () => { 
+          router.push("/guides"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/guides",
       },
       {
         id: "my-interviews",
         title: "Mes entretiens",
-        description: "Planification et suivi de vos entretiens",
+        description: "Planification et suivi",
         icon: Calendar,
         color: "text-cyan-600 dark:text-cyan-400",
-        bgColor:
-          "bg-gradient-to-r from-cyan-500 to-cyan-600 dark:from-cyan-600 dark:to-cyan-700",
-        action: () => router.push("/my-interviews"),
+        bgColor: "bg-cyan-500 dark:bg-cyan-600",
+        action: () => { 
+          router.push("/my-interviews"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         badge: "3 planifiés",
         path: "/my-interviews",
       },
@@ -233,54 +216,64 @@ function InterviewSidebarContent() {
         description: "Vue globale de votre reconversion",
         icon: Home,
         color: "text-blue-600 dark:text-blue-400",
-        bgColor:
-          "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
-        action: () => router.push("/"),
+        bgColor: "bg-blue-500 dark:bg-blue-600",
+        action: () => { 
+          router.push("/"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/",
       },
       {
         id: "interviews",
         title: "Interviews",
         description: "Simulations adaptées à votre nouveau métier",
-        icon: Mic,
+        icon: BrainCircuit,
         color: "text-purple-600 dark:text-purple-400",
-        bgColor:
-          "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
-        action: () => router.push("/interviews"),
+        bgColor: "bg-purple-500 dark:bg-purple-600",
+        action: () => { 
+          router.push("/interviews"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         isNew: true,
         path: "/interviews",
       },
       {
         id: "plan",
         title: "Plan de transition",
-        description: "Feuille de route personnalisée pour votre reconversion",
+        description: "Feuille de route personnalisée",
         icon: TrendingUp,
         color: "text-green-600 dark:text-green-400",
-        bgColor:
-          "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
-        action: () => router.push("/plan"),
+        bgColor: "bg-green-500 dark:bg-green-600",
+        action: () => { 
+          router.push("/plan"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/plan",
       },
       {
         id: "skills",
         title: "Passerelles de compétences",
-        description: "Valorisez vos acquis pour le nouveau domaine",
+        description: "Valorisez vos acquis",
         icon: GitBranch,
         color: "text-amber-600 dark:text-amber-400",
-        bgColor:
-          "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
-        action: () => router.push("/skills"),
+        bgColor: "bg-amber-500 dark:bg-amber-600",
+        action: () => { 
+          router.push("/skills"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/skills",
       },
       {
         id: "formations",
         title: "Formations intensives",
-        description: "Programmes rapides pour accélérer votre transition",
+        description: "Programmes rapides pour votre transition",
         icon: GraduationCap,
         color: "text-indigo-600 dark:text-indigo-400",
-        bgColor:
-          "bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700",
-        action: () => router.push("/formations"),
+        bgColor: "bg-indigo-500 dark:bg-indigo-600",
+        action: () => { 
+          router.push("/formations"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/formations",
       },
     ];
@@ -295,9 +288,11 @@ function InterviewSidebarContent() {
         description: "Vue globale de vos recrutements",
         icon: Home,
         color: "text-blue-600 dark:text-blue-400",
-        bgColor:
-          "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
-        action: () => router.push("/"),
+        bgColor: "bg-blue-500 dark:bg-blue-600",
+        action: () => { 
+          router.push("/"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/",
       },
       {
@@ -306,9 +301,11 @@ function InterviewSidebarContent() {
         description: "Accédez à la base de candidats qualifiés",
         icon: Users,
         color: "text-purple-600 dark:text-purple-400",
-        bgColor:
-          "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
-        action: () => router.push("/talents"),
+        bgColor: "bg-purple-500 dark:bg-purple-600",
+        action: () => { 
+          router.push("/talents"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/talents",
       },
       {
@@ -317,31 +314,37 @@ function InterviewSidebarContent() {
         description: "IA pour trouver les meilleurs profils",
         icon: Brain,
         color: "text-green-600 dark:text-green-400",
-        bgColor:
-          "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
-        action: () => router.push("/matching"),
+        bgColor: "bg-green-500 dark:bg-green-600",
+        action: () => { 
+          router.push("/matching"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/matching",
       },
       {
         id: "interviews",
-        title: "Planification d’interviews",
-        description: "Organisez vos entretiens avec les candidats",
+        title: "Planification d'interviews",
+        description: "Organisez vos entretiens",
         icon: Calendar,
         color: "text-amber-600 dark:text-amber-400",
-        bgColor:
-          "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
-        action: () => router.push("/interviews"),
+        bgColor: "bg-amber-500 dark:bg-amber-600",
+        action: () => { 
+          router.push("/interviews"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/interviews",
       },
       {
         id: "rapports",
         title: "Analyse RH",
-        description: "Rapports et indicateurs clés sur vos recrutements",
+        description: "Rapports et indicateurs clés",
         icon: BarChart3,
         color: "text-cyan-600 dark:text-cyan-400",
-        bgColor:
-          "bg-gradient-to-r from-cyan-500 to-cyan-600 dark:from-cyan-600 dark:to-cyan-700",
-        action: () => router.push("/rapports"),
+        bgColor: "bg-cyan-500 dark:bg-cyan-600",
+        action: () => { 
+          router.push("/rapports"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/rapports",
       },
     ];
@@ -356,9 +359,11 @@ function InterviewSidebarContent() {
         description: "Pilotage de vos besoins en talents",
         icon: Building,
         color: "text-blue-600 dark:text-blue-400",
-        bgColor:
-          "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
-        action: () => router.push("/enterprise"),
+        bgColor: "bg-blue-500 dark:bg-blue-600",
+        action: () => { 
+          router.push("/enterprise"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/enterprise",
       },
       {
@@ -367,21 +372,25 @@ function InterviewSidebarContent() {
         description: "Organisez vos entretiens en interne",
         icon: Calendar,
         color: "text-purple-600 dark:text-purple-400",
-        bgColor:
-          "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
-        action: () => router.push("/enterprise-interviews"),
+        bgColor: "bg-purple-500 dark:bg-purple-600",
+        action: () => { 
+          router.push("/enterprise-interviews"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         badge: "15 cette semaine",
         path: "/enterprise-interviews",
       },
       {
         id: "talent-matching",
         title: "Matching de talents",
-        description: "Trouvez les profils parfaits pour vos postes",
+        description: "Trouvez les profils parfaits",
         icon: Network,
         color: "text-green-600 dark:text-green-400",
-        bgColor:
-          "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
-        action: () => router.push("/talent-matching"),
+        bgColor: "bg-green-500 dark:bg-green-600",
+        action: () => { 
+          router.push("/talent-matching"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/talent-matching",
       },
       {
@@ -390,20 +399,24 @@ function InterviewSidebarContent() {
         description: "Anticipez vos besoins en compétences",
         icon: Target,
         color: "text-amber-600 dark:text-amber-400",
-        bgColor:
-          "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
-        action: () => router.push("/workforce-planning"),
+        bgColor: "bg-amber-500 dark:bg-amber-600",
+        action: () => { 
+          router.push("/workforce-planning"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/workforce-planning",
       },
       {
         id: "bulk-hiring",
         title: "Recrutement en volume",
-        description: "Solutions pour vos recrutements massifs",
+        description: "Solutions pour recrutements massifs",
         icon: UsersRound,
         color: "text-indigo-600 dark:text-indigo-400",
-        bgColor:
-          "bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700",
-        action: () => router.push("/bulk-hiring"),
+        bgColor: "bg-indigo-500 dark:bg-indigo-600",
+        action: () => { 
+          router.push("/bulk-hiring"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/bulk-hiring",
       },
       {
@@ -412,9 +425,11 @@ function InterviewSidebarContent() {
         description: "Formation sur-mesure pour vos équipes",
         icon: GraduationCap,
         color: "text-cyan-600 dark:text-cyan-400",
-        bgColor:
-          "bg-gradient-to-r from-cyan-500 to-cyan-600 dark:from-cyan-600 dark:to-cyan-700",
-        action: () => router.push("/training-programs"),
+        bgColor: "bg-cyan-500 dark:bg-cyan-600",
+        action: () => { 
+          router.push("/training-programs"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/training-programs",
       },
     ];
@@ -429,9 +444,11 @@ function InterviewSidebarContent() {
         description: "Vue d'ensemble de votre cohorte",
         icon: Home,
         color: "text-blue-600 dark:text-blue-400",
-        bgColor:
-          "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
-        action: () => router.push("/"),
+        bgColor: "bg-blue-500 dark:bg-blue-600",
+        action: () => { 
+          router.push("/"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/",
       },
       {
@@ -440,9 +457,11 @@ function InterviewSidebarContent() {
         description: "Suivi individuel et collectif",
         icon: Users,
         color: "text-purple-600 dark:text-purple-400",
-        bgColor:
-          "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
-        action: () => router.push("/participants"),
+        bgColor: "bg-purple-500 dark:bg-purple-600",
+        action: () => { 
+          router.push("/participants"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/participants",
       },
       {
@@ -451,31 +470,37 @@ function InterviewSidebarContent() {
         description: "Programmes de formation ajustables",
         icon: BookOpen,
         color: "text-green-600 dark:text-green-400",
-        bgColor:
-          "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
-        action: () => router.push("/curriculum"),
+        bgColor: "bg-green-500 dark:bg-green-600",
+        action: () => { 
+          router.push("/curriculum"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/curriculum",
       },
       {
         id: "placement",
         title: "Placement professionnel",
-        description: "Statistiques et suivi d’insertion",
+        description: "Statistiques et suivi d'insertion",
         icon: Briefcase,
         color: "text-amber-600 dark:text-amber-400",
-        bgColor:
-          "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
-        action: () => router.push("/placement"),
+        bgColor: "bg-amber-500 dark:bg-amber-600",
+        action: () => { 
+          router.push("/placement"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/placement",
       },
       {
         id: "matching",
         title: "Matching entreprises",
-        description: "Mettez en relation vos apprenants avec les recruteurs",
+        description: "Reliez vos apprenants aux recruteurs",
         icon: Handshake,
         color: "text-cyan-600 dark:text-cyan-400",
-        bgColor:
-          "bg-gradient-to-r from-cyan-500 to-cyan-600 dark:from-cyan-600 dark:to-cyan-700",
-        action: () => router.push("/matching"),
+        bgColor: "bg-cyan-500 dark:bg-cyan-600",
+        action: () => { 
+          router.push("/matching"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/matching",
       },
     ];
@@ -490,9 +515,11 @@ function InterviewSidebarContent() {
         description: "Vue globale de votre établissement",
         icon: Home,
         color: "text-blue-600 dark:text-blue-400",
-        bgColor:
-          "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
-        action: () => router.push("/"),
+        bgColor: "bg-blue-500 dark:bg-blue-600",
+        action: () => { 
+          router.push("/"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/",
       },
       {
@@ -501,53 +528,63 @@ function InterviewSidebarContent() {
         description: "Gestion des cours et ressources",
         icon: BookOpen,
         color: "text-purple-600 dark:text-purple-400",
-        bgColor:
-          "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
-        action: () => router.push("/pedagogie"),
+        bgColor: "bg-purple-500 dark:bg-purple-600",
+        action: () => { 
+          router.push("/pedagogie"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/pedagogie",
       },
       {
         id: "sessions",
         title: "Sessions de travail",
-        description: "Calendrier et organisation des sessions",
+        description: "Calendrier et organisation",
         icon: Calendar,
         color: "text-green-600 dark:text-green-400",
-        bgColor:
-          "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700",
-        action: () => router.push("/sessions"),
+        bgColor: "bg-green-500 dark:bg-green-600",
+        action: () => { 
+          router.push("/sessions"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/sessions",
       },
       {
         id: "etudiants",
         title: "Suivi étudiant",
-        description: "Progression et résultats des étudiants",
+        description: "Progression et résultats",
         icon: Users,
         color: "text-amber-600 dark:text-amber-400",
-        bgColor:
-          "bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
-        action: () => router.push("/etudiants"),
+        bgColor: "bg-amber-500 dark:bg-amber-600",
+        action: () => { 
+          router.push("/etudiants"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/etudiants",
       },
       {
         id: "carriere",
         title: "Services carrière",
-        description: "Accompagnement à l’insertion professionnelle",
+        description: "Accompagnement professionnel",
         icon: Briefcase,
         color: "text-cyan-600 dark:text-cyan-400",
-        bgColor:
-          "bg-gradient-to-r from-cyan-500 to-cyan-600 dark:from-cyan-600 dark:to-cyan-700",
-        action: () => router.push("/carriere"),
+        bgColor: "bg-cyan-500 dark:bg-cyan-600",
+        action: () => { 
+          router.push("/carriere"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/carriere",
       },
       {
         id: "visibilite",
         title: "Visibilité & partenariats",
-        description: "Mettre en avant vos étudiants auprès des entreprises",
+        description: "Mettez en avant vos étudiants",
         icon: Handshake,
         color: "text-indigo-600 dark:text-indigo-400",
-        bgColor:
-          "bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700",
-        action: () => router.push("/visibilite"),
+        bgColor: "bg-indigo-500 dark:bg-indigo-600",
+        action: () => { 
+          router.push("/visibilite"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
         path: "/visibilite",
       },
     ];
@@ -561,9 +598,11 @@ function InterviewSidebarContent() {
       description: "Gestion de la plateforme",
       icon: Shield,
       color: "text-red-600 dark:text-red-400",
-      bgColor:
-        "bg-gradient-to-r from-red-500 to-red-600 dark:from-red-600 dark:to-red-700",
-      action: () => router.push("/admin"),
+      bgColor: "bg-red-500 dark:bg-red-600",
+      action: () => { 
+        router.push("/admin"); 
+        if (window.innerWidth < 768) setSidebarOpen(false); 
+      },
       badge: "Admin",
       isAdmin: true,
       path: "/admin",
@@ -613,303 +652,310 @@ function InterviewSidebarContent() {
 
   const roleInfo = getRoleInfo();
 
+  // Composant pour le logo compact (sidebar fermée)
+  const CompactLogo = () => (
+    <div className="flex items-center justify-center p-2">
+      <div className="relative">
+        <div className="bg-gradient-to-r from-indigo-600 to-pink-600 rounded-full p-2">
+          <Rocket className="h-6 w-6 text-white" />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <Sidebar
-      collapsible="icon"
-      className="border-r border-slate-200 dark:border-slate-800 overflow-y-auto bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 custom-scrollbar"
-      style={{
-        width: state === "expanded" ? "280px" : "72px",
-        minWidth: state === "expanded" ? "280px" : "72px",
-        transition: "width 0.3s ease, min-width 0.3s ease",
-      }}
-    >
-      <SidebarHeader className="border-b border-slate-100 dark:border-slate-800 p-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-r from-violet-500 to-purple-600 rounded-xl flex-shrink-0">
-            <Target className="h-6 w-6 text-white" />
+    <>
+      {/* Sidebar */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 ease-in-out flex flex-col ${
+          sidebarOpen ? "w-80 translate-x-0" : "-translate-x-full md:translate-x-0 md:w-20"
+        }`}
+      >
+        {/* Header Sidebar */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+          {sidebarOpen ? (
+            <Link href="/" className="flex items-center gap-3 min-w-0 flex-1">
+              <Logo />
+            </Link>
+          ) : (
+            <Link href="/" className="flex justify-center w-full">
+              <CompactLogo />
+            </Link>
+          )}
+          
+          {/* Bouton menu pour ouvrir/fermer */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            {sidebarOpen ? (
+              <X className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+            ) : (
+              <Menu className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+            )}
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
+          <div className="px-3 space-y-1">
+            {sidebarOptions.map((option) => {
+              const isActive =
+                option.path &&
+                (pathname === option.path ||
+                  (option.path !== "/" && pathname.startsWith(option.path)));
+              
+              return (
+                <div key={option.id} className="relative group">
+                  <button
+                    onClick={option.action}
+                    onMouseEnter={() => setHoveredOption(option.id)}
+                    onMouseLeave={() => setHoveredOption(null)}
+                    className={`w-full text-left p-3 rounded-xl transition-all duration-200 group ${
+                      isActive
+                        ? "bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 shadow-sm"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:shadow-md"
+                    } ${option.isAdmin ? "border-l-4 border-red-500" : ""}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`p-2 rounded-lg ${option.bgColor} flex-shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                          option.isAdmin ? "ring-2 ring-red-200 dark:ring-red-800" : ""
+                        }`}
+                      >
+                        <option.icon className="h-5 w-5 text-white" />
+                      </div>
+
+                      {sidebarOpen && (
+                        <div className="flex-1 min-w-0 z-10 relative">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span
+                              className={`font-semibold truncate bg-gradient-to-r bg-clip-text text-transparent ${
+                                option.isAdmin
+                                  ? "from-red-600 to-red-800 dark:from-red-400 dark:to-red-600"
+                                  : isActive
+                                  ? "from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400"
+                                  : "from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100"
+                              }`}
+                            >
+                              {option.title}
+                            </span>
+                            {option.isNew && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs bg-gradient-to-r from-amber-100 to-amber-200 text-amber-800 dark:from-amber-900/30 dark:to-amber-800/30 dark:text-amber-300 border border-amber-200 dark:border-amber-700 z-20 relative">
+                                <Sparkles className="h-3 w-3" />
+                                Nouveau
+                              </span>
+                            )}
+                            {option.badge && !option.isNew && !option.isAdmin && (
+                              <span className="inline-flex px-1.5 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700 z-20 relative">
+                                {option.badge}
+                              </span>
+                            )}
+                            {option.isAdmin && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs bg-gradient-to-r from-red-100 to-red-200 text-red-800 dark:from-red-900/30 dark:to-red-800/30 dark:text-red-300 border border-red-200 dark:border-red-700 z-20 relative">
+                                <Shield className="h-3 w-3" />
+                                Admin
+                              </span>
+                            )}
+                          </div>
+                          {sidebarOpen && (
+                            <p className="text-sm text-slate-500 dark:text-slate-400 truncate z-10 relative">
+                              {option.description}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {sidebarOpen && (
+                        <ChevronRight
+                          className={`h-4 w-4 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
+                            hoveredOption === option.id ? "translate-x-1" : ""
+                          }`}
+                        />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Tooltip pour les icônes lorsque la sidebar est fermée */}
+                  {!sidebarOpen && (
+                    <div className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-3 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-medium rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 whitespace-nowrap">
+                      <div className="font-semibold">{option.title}</div>
+                      <div className="text-xs text-slate-300 dark:text-slate-600 mt-1">
+                        {option.description}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          {state === "expanded" && (
-            <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent truncate">
-                {roleInfo.title}
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
-                {roleInfo.subtitle}
-              </p>
+
+          {/* Section Outils */}
+          {sidebarOpen && (
+            <div className="mt-6 px-3">
+              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-3">
+                Outils
+              </div>
+              <div className="space-y-1">
+                <button
+                  onClick={() => { 
+                    router.push("/settings"); 
+                    if (window.innerWidth < 768) setSidebarOpen(false); 
+                  }}
+                  className="w-full text-left p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors hover:shadow-md"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-lg">
+                      <Settings className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                    </div>
+                    <div className="flex-1 min-w-0 z-10 relative">
+                      <div className="font-semibold text-slate-700 dark:text-slate-300 bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100 bg-clip-text ">
+                        Paramètres
+                      </div>
+                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                        Configuration du compte
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Messages pour certains rôles */}
+                {(userRole === "RECRUITER" ||
+                  userRole === "ENTERPRISE" ||
+                  userRole === "BOOTCAMP" ||
+                  userRole === "SCHOOL") && (
+                  <button
+                    onClick={() => { 
+                      router.push("/messages"); 
+                      if (window.innerWidth < 768) setSidebarOpen(false); 
+                    }}
+                    className="w-full text-left p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors hover:shadow-md"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-gradient-to-r from-blue-100 to-blue-200 dark:from-blue-900/50 dark:to-blue-800/50 rounded-lg">
+                        <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1 min-w-0 z-10 relative">
+                        <div className="font-semibold text-slate-700 dark:text-slate-300 bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100 bg-clip-text">
+                          Messages
+                        </div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">
+                          Communications
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
-      </SidebarHeader>
 
-      <SidebarContent className="p-2 flex-1 custom-scrollbar">
-        <SidebarGroup>
-          <SidebarGroupLabel
-            className={`${
-              state === "collapsed" ? "sr-only" : ""
-            } text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2`}
-          >
-            Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              {sidebarOptions.map((option) => {
-                const isActive =
-                  option.path &&
-                  (pathname === option.path ||
-                    (option.path !== "/" && pathname.startsWith(option.path)));
-                return (
-                  <SidebarMenuItem key={option.id}>
-                    <SidebarMenuButton
-                      onClick={option.action}
-                      className={`h-auto p-3 transition-all duration-200 group relative overflow-hidden rounded-lg
-                        ${
-                          isActive
-                            ? "bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 shadow-md font-semibold text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700"
-                            : "hover:bg-slate-50 dark:hover:bg-slate-800/50 shadow-sm"
-                        }
-                        ${
-                          option.isAdmin
-                            ? "border-l-4 border-red-500 dark:border-red-400"
-                            : ""
-                        }
-                      `}
-                      onMouseEnter={() => setHoveredOption(option.id)}
-                      onMouseLeave={() => setHoveredOption(null)}
-                      tooltip={state === "collapsed" ? option.title : undefined}
-                    >
-                      <div className="flex items-center gap-4 w-full relative z-10">
-                        <div
-                          className={`p-2.5 rounded-lg ${
-                            option.bgColor
-                          } shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0 ${
-                            option.isAdmin
-                              ? "ring-2 ring-red-200 dark:ring-red-800"
-                              : ""
-                          }`}
-                        >
-                          <option.icon className="h-5 w-5 text-white" />
-                        </div>
-
-                        {state === "expanded" && (
-                          <>
-                            <div className="flex-1 text-left min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3
-                                  className={`font-semibold group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors truncate ${
-                                    option.isAdmin
-                                      ? "text-red-700 dark:text-red-300"
-                                      : isActive
-                                      ? "text-blue-700 dark:text-blue-300"
-                                      : "text-slate-800 dark:text-slate-200"
-                                  }`}
-                                >
-                                  {option.title}
-                                </h3>
-                                {option.isNew && (
-                                  <div className="flex items-center gap-1 flex-shrink-0">
-                                    <Sparkles className="h-3 w-3 text-amber-500" />
-                                    <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700">
-                                      Nouveau
-                                    </Badge>
-                                  </div>
-                                )}
-                                {option.isAdmin && (
-                                  <div className="flex items-center gap-1 flex-shrink-0">
-                                    <Zap className="h-3 w-3 text-red-500" />
-                                    <Badge className="text-xs bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700">
-                                      Admin
-                                    </Badge>
-                                  </div>
-                                )}
-                              </div>
-                              <p className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors line-clamp-1">
-                                {option.description}
-                              </p>
-                              {option.badge &&
-                                !option.isNew &&
-                                !option.isAdmin && (
-                                  <Badge className="mt-2 text-xs bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
-                                    {option.badge}
-                                  </Badge>
-                                )}
-                            </div>
-
-                            <ChevronRight
-                              className={`h-4 w-4 text-slate-400 transition-all duration-200 flex-shrink-0 ${
-                                hoveredOption === option.id
-                                  ? "translate-x-1 text-slate-600 dark:text-slate-300"
-                                  : ""
-                              }`}
-                            />
-                          </>
-                        )}
-                      </div>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Section séparée pour les outils */}
-        {state === "expanded" && (
-          <>
-            <Separator className="my-4 bg-slate-200 dark:bg-slate-800" />
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                Outils
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu className="space-y-1">
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      onClick={() => router.push("/settings")}
-                      className="h-auto p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-200 group relative overflow-hidden rounded-lg"
-                      onMouseEnter={() => setHoveredOption("settings")}
-                      onMouseLeave={() => setHoveredOption(null)}
-                    >
-                      <div className="flex items-center gap-4 w-full">
-                        <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-lg shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0">
-                          <Settings className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                        </div>
-                        <div className="flex-1 text-left min-w-0">
-                          <h3 className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
-                            Paramètres
-                          </h3>
-                          <p className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">
-                            Configuration de votre compte
-                          </p>
-                        </div>
-                        <ChevronRight
-                          className={`h-4 w-4 text-slate-400 transition-all duration-200 flex-shrink-0 ${
-                            hoveredOption === "settings"
-                              ? "translate-x-1 text-slate-600 dark:text-slate-300"
-                              : ""
-                          }`}
-                        />
-                      </div>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-
-                  {/* Section Communication pour certains rôles */}
-                  {(userRole === "RECRUITER" ||
-                    userRole === "ENTERPRISE" ||
-                    userRole === "BOOTCAMP" ||
-                    userRole === "SCHOOL") && (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton
-                        onClick={() => router.push("/messages")}
-                        className="h-auto p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-200 group relative overflow-hidden rounded-lg"
-                        onMouseEnter={() => setHoveredOption("messages")}
-                        onMouseLeave={() => setHoveredOption(null)}
-                      >
-                        <div className="flex items-center gap-4 w-full">
-                          <div className="p-2.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0">
-                            <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <div className="flex-1 text-left min-w-0">
-                            <h3 className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
-                              Messages
-                            </h3>
-                            <p className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">
-                              Communications et notifications
-                            </p>
-                          </div>
-                          <ChevronRight
-                            className={`h-4 w-4 text-slate-400 transition-all duration-200 flex-shrink-0 ${
-                              hoveredOption === "messages"
-                                ? "translate-x-1 text-slate-600 dark:text-slate-300"
-                                : ""
-                            }`}
-                          />
-                        </div>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </>
-        )}
-      </SidebarContent>
-
-      {/* Footer avec informations utilisateur */}
-      <SidebarFooter className="border-t border-slate-100 dark:border-slate-800 p-4">
-        {state === "expanded" && user ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-bold">
-                  {user.given_name?.[0]}
-                  {user.family_name?.[0]}
-                </span>
+        {/* Footer */}
+        <div className="border-t border-slate-200 dark:border-slate-800 p-4">
+          {sidebarOpen && user ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+                  <span className="text-white font-medium">
+                    {user.given_name?.[0]}
+                    {user.family_name?.[0]}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0 z-10 relative">
+                  <div className="font-semibold text-slate-900 dark:text-white truncate">
+                    {user.given_name} {user.family_name}
+                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400 truncate">
+                    {userRole === "CANDIDATE"
+                      ? "Candidat"
+                      : userRole === "CAREER_CHANGER"
+                      ? "En reconversion"
+                      : userRole === "RECRUITER"
+                      ? "Recruteur"
+                      : userRole === "ENTERPRISE"
+                      ? "Entreprise"
+                      : userRole === "BOOTCAMP"
+                      ? "Bootcamp"
+                      : userRole === "SCHOOL"
+                      ? "École"
+                      : "Utilisateur"}
+                  </div>
+                </div>
+                <ModeToggle />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                  {user.given_name} {user.family_name}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                  {userRole === "CANDIDATE"
-                    ? "Candidat"
-                    : userRole === "CAREER_CHANGER"
-                    ? "En reconversion"
-                    : userRole === "RECRUITER"
-                    ? "Recruteur"
-                    : userRole === "ENTERPRISE"
-                    ? "Entreprise"
-                    : userRole === "BOOTCAMP"
-                    ? "Bootcamp"
-                    : userRole === "SCHOOL"
-                    ? "École"
-                    : "Utilisateur"}
-                </p>
-              </div>
-              <ModeToggle />
-            </div>
 
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 h-9"
-                onClick={() => router.push("/profile")}
-              >
-                <User className="h-4 w-4 mr-2" />
-                Profil
-              </Button>
-              <LogoutLink>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 border-red-500 text-red-500 hover:bg-red-500/10"
-                  title="Déconnexion"
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { 
+                    router.push("/profile"); 
+                    if (window.innerWidth < 768) setSidebarOpen(false); 
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm hover:shadow-md"
                 >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </LogoutLink>
+                  <User className="h-4 w-4" />
+                  <span className="font-medium">Profil</span>
+                </button>
+                <LogoutLink>
+                  <button
+                    className="p-2 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shadow-sm hover:shadow-md"
+                    title="Déconnexion"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </LogoutLink>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="flex justify-center">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <Users className="h-4 w-4 text-white" />
+          ) : (
+            <div className="flex justify-center">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
+                <User className="h-5 w-5 text-white" />
+              </div>
             </div>
-          </div>
-        )}
-      </SidebarFooter>
+          )}
+        </div>
+      </div>
 
-      {/* Styles pour la scrollbar personnalisée */}
+      {/* Overlay pour mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden transition-opacity duration-300"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Bouton menu pour mobile */}
+      {!sidebarOpen && (
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="fixed top-4 left-4 z-40 p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-all duration-300 md:hidden"
+        >
+          <Menu className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+        </button>
+      )}
+
+      {/* Main content */}
+      <div
+        className={`min-h-screen bg-white dark:bg-slate-950 transition-all duration-300 ${
+          sidebarOpen ? "md:ml-80" : "md:ml-20"
+        }`}
+      >
+        {/* Page content */}
+        <main className="p-4 md:p-6 pt-16 md:pt-6 overflow-auto">
+          {children}
+        </main>
+      </div>
+
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
+          width: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
           background: rgba(0, 0, 0, 0.2);
-          border-radius: 3px;
+          border-radius: 2px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: rgba(0, 0, 0, 0.3);
@@ -921,60 +967,18 @@ function InterviewSidebarContent() {
           background: rgba(255, 255, 255, 0.3);
         }
       `}</style>
-    </Sidebar>
+    </>
   );
 }
 
-export default function InterviewSidebar({
+export default function AppSidebar({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const { isAuthenticated, isLoading } = useKindeBrowserClient();
-  const { theme } = useTheme();
 
   if (isLoading || !isAuthenticated) return null;
 
-  return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors">
-        <InterviewSidebarContent />
-        <main className="flex-1 overflow-hidden bg-white dark:bg-slate-950 transition-colors custom-scrollbar">
-          {/* Header responsive */}
-          <div className="sticky top-0 z-40 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 py-3 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <SidebarTrigger className="hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg p-2 transition-colors">
-                  <Menu className="h-5 w-5 text-slate-700 dark:text-slate-300" />
-                </SidebarTrigger>
-                <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Dashboard
-                </h1>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
-                >
-                  <Star className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
-                >
-                  <TrendingUp className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-          {/* Contenu principal avec scroll */}
-          <div className="p-6 overflow-auto h-[calc(100vh-73px)] custom-scrollbar">
-            {children}
-          </div>
-        </main>
-      </div>
-    </SidebarProvider>
-  );
+  return <SidebarContent>{children}</SidebarContent>;
 }

@@ -8,6 +8,7 @@ import WhyTurboIntMax from './why'
 import { Pricing } from './pricing'
 import Footer from '../footer'
 import FAQ from './faq'
+import CreatorSection from './creator-section'
 
 const AuthScreen = () => {
   return (
@@ -19,6 +20,7 @@ const AuthScreen = () => {
       <WhyTurboIntMax/>
       <Pricing/>
       <Testimonials />
+      <CreatorSection/>
       <FAQ/>
       <Footer/>
     </div>

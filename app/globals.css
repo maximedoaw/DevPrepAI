@@ -156,4 +156,55 @@
   .animate-typing {
     animation: typing 2.5s steps(40, end) forwards;
   }
+
+  @keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-bounce {
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.transform-gpu {
+  transform: translate3d(0, 0, 0);
+}
+
+.scale-102 {
+  transform: scale(1.02);
+}
+
+/* Effets 3D améliorés */
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.translate-z-0 {
+  transform: translateZ(0);
+}
+
+.translate-z-5 {
+  transform: translateZ(5px);
+}
+
+.translate-z-10 {
+  transform: translateZ(10px);
+}
 }
