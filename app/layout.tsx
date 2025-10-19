@@ -7,6 +7,7 @@ import TanStackProvider from "@/components/tan-stack-provider";
 import { Toaster } from "sonner";
 import ClientRoot from "@/components/client-root";
 import { RouteGuard } from "@/components/protected-routes";
+import ScrollToTop from "@/components/scroll-top";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -35,9 +36,9 @@ export default function RootLayout({
               <RouteGuard>{children}</RouteGuard>
             </ClientRoot>
           </TanStackProvider>
+          <Toaster />
+          <ScrollToTop/>
         </ThemeProvider>
-
-        <Toaster />
       </body>
     </html>
   );

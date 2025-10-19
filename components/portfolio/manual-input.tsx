@@ -1,3 +1,4 @@
+// manual-input.tsx
 "use client"
 
 import type React from "react"
@@ -30,15 +31,18 @@ import {
   Heart,
   Code,
   Edit,
+  Save,
 } from "lucide-react"
 import { ImageCropper } from "@/components/image-cropper"
 
 interface ManualInputProps {
   portfolioData: any
   setPortfolioData: (data: any) => void
+  onSave?: () => void
+  isSaving?: boolean
 }
 
-export default function ManualInput({ portfolioData, setPortfolioData }: ManualInputProps) {
+export default function ManualInput({ portfolioData, setPortfolioData, onSave, isSaving = false }: ManualInputProps) {
   const [newSkill, setNewSkill] = useState("")
   const [newLanguage, setNewLanguage] = useState("")
   const [newInterest, setNewInterest] = useState("")
@@ -326,13 +330,39 @@ export default function ManualInput({ portfolioData, setPortfolioData }: ManualI
     })
   }
 
+  const handleSave = () => {
+    if (onSave) {
+      onSave()
+    }
+  }
+
   return (
     <Card className="h-full bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100">
       <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <User className="h-5 w-5 text-blue-600" />
-          Saisie Manuelle
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <User className="h-5 w-5 text-blue-600" />
+            <CardTitle className="text-lg">Saisie Manuelle</CardTitle>
+          </div>
+          <Button 
+            onClick={handleSave} 
+            disabled={isSaving}
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            {isSaving ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span>Sauvegarde...</span>
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                <span>Sauvegarder</span>
+              </>
+            )}
+          </Button>
+        </div>
         <CardDescription className="text-sm">Ajoutez et modifiez votre contenu manuellement</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-6">
@@ -1067,6 +1097,7 @@ export default function ManualInput({ portfolioData, setPortfolioData }: ManualI
           </div>
         </div>
 
+        {/* Projets */}
         <div className="border-t pt-6">
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="projects" className="border rounded-lg px-4">
