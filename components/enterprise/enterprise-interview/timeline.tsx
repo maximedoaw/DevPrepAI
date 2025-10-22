@@ -23,26 +23,15 @@ interface TimelineProps {
 
 export function Timeline({ jobOffers, selectedOffer, onSelectOffer }: TimelineProps) {
   return (
-    <Card className="sticky top-8 border border-slate-200/70 bg-white/80 backdrop-blur-lg dark:border-slate-700/70 dark:bg-slate-900/80 shadow-lg">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-lg flex items-center gap-2 text-slate-800 dark:text-white">
-          <Building className="w-5 h-5 text-green-600" />
-          Vos Offres
-        </CardTitle>
-        <CardDescription className="text-slate-600 dark:text-slate-400">
-          {jobOffers.length} offre(s) active(s)
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="relative">
+<div className="relative">
           {/* Ligne verticale CONTINUE derrière les cercles */}
-          <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-green-300 dark:bg-green-900 z-0" />
+          <div className="absolute left-9 top-0 bottom-0 w-0.5 bg-green-300 dark:bg-green-900 z-0" />
           
           <div className="py-4">
             {jobOffers.map((offer, index) => (
               <div
                 key={offer.id}
-                className={`relative flex items-start gap-6 px-6 py-3 cursor-pointer transition-all duration-200 group ${
+                className={`relative flex items-center gap-6 px-6 py-3 cursor-pointer transition-all duration-200 group ${
                   selectedOffer === offer.id 
                     ? 'bg-green-50/80 border-r-2 border-green-500 dark:bg-green-900/20' 
                     : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/30'
@@ -52,7 +41,7 @@ export function Timeline({ jobOffers, selectedOffer, onSelectOffer }: TimelinePr
                 {/* Cercle avec fond blanc pour "percer" la ligne */}
                 <div className="relative z-20 flex-shrink-0">
                   <div className={`
-                    w-4 h-4 rounded-full border-2 bg-white dark:bg-slate-900 flex items-center justify-center
+                    w-6 h-6 rounded-full border-[3px] bg-white dark:bg-slate-900 flex items-center justify-center
                     transition-all duration-300
                     ${offer.status === 'active' ? 'border-green-500' : ''}
                     ${offer.status === 'paused' ? 'border-yellow-500' : ''}
@@ -60,7 +49,7 @@ export function Timeline({ jobOffers, selectedOffer, onSelectOffer }: TimelinePr
                     ${selectedOffer === offer.id ? 'scale-125 ring-4 ring-green-200 dark:ring-green-900' : ''}
                   `}>
                     <div className={`
-                      w-1.5 h-1.5 rounded-full transition-all duration-300
+                      w-2 h-2 rounded-full transition-all duration-300
                       ${offer.status === 'active' ? 'bg-green-500' : ''}
                       ${offer.status === 'paused' ? 'bg-yellow-500' : ''}
                       ${offer.status === 'closed' ? 'bg-slate-400' : ''}
@@ -97,7 +86,5 @@ export function Timeline({ jobOffers, selectedOffer, onSelectOffer }: TimelinePr
             ))}
           </div>
         </div>
-      </CardContent>
-    </Card>
   )
 }

@@ -66,6 +66,35 @@ export async function getJobs(filters?: JobFilters) {
   return jobs
 }
 
+// Dans job.action.ts
+export async function getJobsByUser(userId: string) {
+  try {
+    const jobs = await prisma.jobPosting.findMany({
+      where: {
+        userId: userId,
+        isActive: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        applications: {
+          select: {
+            id: true
+          }
+        }
+      }
+    })
+
+    return jobs.map(job => ({
+      ...job,
+      applicants: job.applications.length
+    }))
+  } catch (error) {
+    console.error("Error fetching user jobs:", error)
+    throw error
+  }
+}
 // Récupérer un job par son ID
 export async function getJobById(id: string) {
   const job = await prisma.jobPosting.findUnique({
@@ -127,11 +156,11 @@ export async function createJob(data: {
       salaryMin: data.salaryMin,
       salaryMax: data.salaryMax,
       currency: data.currency || "FCFA",
-      type: data.type,
+      type: data.type, 
       workMode: data.workMode,
       experienceLevel: data.experienceLevel,
       metadata: data.metadata,
-      isActive: true,
+      isActive: true, 
       userId: data.userId // AJOUT : Lien avec l'utilisateur
     }
   })

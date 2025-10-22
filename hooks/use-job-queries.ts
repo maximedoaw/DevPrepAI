@@ -9,7 +9,8 @@ import {
   seedJobs,
   getJobStats,
   getJobFilters,
-  type JobFilters 
+  type JobFilters, 
+  getJobsByUser
 } from "@/actions/job.action"
 import { toast } from "sonner"
 import { Domain, JobType, WorkMode } from "@prisma/client"
@@ -85,6 +86,7 @@ const cacheService = {
 
 // Fonctions de données avec cache
 const cachedDataFetchers = {
+  
   // Récupérer les jobs avec cache
   async getJobsWithCache(filters?: JobFilters) {
     const safeFilters: JobFilters = filters || {}
@@ -161,6 +163,44 @@ const cachedDataFetchers = {
     await cacheService.set(cacheKey, filters, CACHE_TTL.JOB_FILTERS)
     
     return filters
+  },
+
+    async getJobsByUserWithCache(userId: string) {
+    const cacheKey = `jobs:user:${userId}`
+    
+    const cached = await cacheService.get<any[]>(cacheKey)
+    if (cached) {
+      console.log('📦 User jobs served from cache')
+      return cached
+    }
+
+    console.log('🔄 User jobs fetched from database')
+    // Vous devrez créer cette fonction dans job.action.ts
+    const jobs = await getJobsByUser(userId)
+    
+    await cacheService.set(cacheKey, jobs, CACHE_TTL.JOBS_LIST)
+    
+    return jobs
+  }
+}
+export function useUserJobQueries(userId?: string) {
+  const { 
+    data: jobs, 
+    isLoading: loadingJobs, 
+    error: jobsError,
+    refetch: refetchJobs 
+  } = useQuery({
+    queryKey: ["user-jobs", userId],
+    queryFn: () => cachedDataFetchers.getJobsByUserWithCache(userId!),
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 2,
+  })
+
+  return {
+    jobs: jobs || [],
+    loadingJobs,
+    jobsError,
+    refetchJobs
   }
 }
 

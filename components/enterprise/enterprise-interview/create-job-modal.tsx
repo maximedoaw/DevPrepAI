@@ -1,14 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
 import { 
   Plus, 
   Trash2, 
   Building, 
   MapPin, 
-  DollarSign, 
   Users, 
   BookOpen, 
   Target, 
@@ -23,7 +20,6 @@ import {
   Settings,
   BarChart3,
   Shield,
-  Link,
   Laptop,
   Brain,
   Calculator,
@@ -45,8 +41,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { jobFormSchema, JobFormData, Difficulty, JobType, WorkMode, Domain } from "@/lib/validations/job-validation-form"
 import { useJobMutations } from "@/hooks/use-job-queries"
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
+
+// Types manuels
+export type Difficulty = "JUNIOR" | "MID" | "SENIOR"
+export type JobType = "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP" | "MISSION" | "CDI" | "STAGE"
+export type WorkMode = "REMOTE" | "ON_SITE" | "HYBRID"
+export type Domain = 
+  | "MACHINE_LEARNING"
+  | "DEVELOPMENT" 
+  | "DATA_SCIENCE"
+  | "FINANCE"
+  | "BUSINESS"
+  | "ENGINEERING"
+  | "DESIGN"
+  | "DEVOPS"
+  | "CYBERSECURITY"
+  | "MARKETING"
+  | "PRODUCT"
+  | "ARCHITECTURE"
+  | "MOBILE"
+  | "WEB"
+  | "COMMUNICATION"
+  | "MANAGEMENT"
+  | "EDUCATION"
+  | "HEALTH"
 
 interface CreateJobModalProps {
   open: boolean
@@ -100,94 +120,208 @@ const difficultyLabels: Record<Difficulty, string> = {
   SENIOR: "Senior"
 }
 
+// Tous les domaines disponibles
+const ALL_DOMAINS: Domain[] = [
+  "MACHINE_LEARNING", "DEVELOPMENT", "DATA_SCIENCE", "FINANCE", "BUSINESS", 
+  "ENGINEERING", "DESIGN", "DEVOPS", "CYBERSECURITY", "MARKETING", "PRODUCT", 
+  "ARCHITECTURE", "MOBILE", "WEB", "COMMUNICATION", "MANAGEMENT", "EDUCATION", "HEALTH"
+]
+
 export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
   const [skillInput, setSkillInput] = useState("")
   const [activeStep, setActiveStep] = useState(1)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // États individuels pour chaque champ du formulaire
+  const [companyName, setCompanyName] = useState("")
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [location, setLocation] = useState("")
+  const [domains, setDomains] = useState<Domain[]>([])
+  const [skills, setSkills] = useState<string[]>([])
+  const [salaryMin, setSalaryMin] = useState<number | undefined>(undefined)
+  const [salaryMax, setSalaryMax] = useState<number | undefined>(undefined)
+  const [currency, setCurrency] = useState("FCFA")
+  const [type, setType] = useState<JobType | undefined>(undefined)
+  const [workMode, setWorkMode] = useState<WorkMode | undefined>(undefined)
+  const [experienceLevel, setExperienceLevel] = useState<Difficulty | undefined>(undefined)
+
+  // Utilisation du hook d'authentification pour récupérer l'utilisateur
+  const { isAuthenticated, user } = useKindeBrowserClient()
   
   // Utilisation du hook de mutations
   const { createJobMutation } = useJobMutations()
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors, isSubmitting },
-    reset,
-    trigger
-  } = useForm<JobFormData>({
-    resolver: zodResolver(jobFormSchema) as any,
-    defaultValues: {
-      currency: "FCFA",
-      domains: [],
-      skills: [],
-      location: "",
-      salaryMin: undefined,
-      salaryMax: undefined
-    }
-  })
-
-  const selectedDomains = watch("domains") || []
-  const selectedSkills = watch("skills") || []
-  const companyName = watch("companyName")
-  const title = watch("title")
-  const type = watch("type")
-  const workMode = watch("workMode")
-  const experienceLevel = watch("experienceLevel")
-
   const addSkill = () => {
-    if (skillInput.trim() && !selectedSkills.includes(skillInput.trim())) {
-      setValue("skills", [...selectedSkills, skillInput.trim()])
+    if (skillInput.trim() && !skills.includes(skillInput.trim())) {
+      setSkills(prev => [...prev, skillInput.trim()])
       setSkillInput("")
+      // Effacer l'erreur des compétences si elle existe
+      if (errors.skills) {
+        setErrors(prev => ({ ...prev, skills: "" }))
+      }
     }
   }
 
   const removeSkill = (skillToRemove: string) => {
-    setValue("skills", selectedSkills.filter(skill => skill !== skillToRemove))
+    setSkills(prev => prev.filter(skill => skill !== skillToRemove))
   }
 
   const toggleDomain = (domain: Domain) => {
-    const currentDomains = selectedDomains
-    if (currentDomains.includes(domain)) {
-      setValue("domains", currentDomains.filter(d => d !== domain))
-    } else {
-      setValue("domains", [...currentDomains, domain])
+    setDomains(prev => {
+      if (prev.includes(domain)) {
+        return prev.filter(d => d !== domain)
+      } else {
+        return [...prev, domain]
+      }
+    })
+    // Effacer l'erreur des domaines si elle existe
+    if (errors.domains) {
+      setErrors(prev => ({ ...prev, domains: "" }))
     }
   }
 
-  const handleFormSubmit = async (data: JobFormData) => {
+  // Validation manuelle
+  const validateStep = (step: number): boolean => {
+    const newErrors: Record<string, string> = {}
+
+    switch (step) {
+      case 1:
+        if (!companyName.trim()) {
+          newErrors.companyName = "Le nom de l'entreprise est requis"
+        }
+        if (!title.trim()) {
+          newErrors.title = "Le titre du poste est requis"
+        }
+        if (!type) {
+          newErrors.type = "Le type de contrat est requis"
+        }
+        if (!workMode) {
+          newErrors.workMode = "Le mode de travail est requis"
+        }
+        break
+
+      case 2:
+        // Pas de validation obligatoire pour l'étape 2
+        break
+
+      case 3:
+        if (domains.length === 0) {
+          newErrors.domains = "Au moins un domaine doit être sélectionné"
+        }
+        if (skills.length === 0) {
+          newErrors.skills = "Au moins une compétence doit être ajoutée"
+        }
+        break
+
+      case 4:
+        if (!description.trim()) {
+          newErrors.description = "La description est requise"
+        } else if (description.trim().length < 10) {
+          newErrors.description = "La description doit contenir au moins 10 caractères"
+        }
+        break
+    }
+
+    // Validation des salaires
+    if (salaryMin && salaryMin < 0) {
+      newErrors.salaryMin = "Le salaire minimum doit être positif"
+    }
+    if (salaryMax && salaryMax < 0) {
+      newErrors.salaryMax = "Le salaire maximum doit être positif"
+    }
+    if (salaryMin && salaryMax && salaryMax < salaryMin) {
+      newErrors.salaryMax = "Le salaire maximum doit être supérieur ou égal au salaire minimum"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Valider toutes les étapes
+    let isValid = true
+    for (let step = 1; step <= 4; step++) {
+      if (!validateStep(step)) {
+        isValid = false
+        setActiveStep(step)
+        break
+      }
+    }
+
+    if (!isValid) return
+
     try {
-      // Utilisation de la mutation pour créer le job
-      await createJobMutation.mutateAsync(data)
-      reset()
+      setIsSubmitting(true)
+      
+      // Vérifier que l'utilisateur est connecté
+      if (!user || !isAuthenticated) {
+        console.error("Utilisateur non connecté")
+        return
+      }
+
+      // Préparer les données pour l'API
+      const jobData = {
+        companyName,
+        title,
+        description,
+        location: location || undefined,
+        domains,
+        skills,
+        salaryMin,
+        salaryMax,
+        currency,
+        type,
+        workMode,
+        experienceLevel,
+        metadata: undefined,
+        userId: user.id
+      }
+
+      console.log("Données soumises:", jobData)
+
+      // Utilisation de la mutation pour créer le job - MAINTENANT SANS jobData wrapper
+      await createJobMutation.mutateAsync(jobData as any)
+      
+      // Réinitialiser le formulaire
+      resetForm()
       setActiveStep(1)
+      setErrors({})
       onOpenChange(false)
     } catch (error) {
       console.error("Erreur lors de la soumission:", error)
-      // La gestion d'erreur est déjà faite dans le hook useJobMutations
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const nextStep = async () => {
-    const fields = getStepFields(activeStep)
-    const isValid = await trigger(fields as any)
-    if (isValid) {
+  const resetForm = () => {
+    setCompanyName("")
+    setTitle("")
+    setDescription("")
+    setLocation("")
+    setDomains([])
+    setSkills([])
+    setSalaryMin(undefined)
+    setSalaryMax(undefined)
+    setCurrency("FCFA")
+    setType(undefined)
+    setWorkMode(undefined)
+    setExperienceLevel(undefined)
+    setSkillInput("")
+  }
+
+  const nextStep = () => {
+    if (validateStep(activeStep)) {
       setActiveStep(prev => prev + 1)
     }
   }
 
   const prevStep = () => {
     setActiveStep(prev => prev - 1)
-  }
-
-  const getStepFields = (step: number): (keyof JobFormData)[] => {
-    switch (step) {
-      case 1: return ['companyName', 'title', 'type', 'workMode']
-      case 2: return ['location', 'experienceLevel']
-      case 3: return ['domains', 'skills']
-      case 4: return ['description']
-      default: return []
-    }
   }
 
   const steps = [
@@ -209,12 +343,14 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
               <Building className="w-6 h-6 text-white" />
             </div>
           </div>
-          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-700 bg-clip-text text-transparent">
-            Créer une nouvelle offre
-          </DialogTitle>
-          <p className="text-slate-600 dark:text-slate-400 text-sm">
-            Remplissez les informations pour publier votre offre d'emploi
-          </p>
+          <div className="text-center">
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-700 bg-clip-text text-transparent">
+              Créer une nouvelle offre
+            </DialogTitle>
+            <p className="text-slate-600 dark:text-slate-400 text-sm mt-2">
+              Remplissez les informations pour publier votre offre d'emploi
+            </p>
+          </div>
         </DialogHeader>
 
         {/* Progress Steps */}
@@ -246,7 +382,7 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+        <form onSubmit={handleFormSubmit} className="space-y-6">
           {/* Step 1: Informations de base */}
           {activeStep === 1 && (
             <div className="space-y-6 animate-in fade-in duration-300">
@@ -265,12 +401,13 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                   </Label>
                   <Input
                     id="companyName"
-                    {...register("companyName")}
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
                     className={errors.companyName ? "border-red-500" : ""}
                     placeholder="Ex: TechCorp SAS"
                   />
                   {errors.companyName && (
-                    <p className="text-red-500 text-sm mt-1">{errors.companyName.message}</p>
+                    <p className="text-red-500 text-sm mt-1">{errors.companyName}</p>
                   )}
                 </div>
 
@@ -281,12 +418,13 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                   </Label>
                   <Input
                     id="title"
-                    {...register("title")}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
                     className={errors.title ? "border-red-500" : ""}
                     placeholder="Ex: Développeur Full Stack"
                   />
                   {errors.title && (
-                    <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>
+                    <p className="text-red-500 text-sm mt-1">{errors.title}</p>
                   )}
                 </div>
 
@@ -297,7 +435,7 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                     </Label>
                     <Select 
                       value={type} 
-                      onValueChange={(value: JobType) => setValue("type", value)}
+                      onValueChange={(value: JobType) => setType(value)}
                     >
                       <SelectTrigger className={errors.type ? "border-red-500" : ""}>
                         <SelectValue placeholder="Type de contrat" />
@@ -311,7 +449,7 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                       </SelectContent>
                     </Select>
                     {errors.type && (
-                      <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>
+                      <p className="text-red-500 text-sm mt-1">{errors.type}</p>
                     )}
                   </div>
 
@@ -321,7 +459,7 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                     </Label>
                     <Select 
                       value={workMode} 
-                      onValueChange={(value: WorkMode) => setValue("workMode", value)}
+                      onValueChange={(value: WorkMode) => setWorkMode(value)}
                     >
                       <SelectTrigger className={errors.workMode ? "border-red-500" : ""}>
                         <SelectValue placeholder="Mode de travail" />
@@ -335,7 +473,7 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                       </SelectContent>
                     </Select>
                     {errors.workMode && (
-                      <p className="text-red-500 text-sm mt-1">{errors.workMode.message}</p>
+                      <p className="text-red-500 text-sm mt-1">{errors.workMode}</p>
                     )}
                   </div>
                 </div>
@@ -361,7 +499,8 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                   </Label>
                   <Input
                     id="location"
-                    {...register("location")}
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
                     placeholder="Ex: Paris, France"
                   />
                 </div>
@@ -373,7 +512,7 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                   </Label>
                   <Select 
                     value={experienceLevel} 
-                    onValueChange={(value: Difficulty) => setValue("experienceLevel", value)}
+                    onValueChange={(value: Difficulty) => setExperienceLevel(value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Choisir le niveau" />
@@ -396,9 +535,14 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                     <Input
                       id="salaryMin"
                       type="number"
-                      {...register("salaryMin", { valueAsNumber: true })}
+                      value={salaryMin || ""}
+                      onChange={(e) => setSalaryMin(e.target.value ? Number(e.target.value) : undefined)}
                       placeholder="30000"
+                      className={errors.salaryMin ? "border-red-500" : ""}
                     />
+                    {errors.salaryMin && (
+                      <p className="text-red-500 text-sm mt-1">{errors.salaryMin}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="salaryMax" className="text-sm font-medium">
@@ -407,9 +551,14 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                     <Input
                       id="salaryMax"
                       type="number"
-                      {...register("salaryMax", { valueAsNumber: true })}
+                      value={salaryMax || ""}
+                      onChange={(e) => setSalaryMax(e.target.value ? Number(e.target.value) : undefined)}
                       placeholder="50000"
+                      className={errors.salaryMax ? "border-red-500" : ""}
                     />
+                    {errors.salaryMax && (
+                      <p className="text-red-500 text-sm mt-1">{errors.salaryMax}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="currency" className="text-sm font-medium">
@@ -417,7 +566,8 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                     </Label>
                     <Input
                       id="currency"
-                      {...register("currency")}
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
                       placeholder="FCFA"
                     />
                   </div>
@@ -443,12 +593,12 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                     Domaines *
                   </Label>
                   <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
-                    {(Object.values(Domain.Enum) as Domain[]).map((domain) => (
+                    {ALL_DOMAINS.map((domain) => (
                       <div
                         key={domain}
                         className={`
                           p-3 rounded-lg border cursor-pointer transition-all duration-200 text-center
-                          ${selectedDomains.includes(domain)
+                          ${domains.includes(domain)
                             ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
                             : 'border-slate-200 dark:border-slate-600 hover:border-green-300 dark:hover:border-green-700'
                           }
@@ -458,7 +608,7 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                         <div className="flex flex-col items-center gap-1">
                           <div className={`
                             p-1 rounded transition-colors
-                            ${selectedDomains.includes(domain) 
+                            ${domains.includes(domain) 
                               ? 'text-green-600 dark:text-green-400' 
                               : 'text-slate-600 dark:text-slate-400'
                             }
@@ -471,7 +621,7 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                     ))}
                   </div>
                   {errors.domains && (
-                    <p className="text-red-500 text-sm mt-1">{errors.domains.message}</p>
+                    <p className="text-red-500 text-sm mt-1">{errors.domains}</p>
                   )}
                 </div>
 
@@ -492,7 +642,7 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                     </Button>
                   </div>
                   <div className="flex flex-wrap gap-2 min-h-8">
-                    {selectedSkills.map((skill) => (
+                    {skills.map((skill) => (
                       <Badge 
                         key={skill} 
                         variant="secondary" 
@@ -510,7 +660,7 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                     ))}
                   </div>
                   {errors.skills && (
-                    <p className="text-red-500 text-sm mt-1">{errors.skills.message}</p>
+                    <p className="text-red-500 text-sm mt-1">{errors.skills}</p>
                   )}
                 </div>
               </div>
@@ -535,13 +685,14 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                   </Label>
                   <Textarea
                     id="description"
-                    {...register("description")}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                     rows={6}
                     className={errors.description ? "border-red-500" : ""}
                     placeholder="Décrivez en détail les missions, responsabilités, avantages et ce qui rend ce poste unique..."
                   />
                   {errors.description && (
-                    <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>
+                    <p className="text-red-500 text-sm mt-1">{errors.description}</p>
                   )}
                   <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                     <Info className="w-3 h-3" />
@@ -562,8 +713,8 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                         {title && <p><strong>Poste:</strong> {title}</p>}
                         {type && <p><strong>Type:</strong> {jobTypeLabels[type]}</p>}
                         {workMode && <p><strong>Mode:</strong> {workModeLabels[workMode]}</p>}
-                        {selectedDomains.length > 0 && (
-                          <p><strong>Domaines:</strong> {selectedDomains.map(d => d.replace('_', ' ')).join(", ")}</p>
+                        {domains.length > 0 && (
+                          <p><strong>Domaines:</strong> {domains.map(d => d.replace('_', ' ')).join(", ")}</p>
                         )}
                       </div>
                     </CardContent>

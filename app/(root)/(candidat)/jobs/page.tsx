@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { ApplyDialog } from "@/components/jobs/apply-dialog";
 import { JobCardSkeleton } from "@/components/jobs/job-card-skeleton";
 import { cn } from "@/lib/utils";
+import { SeedJobs } from "@/components/seed-jobs";
 
 const JOBS_PER_PAGE = 6;
 

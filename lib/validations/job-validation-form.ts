@@ -45,6 +45,15 @@ export const jobFormSchema = z.object({
   workMode: WorkMode,
   experienceLevel: Difficulty.optional(),
   metadata: z.any().optional()
+}).refine((data) => {
+  // Vérifier que le salaire max est supérieur au salaire min si les deux sont définis
+  if (data.salaryMin && data.salaryMax) {
+    return data.salaryMax >= data.salaryMin
+  }
+  return true
+}, {
+  message: "Le salaire maximum doit être supérieur ou égal au salaire minimum",
+  path: ["salaryMax"]
 })
 
 export type JobFormData = z.infer<typeof jobFormSchema>

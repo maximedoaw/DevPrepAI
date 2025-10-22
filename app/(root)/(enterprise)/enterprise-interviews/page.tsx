@@ -212,7 +212,6 @@ export default function EnterpriseInterviewsPage() {
 
               <TabsContent value="offers" className="space-y-6">
                 <JobOffersTab 
-                  offers={filteredOffers} 
                   onCreateJobClick={() => setCreateModalOpen(true)}
                 />
               </TabsContent>
