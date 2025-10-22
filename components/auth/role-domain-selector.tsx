@@ -6,8 +6,7 @@ import {
   Code, Database, Calculator, BarChart3, Cpu, Palette, Cloud, Shield, 
   MessageSquare, GitBranch, Server, Smartphone, Globe, Mail, Calendar, 
   BookOpen, Heart, ChevronLeft, Building, School, GraduationCap, User, 
-  Briefcase, ArrowRight, Sparkles, Check, Target, Users, Lightbulb,
-  Rocket, Star, Zap, Crown, Award, TrendingUp, Brain
+  Briefcase, ArrowRight, Check, Target, Rocket
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,8 +28,6 @@ interface Domain {
   name: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
-  bgColor: string;
-  borderColor: string;
 }
 
 const roles: Role[] = [
@@ -38,21 +35,21 @@ const roles: Role[] = [
     id: "entreprise",
     name: "Entreprise",
     icon: Building,
-    description: "Recherchez des talents ou proposez des services",
+    description: "Recherchez des talents tech qualifiés",
     multipleDomains: true
   },
   {
     id: "bootcamp",
     name: "Bootcamp",
     icon: School,
-    description: "Formez la prochaine génération de talents tech",
+    description: "Mettez en avant vos formations en plaçant vos étudiants ou en les matchant avec des entreprises",
     multipleDomains: true
   },
   {
     id: "etudiant",
     name: "Étudiant",
     icon: GraduationCap,
-    description: "Préparez-vous à entrer sur le marché du travail",
+    description: "Préparez votre entrée sur le marché du travail",
     multipleDomains: false
   },
   {
@@ -73,31 +70,31 @@ const roles: Role[] = [
     id: "ecole",
     name: "École/Université",
     icon: BookOpen,
-    description: "Offrez des formations académiques en tech",
+    description: "Mettez en avant vos formations en plaçant vos étudiants ou en les matchant avec des entreprises",
     multipleDomains: true
   }
 ];
 
 const domains: Domain[] = [
-  { id: "dev", name: "Développement", icon: Code, color: "text-blue-600 dark:text-blue-400", bgColor: "bg-blue-500", borderColor: "border-blue-500" },
-  { id: "data", name: "Data Science", icon: Database, color: "text-purple-600 dark:text-purple-400", bgColor: "bg-purple-500", borderColor: "border-purple-500" },
-  { id: "finance", name: "Finance", icon: Calculator, color: "text-green-600 dark:text-green-400", bgColor: "bg-green-500", borderColor: "border-green-500" },
-  { id: "business", name: "Business", icon: BarChart3, color: "text-yellow-600 dark:text-yellow-400", bgColor: "bg-yellow-500", borderColor: "border-yellow-500" },
-  { id: "ingenierie", name: "Ingénierie", icon: Cpu, color: "text-red-600 dark:text-red-400", bgColor: "bg-red-500", borderColor: "border-red-500" },
-  { id: "design", name: "Design", icon: Palette, color: "text-pink-600 dark:text-pink-400", bgColor: "bg-pink-500", borderColor: "border-pink-500" },
-  { id: "devops", name: "DevOps", icon: Cloud, color: "text-indigo-600 dark:text-indigo-400", bgColor: "bg-indigo-500", borderColor: "border-indigo-500" },
-  { id: "cybersecurite", name: "Cybersécurité", icon: Shield, color: "text-orange-600 dark:text-orange-400", bgColor: "bg-orange-500", borderColor: "border-orange-500" },
-  { id: "marketing", name: "Marketing", icon: MessageSquare, color: "text-teal-600 dark:text-teal-400", bgColor: "bg-teal-500", borderColor: "border-teal-500" },
-  { id: "product", name: "Product", icon: GitBranch, color: "text-cyan-600 dark:text-cyan-400", bgColor: "bg-cyan-500", borderColor: "border-cyan-500" },
-  { id: "architecture", name: "Architecture", icon: Server, color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-500", borderColor: "border-amber-500" },
-  { id: "mobile", name: "Mobile", icon: Smartphone, color: "text-lime-600 dark:text-lime-400", bgColor: "bg-lime-500", borderColor: "border-lime-500" },
-  { id: "web", name: "Web", icon: Globe, color: "text-emerald-600 dark:text-emerald-400", bgColor: "bg-emerald-500", borderColor: "border-emerald-500" },
-  { id: "communication", name: "Communication", icon: Mail, color: "text-rose-600 dark:text-rose-400", bgColor: "bg-rose-500", borderColor: "border-rose-500" },
-  { id: "management", name: "Management", icon: Calendar, color: "text-violet-600 dark:text-violet-400", bgColor: "bg-violet-500", borderColor: "border-violet-500" },
-  { id: "education", name: "Éducation", icon: BookOpen, color: "text-fuchsia-600 dark:text-fuchsia-400", bgColor: "bg-fuchsia-500", borderColor: "border-fuchsia-500" },
-  { id: "sante", name: "Santé", icon: Heart, color: "text-sky-600 dark:text-sky-400", bgColor: "bg-sky-500", borderColor: "border-sky-500" }
+  { id: "dev", name: "Développement", icon: Code, color: "text-blue-600 dark:text-blue-400" },
+  { id: "data", name: "Data Science", icon: Database, color: "text-purple-600 dark:text-purple-400" },
+  { id: "finance", name: "Finance", icon: Calculator, color: "text-green-600 dark:text-green-400" },
+  { id: "business", name: "Business", icon: BarChart3, color: "text-yellow-600 dark:text-yellow-400" },
+  { id: "ingenierie", name: "Ingénierie", icon: Cpu, color: "text-red-600 dark:text-red-400" },
+  { id: "design", name: "Design", icon: Palette, color: "text-pink-600 dark:text-pink-400" },
+  { id: "devops", name: "DevOps", icon: Cloud, color: "text-indigo-600 dark:text-indigo-400" },
+  { id: "cybersecurite", name: "Cybersécurité", icon: Shield, color: "text-orange-600 dark:text-orange-400" },
+  { id: "marketing", name: "Marketing", icon: MessageSquare, color: "text-teal-600 dark:text-teal-400" },
+  { id: "product", name: "Product", icon: GitBranch, color: "text-cyan-600 dark:text-cyan-400" },
+  { id: "architecture", name: "Architecture", icon: Server, color: "text-amber-600 dark:text-amber-400" },
+  { id: "mobile", name: "Mobile", icon: Smartphone, color: "text-lime-600 dark:text-lime-400" },
+  { id: "web", name: "Web", icon: Globe, color: "text-emerald-600 dark:text-emerald-400" },
+  { id: "communication", name: "Communication", icon: Mail, color: "text-rose-600 dark:text-rose-400" },
+  { id: "management", name: "Management", icon: Calendar, color: "text-violet-600 dark:text-violet-400" },
+  { id: "education", name: "Éducation", icon: BookOpen, color: "text-fuchsia-600 dark:text-fuchsia-400" },
+  { id: "sante", name: "Santé", icon: Heart, color: "text-sky-600 dark:text-sky-400" }
 ];
-
+ 
 interface RoleDomainSelectorProps {
   onComplete: () => void;
 }
@@ -106,13 +103,32 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
   const [step, setStep] = useState<"role" | "domain">("role");
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
-  const { user } = useKindeBrowserClient();
+  const { user, isLoading } = useKindeBrowserClient();
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!user?.id || !selectedRole || !user.email || !user.given_name || !user.family_name) {
-        throw new Error("Informations utilisateur manquantes");
+      if (isLoading) {
+        throw new Error("Chargement des données utilisateur en cours");
       }
+
+      if (!user?.id) {
+        throw new Error("ID utilisateur manquant");
+      }
+
+      if (!user.email) {
+        throw new Error("Email utilisateur manquant");
+      }
+
+      if (!selectedRole) {
+        throw new Error("Rôle non sélectionné");
+      }
+
+      if (selectedDomains.length === 0) {
+        throw new Error("Domaines non sélectionnés");
+      }
+
+      const firstName = user.given_name || "Utilisateur";
+      const lastName = user.family_name || "";
 
       const roleEnum = roleMapping[selectedRole];
       const domainEnums = selectedDomains.map(id => domainMapping[id]);
@@ -120,20 +136,23 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
       return await createOrUpdateUserWithRole(
         user.id,
         user.email,
-        user.given_name,
-        user.family_name,
+        firstName,
+        lastName,
         roleEnum,
         domainEnums
       );
     },
     onSuccess: (data) => {
-      if (data.success) {
-        console.log("Utilisateur créé/mis à jour avec succès");
+      if (data?.success) {
         onComplete();
+      } else {
+        console.error("Erreur côté serveur:", data?.error || "Erreur inconnue");
+        // Afficher un message d'erreur à l'utilisateur
       }
     },
     onError: (error) => {
       console.error("Erreur lors de la création/mise à jour:", error);
+      // Afficher un message d'erreur à l'utilisateur
     }
   });
 
@@ -164,282 +183,233 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
   };
 
   const handleComplete = () => {
-    if (selectedRole && selectedDomains.length > 0) {
-      mutation.mutate();
+    if (isLoading) return;
+
+    if (!user || !selectedRole || selectedDomains.length === 0) {
+      console.error("Données manquantes");
+      return;
     }
+
+    mutation.mutate();
   };
 
   const currentRole = roles.find(role => role.id === selectedRole);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30 dark:from-slate-950 dark:via-slate-900/50 dark:to-indigo-950/20 py-8 px-4 sm:px-6 lg:px-8 transition-colors flex items-center justify-center">
-      <div className="max-w-4xl w-full">
-        {/* Header avec badge d'accélérateur */}
-        <div className="text-center mb-8">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="flex flex-col items-center"
-          >
-            <Badge variant="secondary" className="mb-6 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0 text-sm font-semibold shadow-lg">
-              <Rocket className="h-4 w-4 mr-2" />
-              Accélérateur de Carrière TurboIntMax
-            </Badge>
-            
-            <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3">
-              Personnalisez votre parcours
-            </h1>
-            <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
-              Sélectionnez votre profil et domaines d'intérêt pour une expérience sur mesure
-            </p>
-            
-            <div className="flex justify-center mt-4 gap-1">
-              {[TrendingUp, Brain, Award, Crown].map((Icon, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.1 + 0.5 }}
-                >
-                  <Icon className="h-4 w-4 text-blue-500" />
-                </motion.div>
-              ))}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors flex items-center justify-center py-8 px-4">
+      <div className="max-w-2xl w-full">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
+        >
+          <div className="flex justify-center mb-4">
+            <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
+              <Rocket className="h-4 w-4 text-blue-500" />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Accélérateur de Carrière
+              </span>
             </div>
-          </motion.div>
-        </div>
+          </div>
+          
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white mb-3">
+            Personnalisez votre expérience
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400">
+            Sélectionnez votre profil pour commencer
+          </p>
+        </motion.div>
 
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="relative"
+          className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6"
         >
-          {/* Indicateur de progression minimaliste */}
+          {/* Progress indicator */}
           <div className="flex justify-center mb-8">
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 ${step === "role" ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg" : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}>
-                <span className="font-bold text-sm">1</span>
+            <div className="flex items-center">
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
+                step === "role" 
+                  ? "bg-blue-500 text-white" 
+                  : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+              }`}>
+                <span className="text-sm font-medium">1</span>
               </div>
-              <div className="w-8 h-0.5 bg-slate-300 dark:bg-slate-600 mx-2"></div>
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 ${step === "domain" ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg" : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}>
-                <span className="font-bold text-sm">2</span>
+              <div className="w-12 h-0.5 bg-slate-200 dark:bg-slate-600 mx-2"></div>
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
+                step === "domain" 
+                  ? "bg-blue-500 text-white" 
+                  : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+              }`}>
+                <span className="text-sm font-medium">2</span>
               </div>
             </div>
           </div>
 
-          <div className="relative bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl p-6 shadow-lg border border-slate-200/50 dark:border-slate-700/50">
-            <div className="min-h-[350px] overflow-hidden">
-              <AnimatePresence mode="wait">
-                {step === "role" && (
-                  <motion.div
-                    key="role-selection"
-                    initial={{ opacity: 0, x: -30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 30 }}
-                    transition={{ duration: 0.3 }}
-                    className="space-y-6"
-                  >
-                    <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 text-center mb-6">
-                      Qui êtes-vous ?
-                    </h2>
-                    
-                    <div className="flex flex-wrap justify-center gap-3">
-                      {roles.map((role) => {
-                        const isSelected = selectedRole === role.id;
-                        return (
-                          <motion.div
-                            key={role.id}
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            transition={{ duration: 0.15 }}
-                          >
-                            <Badge
-                              variant={isSelected ? "default" : "outline"}
-                              className={`cursor-pointer px-4 py-3 text-sm font-medium transition-all duration-200 flex items-center gap-2 ${isSelected 
-                                ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0 shadow-md" 
-                                : "bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/80"
-                              }`}
-                              onClick={() => handleRoleSelect(role.id)}
-                            >
-                              <role.icon className="h-4 w-4" />
+          <div className="min-h-[400px]">
+            <AnimatePresence mode="wait">
+              {step === "role" && (
+                <motion.div
+                  key="role-selection"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="space-y-6"
+                >
+                  <h2 className="text-lg font-medium text-slate-900 dark:text-white text-center mb-2">
+                    Qui êtes-vous ?
+                  </h2>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {roles.map((role) => {
+                      const isSelected = selectedRole === role.id;
+                      return (
+                        <motion.button
+                          key={role.id}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                            isSelected
+                              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 brightness-100"
+                              : "border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500"
+                          }`}
+                          onClick={() => handleRoleSelect(role.id)}
+                        >
+                          <div className="flex items-center gap-3 mb-2">
+                            <role.icon className={`h-5 w-5 ${
+                              isSelected ? "text-blue-500" : "text-slate-500 dark:text-slate-400"
+                            }`} />
+                            <span className={`font-medium ${
+                              isSelected ? "text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-300"
+                            }`}>
                               {role.name}
-                              {isSelected && (
-                                <Check className="h-4 w-4 ml-1" />
-                              )}
-                            </Badge>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
+                            </span>
+                            {isSelected && (
+                              <Check className="h-4 w-4 text-blue-500 ml-auto" />
+                            )}
+                          </div>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                            {role.description}
+                          </p>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
 
-                    {selectedRole && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-center mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800"
-                      >
-                        <p className="text-sm text-blue-700 dark:text-blue-300">
-                          {roles.find(r => r.id === selectedRole)?.description}
-                        </p>
-                      </motion.div>
-                    )}
-                  </motion.div>
-                )}
-
-                {step === "domain" && currentRole && (
-                  <motion.div
-                    key="domain-selection"
-                    initial={{ opacity: 0, x: 30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -30 }}
-                    transition={{ duration: 0.3 }}
-                    className="space-y-6"
-                  >
-                    <div className="flex items-center justify-between mb-6">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={handleBack}
-                        className="flex items-center text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 px-3 py-1 rounded-lg transition-colors"
-                      >
-                        <ChevronLeft className="mr-1 h-4 w-4" />
-                        Retour
-                      </Button>
-                      
-                      <div className="text-center flex-1">
-                        <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
-                          Domaines d'intérêt
-                        </h2>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                          Profil: {currentRole.name}
-                        </p>
-                      </div>
-                      
-                      <div className="w-16"></div>
-                    </div>
-
-                    <div className="text-center mb-6">
-                      <p className="text-sm text-slate-600 dark:text-slate-300">
-                        {currentRole.multipleDomains 
-                          ? "Sélectionnez un ou plusieurs domaines" 
-                          : "Choisissez votre domaine principal"}
+              {step === "domain" && currentRole && (
+                <motion.div
+                  key="domain-selection"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-center gap-4 mb-6">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={handleBack}
+                      className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    
+                    <div className="flex-1">
+                      <h2 className="text-lg font-medium text-slate-900 dark:text-white">
+                        Domaines d'intérêt
+                      </h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {currentRole.name}
                       </p>
                     </div>
+                  </div>
 
-                    <div className="flex flex-wrap justify-center gap-3 max-h-64 overflow-y-auto p-2 custom-scrollbar">
-                      {domains.map((domain) => {
-                        const isSelected = selectedDomains.includes(domain.id);
-                        
-                        return (
-                          <motion.div
-                            key={domain.id}
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            transition={{ duration: 0.15 }}
-                          >
-                            <Badge
-                              variant={isSelected ? "default" : "outline"}
-                              className={`cursor-pointer px-4 py-2.5 text-sm font-medium transition-all duration-200 flex items-center gap-2 ${isSelected 
-                                ? `${domain.bgColor} text-white border-0 shadow-md` 
-                                : "bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
-                              }`}
-                              onClick={() => handleDomainToggle(domain.id)}
-                            >
-                              <domain.icon className={`h-4 w-4 ${isSelected ? "text-white" : domain.color}`} />
-                              {domain.name}
-                              {isSelected && (
-                                <Check className="h-4 w-4 ml-1" />
-                              )}
-                            </Badge>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
+                  <div className="text-center mb-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      {currentRole.multipleDomains 
+                        ? "Sélectionnez un ou plusieurs domaines" 
+                        : "Choisissez votre domaine principal"}
+                    </p>
+                  </div>
 
-                    <div className="flex justify-center mt-8">
-                      <motion.div
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <Button 
-                          onClick={handleComplete}
-                          disabled={selectedDomains.length === 0 || mutation.isPending}
-                          className="px-8 py-3 font-medium text-base bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-xl rounded-full group"
+                  <div className="flex flex-wrap justify-center gap-2 max-h-64 overflow-y-auto p-2">
+                    {domains.map((domain) => {
+                      const isSelected = selectedDomains.includes(domain.id);
+                      
+                      return (
+                        <motion.button
+                          key={domain.id}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className={`px-3 py-2 rounded-full border text-sm font-medium transition-all duration-200 flex items-center gap-2 brightness-100 ${
+                            isSelected
+                              ? "bg-blue-500 text-white border-blue-500"
+                              : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500"
+                          }`}
+                          onClick={() => handleDomainToggle(domain.id)}
                         >
-                          {mutation.isPending ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              Finalisation...
-                            </>
-                          ) : (
-                            <>
-                              <Rocket className="mr-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                              Lancer l'accélérateur
-                              <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                            </>
+                          <domain.icon className={`h-4 w-4 ${
+                            isSelected ? "text-white" : domain.color
+                          }`} />
+                          {domain.name}
+                          {isSelected && (
+                            <Check className="h-3 w-3 ml-1" />
                           )}
-                        </Button>
-                      </motion.div>
-                    </div>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
 
-                    {mutation.isError && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-center mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg border border-red-200 dark:border-red-800 text-xs"
-                      >
-                        <p>
-                          Une erreur s'est produite. Veuillez réessayer.
-                        </p>
-                      </motion.div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                  <div className="flex justify-center mt-8">
+                    <Button 
+                      onClick={handleComplete}
+                      disabled={selectedDomains.length === 0 || mutation.isPending}
+                      className="px-6 py-2 font-medium bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-colors"
+                    >
+                      {mutation.isPending ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Finalisation...
+                        </>
+                      ) : (
+                        <>
+                          Commencer
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {(mutation.isError || mutation.data?.success === false) && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-center p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg border border-red-200 dark:border-red-800 text-sm"
+                    >
+                      {mutation.data?.error || mutation.error?.message || "Une erreur s'est produite. Veuillez réessayer."}
+                    </motion.div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </motion.div>
 
-        {/* Footer avec informations supplémentaires */}
+        {/* Footer */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
+          transition={{ delay: 0.5 }}
           className="text-center mt-8"
         >
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            TurboIntMax s'adapte à votre profil pour optimiser votre parcours professionnel
+            Votre parcours professionnel personnalisé vous attend
           </p>
         </motion.div>
       </div>
-
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(0, 0, 0, 0.03);
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(0, 0, 0, 0.1);
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(0, 0, 0, 0.2);
-        }
-        .dark .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.03);
-        }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.1);
-        }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.2);
-        }
-      `}</style>
     </div>
   );
 }

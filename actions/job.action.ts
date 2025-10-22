@@ -9,12 +9,12 @@ import { mockJobs } from "@/data/mockJobs"
 // Types pour les filtres
 export interface JobFilters {
   search?: string
-  domains?: Domain[] // Corrigé : Domain[] au lieu de string[]
+  domains?: Domain[]
   skills?: string[]
   workMode?: WorkMode[]
   type?: JobType[]
   location?: string
-  experienceLevel?: Difficulty[] // Corrigé : Difficulty[] au lieu de string[]
+  experienceLevel?: Difficulty[]
   minSalary?: number
   maxSalary?: number
 }
@@ -42,6 +42,14 @@ export async function getJobs(filters?: JobFilters) {
 
   const jobs = await prisma.jobPosting.findMany({
     include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true
+        }
+      },
       applications: {
         select: {
           id: true,
@@ -63,6 +71,14 @@ export async function getJobById(id: string) {
   const job = await prisma.jobPosting.findUnique({
     where: { id },
     include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true
+        }
+      },
       applications: {
         include: {
           user: {
@@ -96,8 +112,9 @@ export async function createJob(data: {
   currency?: string
   type: JobType
   workMode: WorkMode
-  experienceLevel?: Difficulty // Corrigé : Difficulty au lieu de string
+  experienceLevel?: Difficulty
   metadata?: any
+  userId: string // AJOUT : userId obligatoire
 }) {
   const job = await prisma.jobPosting.create({
     data: {
@@ -115,6 +132,7 @@ export async function createJob(data: {
       experienceLevel: data.experienceLevel,
       metadata: data.metadata,
       isActive: true,
+      userId: data.userId // AJOUT : Lien avec l'utilisateur
     }
   })
 
@@ -128,16 +146,17 @@ export async function updateJob(id: string, data: Partial<{
   title: string
   description: string
   location: string
-  domains: Domain[] // Corrigé : Domain[] au lieu de string[]
+  domains: Domain[]
   skills: string[]
   salaryMin: number
   salaryMax: number
   currency: string
   type: JobType
   workMode: WorkMode
-  experienceLevel: Difficulty // Corrigé : Difficulty au lieu de string
+  experienceLevel: Difficulty
   metadata: any
   isActive: boolean
+  userId: string // AJOUT : userId pour la mise à jour si nécessaire
 }>) {
   const job = await prisma.jobPosting.update({
     where: { id },
@@ -174,7 +193,16 @@ export async function seedJobs() {
     await prisma.jobPosting.deleteMany({})
   }
 
-  // Préparer les données pour Prisma
+  // Récupérer un utilisateur existant pour associer les jobs
+  const existingUser = await prisma.user.findFirst({
+    select: { id: true }
+  })
+
+  if (!existingUser) {
+    throw new Error("Aucun utilisateur trouvé pour associer les jobs de démonstration")
+  }
+
+  // Préparer les données pour Prisma avec userId
   const jobsForPrisma = mockJobs.map((job, index) => ({
     companyName: job.companyName,
     title: job.title,
@@ -185,10 +213,11 @@ export async function seedJobs() {
     salaryMin: job.salaryMin,
     salaryMax: job.salaryMax,
     currency: job.currency,
-    type: job.type as JobType, // Assurer que c'est bien JobType
-    workMode: job.workMode as WorkMode, // Assurer que c'est bien WorkMode
-    experienceLevel: job.experienceLevel as Difficulty, // Assurer que c'est bien Difficulty
+    type: job.type as JobType,
+    workMode: job.workMode as WorkMode,
+    experienceLevel: job.experienceLevel as Difficulty,
     isActive: true,
+    userId: existingUser.id, // AJOUT : userId obligatoire
     createdAt: new Date(Date.now() - index * 24 * 60 * 60 * 1000),
     updatedAt: new Date(Date.now() - index * 24 * 60 * 60 * 1000)
   }))

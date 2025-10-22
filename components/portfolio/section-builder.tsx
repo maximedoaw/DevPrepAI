@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Briefcase, BookOpen, Code, Languages, Heart, Award, GripVertical, Settings } from "lucide-react"
+import { Briefcase, BookOpen, Code, Languages, Heart, Award, GripVertical, Settings, Save } from "lucide-react"
 import { useState } from "react"
 
 const allSections = [
@@ -58,9 +58,11 @@ const allSections = [
 interface SectionBuilderProps {
   portfolioData: any
   setPortfolioData: (data: any) => void
+  onSave?: () => void
+  isSaving?: boolean
 }
 
-export default function SectionBuilder({ portfolioData, setPortfolioData }: SectionBuilderProps) {
+export default function SectionBuilder({ portfolioData, setPortfolioData, onSave, isSaving = false }: SectionBuilderProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
@@ -121,6 +123,12 @@ export default function SectionBuilder({ portfolioData, setPortfolioData }: Sect
     setPortfolioData({ ...portfolioData, sections: currentSections })
     setDragIndex(null)
     setDragOverIndex(null)
+  }
+
+  const handleSave = () => {
+    if (onSave) {
+      onSave()
+    }
   }
 
   const enabledSections = allSections.filter((section) => portfolioData.sections?.includes(section.id))
@@ -272,8 +280,23 @@ export default function SectionBuilder({ portfolioData, setPortfolioData }: Sect
         <div className="text-sm text-slate-600 dark:text-slate-400 text-center sm:text-left">
           <strong>{portfolioData.sections?.length || 0}</strong> sections activées • Glissez-déposez pour réorganiser
         </div>
-        <Button size="lg" className="min-w-[140px]">
-          Sauvegarder
+        <Button 
+          onClick={handleSave} 
+          disabled={isSaving}
+          size="lg" 
+          className="min-w-[140px] flex items-center gap-2"
+        >
+          {isSaving ? (
+            <>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <span>Sauvegarde...</span>
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" />
+              <span>Sauvegarder</span>
+            </>
+          )}
         </Button>
       </div>
     </div>

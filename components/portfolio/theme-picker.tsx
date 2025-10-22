@@ -1,7 +1,7 @@
-"use client";
+"use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Check } from "lucide-react"
 
 const themes = [
   { id: "blue", name: "Bleu Professionnel", color: "from-blue-500 to-blue-600" },
@@ -9,22 +9,24 @@ const themes = [
   { id: "emerald", name: "Émeraude Naturel", color: "from-emerald-500 to-emerald-600" },
   { id: "rose", name: "Rose Énergique", color: "from-rose-500 to-rose-600" },
   { id: "amber", name: "Ambre Chaud", color: "from-amber-500 to-amber-600" },
-  { id: "indigo", name: "Indigo Techno", color: "from-indigo-500 to-indigo-600" }
-];
+  { id: "indigo", name: "Indigo Techno", color: "from-indigo-500 to-indigo-600" },
+]
 
 interface ThemePickerProps {
-  portfolioData: any;
-  setPortfolioData: (data: any) => void;
+  portfolioData: any
+  setPortfolioData: (data: any) => void
 }
 
 export default function ThemePicker({ portfolioData, setPortfolioData }: ThemePickerProps) {
+  const handleThemeChange = (themeId: string) => {
+    setPortfolioData({ ...portfolioData, theme: themeId })
+  }
+
   return (
-    <Card>
+    <Card className="bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100">
       <CardHeader>
         <CardTitle>Palette de Couleurs</CardTitle>
-        <CardDescription>
-          Choisissez votre palette de couleurs principale
-        </CardDescription>
+        <CardDescription>Choisissez votre palette de couleurs principale (appliquée au portfolio)</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -32,11 +34,13 @@ export default function ThemePicker({ portfolioData, setPortfolioData }: ThemePi
             <div
               key={theme.id}
               className="text-center cursor-pointer group"
-              onClick={() => setPortfolioData({...portfolioData, theme: theme.id})}
+              onClick={() => handleThemeChange(theme.id)}
             >
               <div
                 className={`relative w-full h-20 rounded-xl bg-gradient-to-r ${theme.color} mb-3 shadow-lg group-hover:scale-105 transition-transform ${
-                  portfolioData.theme === theme.id ? "ring-4 ring-offset-2 ring-blue-500" : ""
+                  portfolioData.theme === theme.id
+                    ? "ring-4 ring-offset-2 ring-blue-500 dark:ring-offset-slate-900"
+                    : ""
                 }`}
               >
                 {portfolioData.theme === theme.id && (
@@ -45,13 +49,11 @@ export default function ThemePicker({ portfolioData, setPortfolioData }: ThemePi
                   </div>
                 )}
               </div>
-              <span className="text-sm font-medium text-slate-900 dark:text-white">
-                {theme.name}
-              </span>
+              <span className="text-sm font-medium text-slate-900 dark:text-white">{theme.name}</span>
             </div>
           ))}
         </div>
       </CardContent>
     </Card>
-  );
+  )
 }

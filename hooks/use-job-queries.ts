@@ -187,11 +187,11 @@ export function useJobMutations() {
   const createJobMutation = useMutation({
     mutationFn: createJob,
     onSuccess: async () => {
-      toast.success("Job créé avec succès")
+      toast.success("Poste créé avec succès")
       await invalidateJobCaches()
     },
     onError: (error) => {
-      toast.error("Erreur lors de la création du job")
+      toast.error("Erreur lors de la création du poste")
       console.error("Create job error:", error)
     }
   })

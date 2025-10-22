@@ -1,16 +1,9 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Infinity as InfinityIcon, ChevronLeft, ChevronRight, Star, Zap, Crown, Building, GraduationCap, Briefcase, FileText, Award, Users } from "lucide-react"
-import gsap from "gsap"
-import { ScrollTrigger } from "gsap/ScrollTrigger"
-
-// Enregistrer le plugin ScrollTrigger
-if (typeof window !== 'undefined') {
-  gsap.registerPlugin(ScrollTrigger)
-}
+import { Infinity as InfinityIcon, Star, Zap, Crown, Building, GraduationCap, Briefcase, FileText, Award, Users, Check } from "lucide-react"
 
 type Frequency = "month" | "year" | "lifetime"
 
@@ -23,7 +16,6 @@ interface PricingPlan {
   highlighted: boolean
   cta: string
   icon: React.ElementType
-  gradient: string
   savings?: string
 }
 
@@ -32,312 +24,189 @@ const pricingPlans: PricingPlan[] = [
     id: "free",
     name: "Gratuit",
     price: { month: "0 FCFA", year: "0 FCFA", lifetime: "0 FCFA" },
-    description: "Démarrez gratuitement et découvrez les bases.",
+    description: "Démarrez gratuitement et découvrez les bases de votre préparation carrière.",
     features: [
-      "Création de profil simple",
-      "Portfolio basique en ligne",
-      "Accès à 2 simulations d’entretien IA/mois",
+      "Profil professionnel basique",
+      "Portfolio en ligne simple",
+      "2 simulations d'entretien IA/mois",
       "Matching limité avec entreprises",
+      "Support par email"
     ],
     highlighted: false,
     cta: "Commencer gratuitement",
     icon: FileText,
-    gradient: "from-slate-100 via-blue-50 to-slate-200 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900",
   },
   {
     id: "pro",
     name: "Pro",
     price: { month: "4 500 FCFA", year: "45 000 FCFA", lifetime: "90 000 FCFA" },
-    description: "Boostez votre carrière avec des outils intelligents.",
+    description: "Optimisez votre recherche avec des outils professionnels.",
     features: [
-      "Rédaction intelligente de CV et rapport",
-      "Portfolio pro avec hébergement inclus",
-      "10 simulations d’entretien IA/mois",
+      "CV et rapport optimisés IA",
+      "Portfolio professionnel complet",
+      "10 simulations d'entretien IA/mois",
       "Matching avancé avec recruteurs",
+      "Support prioritaire",
+      "Analytics de profil"
     ],
     highlighted: true,
-    cta: "Passer en Pro",
+    cta: "Choisir Pro",
     icon: Briefcase,
-    gradient: "from-blue-100 via-indigo-200 to-blue-300 dark:from-blue-950 dark:via-indigo-900 dark:to-blue-950",
-    savings: "Économisez 20% avec l’abonnement annuel",
+    savings: "Économisez 20% avec l'annuel",
   },
   {
     id: "expert",
     name: "Expert",
     price: { month: "9 500 FCFA", year: "95 000 FCFA", lifetime: "200 000 FCFA" },
-    description: "Pour ceux qui veulent exceller et être accompagnés.",
+    description: "Excellence et accompagnement personnalisé pour votre carrière.",
     features: [
       "Coaching IA + recruteur en direct",
-      "CV & rapport optimisés avec IA avancée",
-      "Portfolio premium avec analytics visiteurs",
-      "Matching prioritaire avec entreprises",
-      "Entretiens illimités (IA) + 5 humains/mois",
+      "CV & rapport premium avec IA avancée",
+      "Portfolio premium avec analytics",
+      "Matching prioritaire entreprises",
+      "Entretiens illimités IA + 5 humains/mois",
+      "Support dédié 24/7"
     ],
-    highlighted: true,
+    highlighted: false,
     cta: "Devenir Expert",
     icon: Award,
-    gradient: "from-purple-200 via-fuchsia-300 to-purple-400 dark:from-purple-950 dark:via-fuchsia-900 dark:to-purple-950",
-    savings: "Économisez 30% avec l’annuel",
+    savings: "Économisez 30% avec l'annuel",
   },
   {
     id: "enterprise",
     name: "Entreprise",
     price: { month: "Sur mesure", year: "Sur mesure", lifetime: "Sur mesure" },
-    description: "Solutions de recrutement et formation pour entreprises.",
+    description: "Solutions complètes de recrutement et développement talent.",
     features: [
       "Accès illimité à la base de talents",
-      "Matching IA avec candidats adaptés",
-      "Simulations d’entretien personnalisées",
+      "Matching IA avancé",
+      "Simulations d'entretien personnalisées",
       "Rapports RH intelligents",
-      "Formation continue pour employés",
-      "Automatisation du pipeline de recrutement"
-
+      "Formation continue employés",
+      "Dashboard administrateur"
     ],
     highlighted: false,
     cta: "Nous contacter",
     icon: Building,
-    gradient: "from-green-200 via-emerald-300 to-green-400 dark:from-green-950 dark:via-emerald-900 dark:to-green-950",
   },
   {
     id: "school",
     name: "École",
     price: { month: "Sur mesure", year: "Sur mesure", lifetime: "Sur mesure" },
-    description: "Accompagnez vos étudiants vers l’excellence.",
+    description: "Accompagnement excellence pour vos étudiants.",
     features: [
-      "Rédaction de CV et rapports pour étudiants",
-      "Création de portfolio collectif et individuel",
-      "Sessions d’entretiens simulés IA & humains",
-      "Suivi pédagogique avec analytics",
-      "Accès privilégié aux entreprises partenaires",
+      "CV et rapports étudiants",
+      "Portfolios collectifs et individuels",
+      "Sessions d'entretiens simulés",
+      "Suivi pédagogique analytics",
+      "Accès entreprises partenaires",
+      "Support dédié établissement"
     ],
     highlighted: false,
     cta: "Devenir partenaire",
     icon: Users,
-    gradient: "from-yellow-100 via-amber-200 to-orange-300 dark:from-yellow-950 dark:via-amber-900 dark:to-orange-950",
   },
 ]
 
-
 export function Pricing() {
   const [frequency, setFrequency] = useState<Frequency>("month")
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const titleRef = useRef<HTMLHeadingElement>(null)
-
-  // Animation GSAP pour le titre et les cartes
-  useEffect(() => {
-    // Animation du titre
-    gsap.fromTo(titleRef.current, 
-      { opacity: 0, y: 40 },
-      { 
-        opacity: 1, 
-        y: 0, 
-        duration: 1,
-        ease: "power2.out",
-        scrollTrigger: {
-          trigger: titleRef.current,
-          start: "top 90%",
-          toggleActions: "play none none none"
-        }
-      }
-    )
-
-    // Animation des cartes
-    const cards = containerRef.current?.querySelectorAll('.pricing-card')
-    cards?.forEach((card, index) => {
-      gsap.fromTo(card, 
-        { 
-          opacity: 0, 
-          y: 60,
-          scale: 0.9
-        },
-        { 
-          opacity: 1, 
-          y: 0,
-          scale: 1,
-          duration: 0.8,
-          delay: index * 0.15,
-          ease: "back.out(1.7)",
-          scrollTrigger: {
-            trigger: card,
-            start: "top 85%",
-            toggleActions: "play none none none"
-          }
-        }
-      )
-    })
-
-    // Animation du toggle de fréquence
-    const toggleButtons : any= containerRef.current?.querySelectorAll('.frequency-toggle')
-    gsap.fromTo(toggleButtons, 
-      { opacity: 0, y: 20 },
-      { 
-        opacity: 1, 
-        y: 0, 
-        duration: 0.6,
-        stagger: 0.1,
-        scrollTrigger: {
-          trigger: toggleButtons?.[0],
-          start: "top 90%",
-          toggleActions: "play none none none"
-        }
-      }
-    )
-  }, [])
-
-  // Drag handling pour le carousel
-  let isDown = false
-  let startX: number
-  let scrollLeft: number
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!scrollRef.current) return
-    isDown = true
-    scrollRef.current.classList.add("cursor-grabbing")
-    scrollRef.current.classList.remove("cursor-grab")
-    startX = e.pageX - scrollRef.current.offsetLeft
-    scrollLeft = scrollRef.current.scrollLeft
-  }
-
-  const handleMouseLeaveOrUp = () => {
-    if (!scrollRef.current) return
-    isDown = false
-    scrollRef.current.classList.remove("cursor-grabbing")
-    scrollRef.current.classList.add("cursor-grab")
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDown || !scrollRef.current) return
-    e.preventDefault()
-    const x = e.pageX - scrollRef.current.offsetLeft
-    const walk = (x - startX) * 1.2
-    scrollRef.current.scrollLeft = scrollLeft - walk
-  }
-
-  const scroll = (dir: "left" | "right") => {
-    if (scrollRef.current) {
-      const { clientWidth } = scrollRef.current
-      scrollRef.current.scrollBy({
-        left: dir === "left" ? -clientWidth * 0.8 : clientWidth * 0.8,
-        behavior: "smooth",
-      })
-    }
-  }
 
   return (
-    <div
-      ref={containerRef}
-      className="flex flex-col w-full items-center bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 py-16 px-4"
-    >
-      {/* Title */}
-      <h1 ref={titleRef} className="text-black dark:text-white text-4xl md:text-6xl font-bold mb-8 text-center opacity-0">
-        Nos <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Tarifs</span>
-      </h1>
-
-      {/* Subtitle */}
-      <p className="text-lg text-slate-600 dark:text-slate-400 mb-12 text-center max-w-2xl">
-        Choisissez l'offre qui correspond à vos besoins de préparation aux entretiens
-      </p>
-
-      {/* Frequency Toggle */}
-      <div className="flex gap-2 mb-12 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl">
-        {(["month", "year", "lifetime"] as Frequency[]).map((f) => (
-          <Button
-            key={f}
-            variant={frequency === f ? "default" : "ghost"}
-            onClick={() => setFrequency(f)}
-            className="frequency-toggle opacity-0 rounded-lg px-6 py-2 transition-all duration-200"
-          >
-            {f === "month" ? "Mensuel" : f === "year" ? "Annuel" : "À vie"}
-          </Button>
-        ))}
+    <div className="w-full bg-slate-50 dark:bg-slate-950 py-16 px-4">
+      {/* Header */}
+      <div className="max-w-7xl mx-auto text-center mb-12">
+        <h1 className="text-3xl md:text-5xl font-bold text-slate-900 dark:text-white mb-4">
+          Investissez dans votre{" "}
+          <span className="text-green-600 dark:text-green-500">carrière</span>
+        </h1>
+        <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+          Des outils professionnels pour accélérer votre progression et décrocher le poste de vos rêves
+        </p>
       </div>
 
-      {/* Carousel wrapper */}
-      <div className="relative w-full max-w-7xl">
-        {/* Left arrow */}
-        <button
-          onClick={() => scroll("left")}
-          className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-slate-800 shadow-lg p-3 rounded-full hover:scale-110 transition-transform cursor-pointer border border-slate-200 dark:border-slate-700"
-        >
-          <ChevronLeft className="w-5 h-5 text-slate-700 dark:text-slate-200" />
-        </button>
+      {/* Frequency Toggle */}
+      <div className="flex justify-center mb-12">
+        <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+          {(["month", "year", "lifetime"] as Frequency[]).map((f) => (
+            <Button
+              key={f}
+              variant={frequency === f ? "default" : "ghost"}
+              onClick={() => setFrequency(f)}
+              className={cn(
+                "rounded-md px-6 py-2 transition-all duration-200",
+                frequency === f && " dark:bg-slate-700 dark:text-white shadow-sm"
+              )}
+            >
+              {f === "month" ? "Mensuel" : f === "year" ? "Annuel" : "À vie"}
+            </Button>
+          ))}
+        </div>
+      </div>
 
-        {/* Cards container */}
-        <div
-          ref={scrollRef}
-          className="flex gap-6 overflow-x-scroll px-6 cursor-grab select-none scroll-smooth scrollbar-hide"
-          style={{ scrollbarWidth: "none" }}
-          onMouseDown={handleMouseDown}
-          onMouseLeave={handleMouseLeaveOrUp}
-          onMouseUp={handleMouseLeaveOrUp}
-          onMouseMove={handleMouseMove}
-        >
+      {/* Pricing Grid */}
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {pricingPlans.map((plan) => {
+            const Icon = plan.icon
             return (
               <div
                 key={plan.id}
                 className={cn(
-                  "pricing-card flex flex-col flex-shrink-0 w-[85%] sm:w-[60%] md:w-[45%] lg:w-[30%] xl:w-[25%]",
-                  "relative rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl p-6 transition-all duration-300",
-                  "bg-white/90 dark:bg-slate-900/90 backdrop-blur-md",
-                  "hover:shadow-2xl hover:-translate-y-2",
-                  plan.highlighted 
-                    ? "ring-2 ring-blue-500 dark:ring-blue-400 scale-[1.02] border-blue-200 dark:border-blue-800" 
-                    : ""
+                  "relative rounded-xl border bg-white dark:bg-slate-900 p-6 transition-all duration-300",
+                  "hover:shadow-lg hover:border-green-200 dark:hover:border-green-800",
+                  plan.highlighted
+                    ? "border-green-300 dark:border-green-700 shadow-lg ring-1 ring-green-100 dark:ring-green-900"
+                    : "border-slate-200 dark:border-slate-700"
                 )}
               >
                 {plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 mt-6">
-                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg">
-                      POPULAIRE
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-green-600 text-white text-xs font-medium px-3 py-1 rounded-full">
+                      RECOMMANDÉ
                     </span>
                   </div>
                 )}
 
-                {/* Icon */}
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${plan.gradient} flex items-center justify-center mb-4`}>
-                  <plan.icon className="w-6 h-6 text-white" />
+                {/* Header */}
+                <div className="text-center mb-6">
+                  <div className="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
+                    <Icon className="w-6 h-6 text-green-600 dark:text-green-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+                    {plan.name}
+                  </h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    {plan.description}
+                  </p>
                 </div>
 
-                <h3 className="text-xl font-bold mb-2 flex items-center gap-2 text-slate-900 dark:text-slate-100">
-                  {plan.name}
-                  {plan.id === "expert" && <InfinityIcon className="w-5 h-5 text-purple-500" />}
-                </h3>
-
-                <p className="text-slate-600 dark:text-slate-300 text-sm mb-4 min-h-[48px]">
-                  {plan.description}
-                </p>
-
                 {/* Price */}
-                <div className="mb-4">
-                  <div className="flex items-end gap-2">
-                    <span className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
+                <div className="text-center mb-6">
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <span className="text-3xl font-bold text-slate-900 dark:text-white">
                       {plan.price[frequency]}
                     </span>
-                    <span className="text-slate-500 dark:text-slate-400 text-sm mb-1">
-                      {frequency === "month" ? "/mois" : frequency === "year" ? "/an" : ""}
-                    </span>
+                    {plan.price[frequency] !== "Sur mesure" && (
+                      <span className="text-sm text-slate-500 dark:text-slate-400">
+                        {frequency === "month" ? "/mois" : frequency === "year" ? "/an" : ""}
+                      </span>
+                    )}
                   </div>
-                  
                   {plan.savings && frequency === "year" && (
-                    <p className="text-xs text-green-600 dark:text-green-400 font-medium mt-1">
+                    <p className="text-xs text-green-600 dark:text-green-500 font-medium">
                       {plan.savings}
                     </p>
                   )}
                 </div>
 
                 {/* Features */}
-                <ul className="mb-6 space-y-3 flex-1">
-                  {plan.features.map((feature, i) => (
-                    <li
-                      key={i}
-                      className="flex items-start gap-3 text-slate-700 dark:text-slate-200 text-sm"
-                    >
-                      <div className="w-4 h-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                      </div>
-                      <span>{feature}</span>
+                <ul className="space-y-3 mb-6">
+                  {plan.features.map((feature, index) => (
+                    <li key={index} className="flex items-start gap-3">
+                      <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm text-slate-700 dark:text-slate-300">
+                        {feature}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -345,10 +214,10 @@ export function Pricing() {
                 {/* CTA Button */}
                 <Button
                   className={cn(
-                    "w-full py-3 rounded-xl font-semibold transition-all duration-200",
+                    "w-full rounded-lg py-3 font-medium transition-all duration-200",
                     plan.highlighted
-                      ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
+                      ? "bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg"
+                      : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700"
                   )}
                 >
                   {plan.cta}
@@ -357,31 +226,15 @@ export function Pricing() {
             )
           })}
         </div>
-
-        {/* Right arrow */}
-        <button
-          onClick={() => scroll("right")}
-          className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-slate-800 shadow-lg p-3 rounded-full hover:scale-110 transition-transform cursor-pointer border border-slate-200 dark:border-slate-700"
-        >
-          <ChevronRight className="w-5 h-5 text-slate-700 dark:text-slate-200" />
-        </button>
       </div>
 
-      {/* Note */}
-      <p className="text-sm text-slate-500 dark:text-slate-400 mt-12 text-center max-w-2xl">
-        Tous nos plans incluent un support client dédié et des mises à jour régulières. 
-        Paiement sécurisé et remboursement sous 14 jours.
-      </p>
-
-      <style jsx>{`
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
+      {/* Footer Note */}
+      <div className="max-w-3xl mx-auto text-center mt-12">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Tous nos plans incluent un support client dédié et des mises à jour régulières. 
+          Paiement sécurisé et satisfaction garantie sous 14 jours.
+        </p>
+      </div>
     </div>
   )
 }

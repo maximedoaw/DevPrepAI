@@ -361,10 +361,10 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         color: "text-blue-600 dark:text-blue-400",
         bgColor: "bg-blue-500 dark:bg-blue-600",
         action: () => { 
-          router.push("/enterprise"); 
+          router.push("/"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
         },
-        path: "/enterprise",
+        path: "/",
       },
       {
         id: "interview-planning",
@@ -797,33 +797,6 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                 Outils
               </div>
               <div className="space-y-1">
-                <button
-                  onClick={() => { 
-                    router.push("/settings"); 
-                    if (window.innerWidth < 768) setSidebarOpen(false); 
-                  }}
-                  className="w-full text-left p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors hover:shadow-md"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-lg">
-                      <Settings className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                    </div>
-                    <div className="flex-1 min-w-0 z-10 relative">
-                      <div className="font-semibold text-slate-700 dark:text-slate-300 bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100 bg-clip-text ">
-                        Paramètres
-                      </div>
-                      <div className="text-sm text-slate-500 dark:text-slate-400">
-                        Configuration du compte
-                      </div>
-                    </div>
-                  </div>
-                </button>
-
-                {/* Messages pour certains rôles */}
-                {(userRole === "RECRUITER" ||
-                  userRole === "ENTERPRISE" ||
-                  userRole === "BOOTCAMP" ||
-                  userRole === "SCHOOL") && (
                   <button
                     onClick={() => { 
                       router.push("/messages"); 
@@ -845,7 +818,6 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                       </div>
                     </div>
                   </button>
-                )}
               </div>
             </div>
           )}

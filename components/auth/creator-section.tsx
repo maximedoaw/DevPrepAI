@@ -84,7 +84,7 @@ export default function CreatorSection() {
                   postulent, attendent des semaines sans réponse, reçoivent des convocations
                   à des entretiens fantômes ou des tests sans feedback (j'en ai moi-même fait 
                   l'expérience plusieurs fois durant mes études). Les entreprises improvisent 
-                  leurs sélections et les recruteurs croulent sous les CV.
+                  leurs sélections et les recruteurs croulent sous les CV ou ne trouve juste pas de candidats assez qualifiés.
                 </p>
                 <p className="font-semibold text-red-600 dark:text-red-400">
                   Résultat : tout le monde perd du temps et de l'énergie.

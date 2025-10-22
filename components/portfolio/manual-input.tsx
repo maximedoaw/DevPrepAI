@@ -33,7 +33,9 @@ import {
   Edit,
   Save,
 } from "lucide-react"
-import { ImageCropper } from "@/components/image-cropper"
+
+// Import Uploadcare correct
+import { Widget } from '@uploadcare/react-widget'
 
 interface ManualInputProps {
   portfolioData: any
@@ -46,11 +48,10 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
   const [newSkill, setNewSkill] = useState("")
   const [newLanguage, setNewLanguage] = useState("")
   const [newInterest, setNewInterest] = useState("")
-  const [croppingImage, setCroppingImage] = useState<string | null>(null)
-  const [croppingImageType, setCroppingImageType] = useState<"profile" | "project">("profile")
+  const [uploadingImageType, setUploadingImageType] = useState<"profile" | "project">("profile")
   const [currentProjectIndex, setCurrentProjectIndex] = useState<number | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const projectFileInputRef = useRef<HTMLInputElement>(null)
+  const widgetApiRef = useRef<any>(null)
+  const projectWidgetApiRef = useRef<any>(null)
 
   const [newExperience, setNewExperience] = useState({
     company: "",
@@ -107,58 +108,44 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
     return startDate <= endDate
   }
 
-  const handleImageUpload = (
-    event: React.ChangeEvent<HTMLInputElement>,
-    type: "profile" | "project",
-    projectIndex?: number,
-  ) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith("image/")) {
-      alert("Veuillez sélectionner une image valide")
-      return
+  // Gestion de l'upload avec Uploadcare
+  const handleImageUpload = (type: "profile" | "project", projectIndex?: number) => {
+    setUploadingImageType(type)
+    if (type === "project" && projectIndex !== undefined) {
+      setCurrentProjectIndex(projectIndex)
     }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert("L'image ne doit pas dépasser 5MB")
-      return
+    
+    if (type === "profile" && widgetApiRef.current) {
+      widgetApiRef.current.openDialog()
+    } else if (type === "project" && projectWidgetApiRef.current) {
+      projectWidgetApiRef.current.openDialog()
     }
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const imageDataUrl = e.target?.result as string
-      setCroppingImage(imageDataUrl)
-      setCroppingImageType(type)
-      if (type === "project" && projectIndex !== undefined) {
-        setCurrentProjectIndex(projectIndex)
-      }
-    }
-    reader.readAsDataURL(file)
-    event.target.value = ""
   }
 
-  const handleCropComplete = (croppedImage: string) => {
-    if (croppingImageType === "profile") {
-      setPortfolioData({
-        ...portfolioData,
-        profileImage: croppedImage,
-      })
-    } else if (croppingImageType === "project" && currentProjectIndex !== null) {
-      const updatedProjects = [...projects]
-      if (!updatedProjects[currentProjectIndex].images) {
-        updatedProjects[currentProjectIndex].images = []
+  const handleUploadComplete = (info: any) => {
+    if (info && info.cdnUrl) {
+      const imageUrl = info.cdnUrl
+
+      if (uploadingImageType === "profile") {
+        setPortfolioData({
+          ...portfolioData,
+          profileImage: imageUrl,
+        })
+      } else if (uploadingImageType === "project" && currentProjectIndex !== null) {
+        const updatedProjects = [...projects]
+        if (!updatedProjects[currentProjectIndex].images) {
+          updatedProjects[currentProjectIndex].images = []
+        }
+        updatedProjects[currentProjectIndex] = {
+          ...updatedProjects[currentProjectIndex],
+          images: [...updatedProjects[currentProjectIndex].images, imageUrl],
+        }
+        setPortfolioData({
+          ...portfolioData,
+          projects: updatedProjects,
+        })
       }
-      updatedProjects[currentProjectIndex] = {
-        ...updatedProjects[currentProjectIndex],
-        images: [...updatedProjects[currentProjectIndex].images, croppedImage],
-      }
-      setPortfolioData({
-        ...portfolioData,
-        projects: updatedProjects,
-      })
     }
-    setCroppingImage(null)
     setCurrentProjectIndex(null)
   }
 
@@ -366,14 +353,14 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
         <CardDescription className="text-sm">Ajoutez et modifiez votre contenu manuellement</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-6">
-        {/* Photo de profil */}
+        {/* Photo de profil avec Uploadcare */}
         <div className="space-y-4">
           <label className="text-sm font-medium block">Photo de profil</label>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50">
             <div className="flex-shrink-0">
               {portfolioData.profileImage ? (
                 <img
-                  src={portfolioData.profileImage || "/placeholder.svg"}
+                  src={portfolioData.profileImage}
                   alt="Profile"
                   className="w-20 h-20 rounded-full object-cover border-2 border-slate-200"
                 />
@@ -384,16 +371,25 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
               )}
             </div>
             <div className="flex-1 space-y-2 min-w-0">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={(e) => handleImageUpload(e, "profile")}
-                accept="image/*"
-                className="hidden"
-              />
+              {/* Widget Uploadcare caché pour la photo de profil */}
+              <div style={{ display: 'none' }}>
+                <Widget
+                  publicKey={process.env.NEXT_PUBLIC_UPLOADCARE_PUBLIC_KEY || 'demopublickey'}
+                  tabs="file camera url"
+                  previewStep={true}
+                  clearable={true}
+                  crop="1:1"
+                  imageShrink="800x600 60%"
+                  imagesOnly={true}
+                  multiple={false}
+                  onChange={handleUploadComplete}
+                  ref={widgetApiRef}
+                />
+              </div>
+              
               <div className="flex flex-col gap-2">
                 <Button
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => handleImageUpload("profile")}
                   variant="outline"
                   size="sm"
                   className="w-full sm:w-auto"
@@ -423,7 +419,7 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
                 )}
               </div>
               <p className="text-xs text-slate-500 break-words">
-                Format recommandé : JPG, PNG • Max 5MB • Photo carrée recommandée
+                Format recommandé : JPG, PNG, WebP • Max 5MB • Photo carrée recommandée
               </p>
             </div>
           </div>
@@ -1336,20 +1332,25 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
                         <div>
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
                             <label className="text-sm font-medium">Images du projet</label>
-                            <input
-                              type="file"
-                              ref={projectFileInputRef}
-                              onChange={(e) => handleImageUpload(e, "project", index)}
-                              accept="image/*"
-                              className="hidden"
-                            />
+                            {/* Widget Uploadcare caché pour les projets */}
+                            <div style={{ display: 'none' }}>
+                              <Widget
+                                publicKey={process.env.NEXT_PUBLIC_UPLOADCARE_PUBLIC_KEY || 'demopublickey'}
+                                tabs="file camera url"
+                                previewStep={true}
+                                clearable={true}
+                                crop="free"
+                                imageShrink="800x600 60%"
+                                imagesOnly={true}
+                                multiple={true}
+                                onChange={handleUploadComplete}
+                                ref={projectWidgetApiRef}
+                              />
+                            </div>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                setCurrentProjectIndex(index)
-                                projectFileInputRef.current?.click()
-                              }}
+                              onClick={() => handleImageUpload("project", index)}
                               className="flex-shrink-0"
                             >
                               <Plus className="h-3 w-3 mr-1" />
@@ -1360,7 +1361,7 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
                             {project.images?.map((image: string, imageIndex: number) => (
                               <div key={imageIndex} className="relative group">
                                 <img
-                                  src={image || "/placeholder.svg"}
+                                  src={image}
                                   alt={`${project.title} ${imageIndex + 1}`}
                                   className="w-full h-20 object-cover rounded border"
                                 />
@@ -1395,10 +1396,6 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
           </Accordion>
         </div>
       </CardContent>
-
-      {croppingImage && (
-        <ImageCropper image={croppingImage} onCrop={handleCropComplete} onClose={() => setCroppingImage(null)} />
-      )}
     </Card>
   )
 }

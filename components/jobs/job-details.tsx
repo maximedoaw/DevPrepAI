@@ -187,9 +187,8 @@ export const JobDetails = ({ job, open, onClose, onApply }: JobDetailsProps) => 
                   onClose();
                 }}
                 size="lg"
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
+                className="flex-1  bg-gradient-to-r from-green-600 to-green-600 hover:from-green-700 hover:to-green-700 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
               >
-                <Sparkles className="h-5 w-5 mr-2 transition-transform group-hover:scale-110" />
                 Postuler en 1 clic
               </Button>
               <Button 

@@ -15,6 +15,7 @@ import ThemePicker from "./theme-picker"
 import PortfolioPreview from "./portfolio-preview"
 import SectionBuilder from "./section-builder"
 import ExportPanel from "./export-panel"
+import { PortfolioTemplate } from "@prisma/client"
 
 // Interface alignée avec usePortfolioBuilder
 interface PortfolioData {
@@ -22,7 +23,7 @@ interface PortfolioData {
   headline?: string | null
   bio?: string | null
   profileImage?: string | null
-  template?: string
+  template?: PortfolioTemplate
   theme?: string | null
   isPublic?: boolean
   skills?: string[]
@@ -58,7 +59,7 @@ export default function PortfolioBuilder() {
         headline: portfolio.headline || "",
         bio: portfolio.bio || "",
         profileImage: portfolio.profileImage || null,
-        template: portfolio.template || "MODERN",
+        template: portfolio.template || PortfolioTemplate.CLASSIC,
         theme: portfolio.theme || "blue",
         isPublic: portfolio.isPublic || false,
         projects: portfolio.projects || [],
@@ -101,7 +102,6 @@ export default function PortfolioBuilder() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-slate-600 dark:text-slate-400">Chargement de votre portfolio...</p>
         </div>
       </div>
     )
@@ -109,7 +109,7 @@ export default function PortfolioBuilder() {
 
   if (!isAuthenticated || !userId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         <Card className="max-w-md">
           <CardHeader>
             <CardTitle>Authentification requise</CardTitle>
@@ -121,7 +121,7 @@ export default function PortfolioBuilder() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100 min-h-screen">
+    <div className="max-w-7xl mx-auto px-4 py-8 bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950  min-h-screen">
       <div className="text-center mb-12">
         <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
           Créateur de Portfolio
@@ -202,13 +202,25 @@ export default function PortfolioBuilder() {
 
                 <TabsContent value="design" className="space-y-6 m-0">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <TemplateGallery portfolioData={portfolioData} setPortfolioData={setPortfolioData} />
+                    {/* AJOUT : Passez les props de sauvegarde à TemplateGallery */}
+                    <TemplateGallery  
+                      portfolioData={portfolioData} 
+                      setPortfolioData={setPortfolioData}
+                      onSave={handleSave}
+                      isSaving={isSaving}
+                    />
                     <ThemePicker portfolioData={portfolioData} setPortfolioData={setPortfolioData} />
                   </div>
                 </TabsContent>
 
                 <TabsContent value="layout" className="m-0">
-                  <SectionBuilder portfolioData={portfolioData} setPortfolioData={setPortfolioData} />
+                  {/* AJOUT : Passez les props de sauvegarde à SectionBuilder */}
+                  <SectionBuilder 
+                    portfolioData={portfolioData} 
+                    setPortfolioData={setPortfolioData}
+                    onSave={handleSave}
+                    isSaving={isSaving}
+                  />
                 </TabsContent>
 
                 <TabsContent value="preview" className="m-0">
