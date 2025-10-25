@@ -45,6 +45,20 @@ const CACHE_TTL = {
   SEARCH_SUGGESTIONS: 60 * 60 // 1 heure
 } as const
 
+// Configuration realtime
+const REALTIME_CONFIG = {
+  // Polling toutes les 30 secondes pour les données fraîches
+  POLLING_INTERVAL: 1000 * 30,
+  // Recharger quand la fenêtre redevient active
+  REFETCH_ON_WINDOW_FOCUS: true,
+  // Recharger quand la connexion revient
+  REFETCH_ON_RECONNECT: true,
+  // Temps avant que les données soient considérées comme périmées
+  STALE_TIME: 1000 * 60 * 2, // 2 minutes
+  // Temps avant que les données soient supprimées du cache
+  GC_TIME: 1000 * 60 * 10, // 10 minutes
+} as const
+
 // Service de cache Redis
 const cacheService = {
   // Récupérer depuis le cache
@@ -135,11 +149,11 @@ const cachedDataFetchers = {
     
     const cached = await cacheService.get<any>(cacheKey)
     if (cached) {
- //     console.log('📦 Stats served from cache')
+      console.log('📦 Stats served from cache')
       return cached
     }
 
-//    console.log('🔄 Stats fetched from database')
+    console.log('🔄 Stats fetched from database')
     const stats = await getJobStats()
     
     await cacheService.set(cacheKey, stats, CACHE_TTL.JOB_STATS)
@@ -165,7 +179,7 @@ const cachedDataFetchers = {
     return filters
   },
 
-    async getJobsByUserWithCache(userId: string) {
+  async getJobsByUserWithCache(userId: string) {
     const cacheKey = `jobs:user:${userId}`
     
     const cached = await cacheService.get<any[]>(cacheKey)
@@ -175,7 +189,6 @@ const cachedDataFetchers = {
     }
 
     console.log('🔄 User jobs fetched from database')
-    // Vous devrez créer cette fonction dans job.action.ts
     const jobs = await getJobsByUser(userId)
     
     await cacheService.set(cacheKey, jobs, CACHE_TTL.JOBS_LIST)
@@ -183,27 +196,38 @@ const cachedDataFetchers = {
     return jobs
   }
 }
+
+// Hook pour les jobs de l'utilisateur avec realtime
 export function useUserJobQueries(userId?: string) {
   const { 
     data: jobs, 
     isLoading: loadingJobs, 
     error: jobsError,
-    refetch: refetchJobs 
+    refetch: refetchJobs,
+    isFetching: isFetchingJobs
   } = useQuery({
     queryKey: ["user-jobs", userId],
     queryFn: () => cachedDataFetchers.getJobsByUserWithCache(userId!),
     enabled: !!userId,
-    staleTime: 1000 * 60 * 2,
+    
+    // CONFIGURATION REALTIME
+    refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL, // Polling toutes les 30s
+    refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
+    refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
+    staleTime: REALTIME_CONFIG.STALE_TIME,
+    gcTime: REALTIME_CONFIG.GC_TIME,
   })
 
   return {
     jobs: jobs || [],
     loadingJobs,
     jobsError,
-    refetchJobs
+    refetchJobs,
+    isFetchingJobs // Indique si un rechargement est en cours
   }
 }
 
+// Hook pour les mutations avec realtime
 export function useJobMutations() {
   const queryClient = useQueryClient()
 
@@ -221,40 +245,112 @@ export function useJobMutations() {
     queryClient.invalidateQueries({ queryKey: ["job"] })
     queryClient.invalidateQueries({ queryKey: ["job-stats"] })
     queryClient.invalidateQueries({ queryKey: ["job-filters"] })
+    queryClient.invalidateQueries({ queryKey: ["user-jobs"] })
   }
 
-  // Mutation pour créer un job
+  // Mutation pour créer un job avec optimistic update
   const createJobMutation = useMutation({
     mutationFn: createJob,
-    onSuccess: async () => {
-      toast.success("Poste créé avec succès")
-      await invalidateJobCaches()
-    },
-    onError: (error) => {
-      toast.error("Erreur lors de la création du poste")
-      console.error("Create job error:", error)
-    }
-  })
-
-  // Mutation pour mettre à jour un job
-  const updateJobMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => updateJob(id, data),
-    onSuccess: async (_, variables) => {
-      toast.success("Job mis à jour avec succès")
+    onMutate: async (newJob) => {
+      // Annuler les requêtes en cours pour éviter les conflits
+      await queryClient.cancelQueries({ queryKey: ["user-jobs"] })
       
-      // Invalider le cache spécifique à ce job
-      await cacheService.invalidate(CACHE_KEYS.JOB_DETAILS(variables.id))
+      // Snapshot de l'état précédent
+      const previousJobs = queryClient.getQueryData(["user-jobs", newJob.userId])
+      
+      // Optimistic update - ajouter le job temporairement
+      queryClient.setQueryData(["user-jobs", newJob.userId], (old: any[]) => 
+        old ? [...old, { ...newJob, id: 'temp-id', isOptimistic: true }] : [newJob]
+      )
+      
+      return { previousJobs }
+    },
+    onSuccess: async (createdJob, variables) => {
+      toast.success("Poste créé avec succès")
+      
+      // Remplacer le job optimiste par le vrai job
+      queryClient.setQueryData(["user-jobs", variables.userId], (old: any[]) =>
+        old ? old.map(job => 
+          job.isOptimistic ? createdJob : job
+        ) : [createdJob]
+      )
+      
       await invalidateJobCaches()
     },
-    onError: (error) => {
-      toast.error("Erreur lors de la mise à jour du job")
-      console.error("Update job error:", error)
+    onError: (error, variables, context) => {
+      toast.error("Erreur lors de la création du poste")
+      console.error("Create poste error:", error)
+      
+      // Revert to previous state on error
+      if (context?.previousJobs) {
+        queryClient.setQueryData(["user-jobs", variables.userId], context.previousJobs)
+      }
+    },
+    onSettled: () => {
+      // Forcer un rechargement pour s'assurer que les données sont synchronisées
+      queryClient.invalidateQueries({ queryKey: ["user-jobs"] })
     }
   })
 
-  // Mutation pour supprimer un job
+  // Mutation pour mettre à jour un job avec optimistic update
+const updateJobMutation = useMutation({
+  mutationFn: ({ id, data }: { id: string; data: any }) => updateJob(id, data),
+  onMutate: async ({ id, data }) => {
+    await queryClient.cancelQueries({ queryKey: ["user-jobs"] })
+    
+    const previousJobs = queryClient.getQueryData(["user-jobs"])
+    
+    // OPTIMISTIC UPDATE - changement immédiat dans l'UI
+    queryClient.setQueryData(["user-jobs"], (old: any[]) =>
+      old ? old.map(job => 
+        job.id === id ? { ...job, ...data, isOptimistic: true } : job
+      ) : old
+    )
+    
+    return { previousJobs }
+  },
+  onSuccess: async (updatedJob, variables) => {
+    toast.success("Poste mis à jour avec succès")
+    
+    // Remplace les données optimistes par les vraies données
+    queryClient.setQueryData(["user-jobs"], (old: any[]) =>
+      old ? old.map(job => 
+        job.id === variables.id ? updatedJob : job
+      ) : old
+    )
+    
+    await cacheService.invalidate(CACHE_KEYS.JOB_DETAILS(variables.id))
+    await invalidateJobCaches()
+  },
+  onError: (error, variables, context) => {
+    toast.error("Erreur lors de la mise à jour du job")
+    console.error("Update job error:", error)
+    
+    // REVERT en cas d'erreur
+    if (context?.previousJobs) {
+      queryClient.setQueryData(["user-jobs"], context.previousJobs)
+    }
+  },
+  onSettled: () => {
+    queryClient.invalidateQueries({ queryKey: ["user-jobs"] })
+  }
+})
+
+  // Mutation pour supprimer un job avec optimistic update
   const deleteJobMutation = useMutation({
     mutationFn: deleteJob,
+    onMutate: async (jobId) => {
+      await queryClient.cancelQueries({ queryKey: ["user-jobs"] })
+      
+      const previousJobs = queryClient.getQueryData(["user-jobs"])
+      
+      // Optimistic update - supprimer temporairement
+      queryClient.setQueryData(["user-jobs"], (old: any[]) =>
+        old ? old.filter(job => job.id !== jobId) : old
+      )
+      
+      return { previousJobs }
+    },
     onSuccess: async (_, jobId) => {
       toast.success("Job supprimé avec succès")
       
@@ -262,9 +358,16 @@ export function useJobMutations() {
       await cacheService.invalidate(CACHE_KEYS.JOB_DETAILS(jobId as string))
       await invalidateJobCaches()
     },
-    onError: (error) => {
+    onError: (error, jobId, context) => {
       toast.error("Erreur lors de la suppression du job")
       console.error("Delete job error:", error)
+      
+      if (context?.previousJobs) {
+        queryClient.setQueryData(["user-jobs"], context.previousJobs)
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-jobs"] })
     }
   })
 
@@ -289,28 +392,49 @@ export function useJobMutations() {
   }
 }
 
+// Hook pour les requêtes de jobs avec realtime
 export function useJobQueries(filters?: JobFilters) {
-  // Récupérer tous les jobs avec cache
+  // Récupérer tous les jobs avec cache et realtime
   const { 
     data: jobs, 
     isLoading: loadingJobs, 
     error: jobsError,
-    refetch: refetchJobs 
+    refetch: refetchJobs,
+    isFetching: isFetchingJobs
   } = useQuery({
     queryKey: ["jobs", filters],
     queryFn: () => cachedDataFetchers.getJobsWithCache(filters),
-    staleTime: 1000 * 60 * 2, // 2 minutes (plus agressif car cache Redis)
+    
+    // CONFIGURATION REALTIME
+    refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL,
+    refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
+    refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
+    staleTime: REALTIME_CONFIG.STALE_TIME,
+    gcTime: REALTIME_CONFIG.GC_TIME,
   })
 
-  // Récupérer les statistiques avec cache
-  const { data: jobStats, isLoading: loadingStats } = useQuery({
+  // Récupérer les statistiques avec cache et realtime
+  const { 
+    data: jobStats, 
+    isLoading: loadingStats,
+    isFetching: isFetchingStats
+  } = useQuery({
     queryKey: ["job-stats"],
     queryFn: cachedDataFetchers.getJobStatsWithCache,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    
+    // CONFIGURATION REALTIME
+    refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL,
+    refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
+    refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
+    staleTime: REALTIME_CONFIG.STALE_TIME,
+    gcTime: REALTIME_CONFIG.GC_TIME,
   })
 
   // Récupérer les filtres avec cache
-  const { data: jobFilters, isLoading: loadingFilters } = useQuery({
+  const { 
+    data: jobFilters, 
+    isLoading: loadingFilters 
+  } = useQuery({
     queryKey: ["job-filters"],
     queryFn: cachedDataFetchers.getJobFiltersWithCache,
     staleTime: 1000 * 60 * 10, // 10 minutes
@@ -329,29 +453,40 @@ export function useJobQueries(filters?: JobFilters) {
     loadingStats,
     loadingFilters,
     jobsError,
-    refetchJobs
+    refetchJobs,
+    isFetchingJobs,
+    isFetchingStats
   }
 }
 
+// Hook pour une requête de job spécifique avec realtime
 export function useJobQuery(id: string) {
-  // Récupérer un job spécifique avec cache
+  // Récupérer un job spécifique avec cache et realtime
   const { 
     data: job, 
     isLoading: loadingJob, 
     error: jobError,
-    refetch: refetchJob 
+    refetch: refetchJob,
+    isFetching: isFetchingJob
   } = useQuery({
     queryKey: ["job", id],
     queryFn: () => cachedDataFetchers.getJobByIdWithCache(id),
     enabled: !!id,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    
+    // CONFIGURATION REALTIME
+    refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL,
+    refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
+    refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
+    staleTime: REALTIME_CONFIG.STALE_TIME,
+    gcTime: REALTIME_CONFIG.GC_TIME,
   })
 
   return {
     job,
     loadingJob,
     jobError,
-    refetchJob
+    refetchJob,
+    isFetchingJob
   }
 }
 
@@ -379,7 +514,6 @@ export function useCacheMetrics() {
   }
 
   const getCachePerformance = async () => {
-    // Correction: Utiliser la syntaxe correcte pour ZRANGE avec WITHSCORES
     const hits = await redis.zrange('cache:hits', 0, -1, { withScores: true })
     const misses = await redis.zrange('cache:misses', 0, -1, { withScores: true })
     
@@ -390,5 +524,19 @@ export function useCacheMetrics() {
     trackCacheHit,
     trackCacheMiss,
     getCachePerformance
+  }
+}
+
+// Hook utilitaire pour le statut realtime
+export function useRealtimeStatus() {
+  const queryClient = useQueryClient()
+  
+  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
+  const isFetching = queryClient.isFetching() > 0
+  
+  return {
+    isOnline,
+    isFetching,
+    lastUpdated: new Date().toISOString()
   }
 }

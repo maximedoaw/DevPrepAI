@@ -33,7 +33,7 @@ const JobsPage = () => {
   const filteredJobs = useMemo(() => {
     if (!jobs) return [];
 
-    return jobs.filter((job : JobPosting) => {
+    const filtered = jobs.filter((job: JobPosting) => {
       // Filtre par domaines
       if (filters.domains?.length && !filters.domains.some(d => job.domains.includes(d))) {
         return false;
@@ -66,7 +66,17 @@ const JobsPage = () => {
       }
       
       return true;
-    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    });
+
+    // Tri: jobs actifs d'abord, puis par date (les plus récents en premier)
+    return filtered.sort((a, b) => {
+      // Priorité aux jobs actifs
+      if (a.isActive && !b.isActive) return -1;
+      if (!a.isActive && b.isActive) return 1;
+      
+      // Ensuite par date (plus récent en premier)
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   }, [jobs, filters]);
 
   const totalPages = Math.ceil(filteredJobs.length / JOBS_PER_PAGE);
@@ -75,12 +85,15 @@ const JobsPage = () => {
     currentPage * JOBS_PER_PAGE
   );
 
+  // Compteurs pour les statistiques
+  const activeJobsCount = filteredJobs.filter(job => job.isActive).length;
+  const inactiveJobsCount = filteredJobs.filter(job => !job.isActive).length;
+
   return (
     <div className="min-h-screen bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100">
-      {/* Header non-sticky avec structure améliorée */}
+      {/* Header avec statistiques améliorées */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
         <div className="container mx-auto px-4 py-6">
-          {/* Section recherche et statistiques */}
           <div className="flex flex-col gap-6">
             {/* Barre de recherche - pleine largeur */}
             <div className="w-full">
@@ -100,11 +113,19 @@ const JobsPage = () => {
 
             {/* Ligne avec statistiques et filtre mobile */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              {/* Statistiques */}
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-4 w-4" />
-                  <span>{filteredJobs.length} offres</span>
+              {/* Statistiques améliorées */}
+              <div className="flex items-center gap-6 text-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-green-500" />
+                    <span className="font-medium">{activeJobsCount} offres actives</span>
+                  </div>
+                  {inactiveJobsCount > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-orange-500" />
+                      <span className="text-muted-foreground">{inactiveJobsCount} inactives</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -127,7 +148,7 @@ const JobsPage = () => {
         {/* Main Content */}
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Jobs List */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="lg:col-span-3">
             {loadingJobs ? (
               // Skeleton loaders
               <div className="space-y-4">
@@ -138,7 +159,7 @@ const JobsPage = () => {
             ) : paginatedJobs.length > 0 ? (
               <>
                 <div className="space-y-4">
-                  {paginatedJobs.map((job: any) => (
+                  {paginatedJobs.map((job: JobPosting) => (
                     <JobCard
                       key={job.id}
                       job={job}

@@ -72,7 +72,6 @@ export async function getJobsByUser(userId: string) {
     const jobs = await prisma.jobPosting.findMany({
       where: {
         userId: userId,
-        isActive: true
       },
       orderBy: {
         createdAt: 'desc'

@@ -11,7 +11,7 @@ import { useTheme } from "next-themes";
 import { useQuery } from "@tanstack/react-query";
 import { getUserRoleAndDomains } from "@/actions/user.action";
 
-// Logo personnalisé
+// Logo personnalisé 
 import Logo from "./logo";
 
 // Icônes
@@ -46,6 +46,7 @@ import {
   Star,
   Zap,
   Rocket,
+  Leaf,
 } from "lucide-react";
 
 interface SidebarOption {
@@ -68,11 +69,11 @@ function ModeToggle() {
   return (
     <button
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+      className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-800/40 transition-colors border border-emerald-200 dark:border-emerald-800"
       aria-label="Toggle theme"
     >
-      <Sun className="h-4 w-4 text-slate-700 dark:text-slate-300 block dark:hidden" />
-      <Moon className="h-4 w-4 text-slate-300 hidden dark:block" />
+      <Sun className="h-4 w-4 text-emerald-700 dark:text-emerald-300 block dark:hidden" />
+      <Moon className="h-4 w-4 text-emerald-300 hidden dark:block" />
     </button>
   );
 }
@@ -127,8 +128,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Tableau de bord",
         description: "Vue d'ensemble de votre parcours",
         icon: Home,
-        color: "text-blue-600 dark:text-blue-400",
-        bgColor: "bg-blue-500 dark:bg-blue-600",
+        color: "text-emerald-600 dark:text-emerald-400",
+        bgColor: "bg-emerald-500 dark:bg-emerald-600",
         action: () => { 
           router.push("/"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -140,8 +141,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Portail d'emploi",
         description: "Offres correspondant à votre profil",
         icon: Network,
-        color: "text-indigo-600 dark:text-indigo-400",
-        bgColor: "bg-indigo-500 dark:bg-indigo-600",
+        color: "text-green-600 dark:text-green-400",
+        bgColor: "bg-green-500 dark:bg-green-600",
         action: () => { 
           router.push("/jobs"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -154,8 +155,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Interviews IA",
         description: "Simulations pour vos futurs entretiens",
         icon: BrainCircuit,
-        color: "text-purple-600 dark:text-purple-400",
-        bgColor: "bg-purple-500 dark:bg-purple-600",
+        color: "text-teal-600 dark:text-teal-400",
+        bgColor: "bg-teal-500 dark:bg-teal-600",
         action: () => { 
           router.push("/interviews"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -169,8 +170,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Portfolio & CV",
         description: "Mettez en lumière vos talents",
         icon: Target,
-        color: "text-green-600 dark:text-green-400",
-        bgColor: "bg-green-500 dark:bg-green-600",
+        color: "text-lime-600 dark:text-lime-400",
+        bgColor: "bg-lime-500 dark:bg-lime-600",
         action: () => { 
           router.push("/portfolio"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -215,8 +216,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Mon parcours",
         description: "Vue globale de votre reconversion",
         icon: Home,
-        color: "text-blue-600 dark:text-blue-400",
-        bgColor: "bg-blue-500 dark:bg-blue-600",
+        color: "text-emerald-600 dark:text-emerald-400",
+        bgColor: "bg-emerald-500 dark:bg-emerald-600",
         action: () => { 
           router.push("/"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -228,8 +229,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Interviews",
         description: "Simulations adaptées à votre nouveau métier",
         icon: BrainCircuit,
-        color: "text-purple-600 dark:text-purple-400",
-        bgColor: "bg-purple-500 dark:bg-purple-600",
+        color: "text-teal-600 dark:text-teal-400",
+        bgColor: "bg-teal-500 dark:bg-teal-600",
         action: () => { 
           router.push("/interviews"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -255,8 +256,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Passerelles de compétences",
         description: "Valorisez vos acquis",
         icon: GitBranch,
-        color: "text-amber-600 dark:text-amber-400",
-        bgColor: "bg-amber-500 dark:bg-amber-600",
+        color: "text-lime-600 dark:text-lime-400",
+        bgColor: "bg-lime-500 dark:bg-lime-600",
         action: () => { 
           router.push("/skills"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -268,8 +269,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Formations intensives",
         description: "Programmes rapides pour votre transition",
         icon: GraduationCap,
-        color: "text-indigo-600 dark:text-indigo-400",
-        bgColor: "bg-indigo-500 dark:bg-indigo-600",
+        color: "text-emerald-600 dark:text-emerald-400",
+        bgColor: "bg-emerald-500 dark:bg-emerald-600",
         action: () => { 
           router.push("/formations"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -287,8 +288,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Dashboard RH",
         description: "Vue globale de vos recrutements",
         icon: Home,
-        color: "text-blue-600 dark:text-blue-400",
-        bgColor: "bg-blue-500 dark:bg-blue-600",
+        color: "text-emerald-600 dark:text-emerald-400",
+        bgColor: "bg-emerald-500 dark:bg-emerald-600",
         action: () => { 
           router.push("/"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -300,8 +301,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Marketplace de talents",
         description: "Accédez à la base de candidats qualifiés",
         icon: Users,
-        color: "text-purple-600 dark:text-purple-400",
-        bgColor: "bg-purple-500 dark:bg-purple-600",
+        color: "text-teal-600 dark:text-teal-400",
+        bgColor: "bg-teal-500 dark:bg-teal-600",
         action: () => { 
           router.push("/talents"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -326,8 +327,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Planification d'interviews",
         description: "Organisez vos entretiens",
         icon: Calendar,
-        color: "text-amber-600 dark:text-amber-400",
-        bgColor: "bg-amber-500 dark:bg-amber-600",
+        color: "text-lime-600 dark:text-lime-400",
+        bgColor: "bg-lime-500 dark:bg-lime-600",
         action: () => { 
           router.push("/interviews"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -358,8 +359,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Espace entreprise",
         description: "Pilotage de vos besoins en talents",
         icon: Building,
-        color: "text-blue-600 dark:text-blue-400",
-        bgColor: "bg-blue-500 dark:bg-blue-600",
+        color: "text-emerald-600 dark:text-emerald-400",
+        bgColor: "bg-emerald-500 dark:bg-emerald-600",
         action: () => { 
           router.push("/"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -371,8 +372,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Planification d'entretiens",
         description: "Organisez vos entretiens en interne",
         icon: Calendar,
-        color: "text-purple-600 dark:text-purple-400",
-        bgColor: "bg-purple-500 dark:bg-purple-600",
+        color: "text-teal-600 dark:text-teal-400",
+        bgColor: "bg-teal-500 dark:bg-teal-600",
         action: () => { 
           router.push("/enterprise-interviews"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -398,8 +399,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Planification RH",
         description: "Anticipez vos besoins en compétences",
         icon: Target,
-        color: "text-amber-600 dark:text-amber-400",
-        bgColor: "bg-amber-500 dark:bg-amber-600",
+        color: "text-lime-600 dark:text-lime-400",
+        bgColor: "bg-lime-500 dark:bg-lime-600",
         action: () => { 
           router.push("/workforce-planning"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -411,8 +412,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Recrutement en volume",
         description: "Solutions pour recrutements massifs",
         icon: UsersRound,
-        color: "text-indigo-600 dark:text-indigo-400",
-        bgColor: "bg-indigo-500 dark:bg-indigo-600",
+        color: "text-emerald-600 dark:text-emerald-400",
+        bgColor: "bg-emerald-500 dark:bg-emerald-600",
         action: () => { 
           router.push("/bulk-hiring"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -443,8 +444,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Espace bootcamp",
         description: "Vue d'ensemble de votre cohorte",
         icon: Home,
-        color: "text-blue-600 dark:text-blue-400",
-        bgColor: "bg-blue-500 dark:bg-blue-600",
+        color: "text-emerald-600 dark:text-emerald-400",
+        bgColor: "bg-emerald-500 dark:bg-emerald-600",
         action: () => { 
           router.push("/"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -456,8 +457,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Gestion des apprenants",
         description: "Suivi individuel et collectif",
         icon: Users,
-        color: "text-purple-600 dark:text-purple-400",
-        bgColor: "bg-purple-500 dark:bg-purple-600",
+        color: "text-teal-600 dark:text-teal-400",
+        bgColor: "bg-teal-500 dark:bg-teal-600",
         action: () => { 
           router.push("/participants"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -482,8 +483,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Placement professionnel",
         description: "Statistiques et suivi d'insertion",
         icon: Briefcase,
-        color: "text-amber-600 dark:text-amber-400",
-        bgColor: "bg-amber-500 dark:bg-amber-600",
+        color: "text-lime-600 dark:text-lime-400",
+        bgColor: "bg-lime-500 dark:bg-lime-600",
         action: () => { 
           router.push("/placement"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -514,8 +515,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Espace école",
         description: "Vue globale de votre établissement",
         icon: Home,
-        color: "text-blue-600 dark:text-blue-400",
-        bgColor: "bg-blue-500 dark:bg-blue-600",
+        color: "text-emerald-600 dark:text-emerald-400",
+        bgColor: "bg-emerald-500 dark:bg-emerald-600",
         action: () => { 
           router.push("/"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -527,8 +528,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Espace pédagogique",
         description: "Gestion des cours et ressources",
         icon: BookOpen,
-        color: "text-purple-600 dark:text-purple-400",
-        bgColor: "bg-purple-500 dark:bg-purple-600",
+        color: "text-teal-600 dark:text-teal-400",
+        bgColor: "bg-teal-500 dark:bg-teal-600",
         action: () => { 
           router.push("/pedagogie"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -553,8 +554,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Suivi étudiant",
         description: "Progression et résultats",
         icon: Users,
-        color: "text-amber-600 dark:text-amber-400",
-        bgColor: "bg-amber-500 dark:bg-amber-600",
+        color: "text-lime-600 dark:text-lime-400",
+        bgColor: "bg-lime-500 dark:bg-lime-600",
         action: () => { 
           router.push("/etudiants"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -579,8 +580,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         title: "Visibilité & partenariats",
         description: "Mettez en avant vos étudiants",
         icon: Handshake,
-        color: "text-indigo-600 dark:text-indigo-400",
-        bgColor: "bg-indigo-500 dark:bg-indigo-600",
+        color: "text-emerald-600 dark:text-emerald-400",
+        bgColor: "bg-emerald-500 dark:bg-emerald-600",
         action: () => { 
           router.push("/visibilite"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
@@ -656,8 +657,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
   const CompactLogo = () => (
     <div className="flex items-center justify-center p-2">
       <div className="relative">
-        <div className="bg-gradient-to-r from-indigo-600 to-pink-600 rounded-full p-2">
-          <Rocket className="h-6 w-6 text-white" />
+        <div className="bg-gradient-to-r from-emerald-600 to-green-600 rounded-full p-2 shadow-lg">
+          <Leaf className="h-6 w-6 text-white" />
         </div>
       </div>
     </div>
@@ -667,12 +668,12 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     <>
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 ease-in-out flex flex-col ${
+        className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-emerald-100 dark:border-emerald-900/50 transition-all duration-300 ease-in-out flex flex-col ${
           sidebarOpen ? "w-80 translate-x-0" : "-translate-x-full md:translate-x-0 md:w-20"
         }`}
       >
         {/* Header Sidebar */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-between p-4 border-b border-emerald-100 dark:border-emerald-900/50">
           {sidebarOpen ? (
             <Link href="/" className="flex items-center gap-3 min-w-0 flex-1">
               <Logo />
@@ -686,12 +687,12 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
           {/* Bouton menu pour ouvrir/fermer */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors border border-emerald-200 dark:border-emerald-800"
           >
             {sidebarOpen ? (
-              <X className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+              <X className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             ) : (
-              <Menu className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+              <Menu className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             )}
           </button>
         </div>
@@ -713,8 +714,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                     onMouseLeave={() => setHoveredOption(null)}
                     className={`w-full text-left p-3 rounded-xl transition-all duration-200 group ${
                       isActive
-                        ? "bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 shadow-sm"
-                        : "hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:shadow-md"
+                        ? "bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border border-emerald-200 dark:border-emerald-800 shadow-sm"
+                        : "hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 hover:shadow-md"
                     } ${option.isAdmin ? "border-l-4 border-red-500" : ""}`}
                   >
                     <div className="flex items-center gap-3">
@@ -734,7 +735,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                                 option.isAdmin
                                   ? "from-red-600 to-red-800 dark:from-red-400 dark:to-red-600"
                                   : isActive
-                                  ? "from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400"
+                                  ? "from-emerald-600 to-green-600 dark:from-emerald-400 dark:to-green-400"
                                   : "from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100"
                               }`}
                             >
@@ -747,7 +748,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                               </span>
                             )}
                             {option.badge && !option.isNew && !option.isAdmin && (
-                              <span className="inline-flex px-1.5 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700 z-20 relative">
+                              <span className="inline-flex px-1.5 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 z-20 relative">
                                 {option.badge}
                               </span>
                             )}
@@ -768,7 +769,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
 
                       {sidebarOpen && (
                         <ChevronRight
-                          className={`h-4 w-4 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
+                          className={`h-4 w-4 text-emerald-400 transition-transform duration-200 flex-shrink-0 ${
                             hoveredOption === option.id ? "translate-x-1" : ""
                           }`}
                         />
@@ -778,9 +779,9 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
 
                   {/* Tooltip pour les icônes lorsque la sidebar est fermée */}
                   {!sidebarOpen && (
-                    <div className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-3 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-medium rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 whitespace-nowrap">
+                    <div className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-3 py-2 bg-emerald-900 dark:bg-emerald-100 text-white dark:text-emerald-900 text-sm font-medium rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 whitespace-nowrap">
                       <div className="font-semibold">{option.title}</div>
-                      <div className="text-xs text-slate-300 dark:text-slate-600 mt-1">
+                      <div className="text-xs text-emerald-300 dark:text-emerald-600 mt-1">
                         {option.description}
                       </div>
                     </div>
@@ -793,7 +794,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
           {/* Section Outils */}
           {sidebarOpen && (
             <div className="mt-6 px-3">
-              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-3">
+              <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2 px-3">
                 Outils
               </div>
               <div className="space-y-1">
@@ -802,11 +803,11 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                       router.push("/messages"); 
                       if (window.innerWidth < 768) setSidebarOpen(false); 
                     }}
-                    className="w-full text-left p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors hover:shadow-md"
+                    className="w-full text-left p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-colors hover:shadow-md"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-gradient-to-r from-blue-100 to-blue-200 dark:from-blue-900/50 dark:to-blue-800/50 rounded-lg">
-                        <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <div className="p-2 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/50 dark:to-green-900/50 rounded-lg">
+                        <MessageSquare className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                       </div>
                       <div className="flex-1 min-w-0 z-10 relative">
                         <div className="font-semibold text-slate-700 dark:text-slate-300 bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100 bg-clip-text">
@@ -824,11 +825,11 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-200 dark:border-slate-800 p-4">
+        <div className="border-t border-emerald-100 dark:border-emerald-900/50 p-4">
           {sidebarOpen && user ? (
             <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+              <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
                   <span className="text-white font-medium">
                     {user.given_name?.[0]}
                     {user.family_name?.[0]}
@@ -838,7 +839,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                   <div className="font-semibold text-slate-900 dark:text-white truncate">
                     {user.given_name} {user.family_name}
                   </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400 truncate">
+                  <div className="text-sm text-emerald-600 dark:text-emerald-400 truncate">
                     {userRole === "CANDIDATE"
                       ? "Candidat"
                       : userRole === "CAREER_CHANGER"
@@ -863,7 +864,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                     router.push("/profile"); 
                     if (window.innerWidth < 768) setSidebarOpen(false); 
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm hover:shadow-md"
+                  className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors shadow-sm hover:shadow-md text-emerald-700 dark:text-emerald-300"
                 >
                   <User className="h-4 w-4" />
                   <span className="font-medium">Profil</span>
@@ -880,7 +881,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
             </div>
           ) : (
             <div className="flex justify-center">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
+              <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full flex items-center justify-center shadow-md">
                 <User className="h-5 w-5 text-white" />
               </div>
             </div>
@@ -900,9 +901,9 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
       {!sidebarOpen && (
         <button
           onClick={() => setSidebarOpen(true)}
-          className="fixed top-4 left-4 z-40 p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-all duration-300 md:hidden"
+          className="fixed top-4 left-4 z-40 p-2 rounded-lg bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 shadow-lg hover:shadow-xl transition-all duration-300 md:hidden"
         >
-          <Menu className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          <Menu className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
         </button>
       )}
 
@@ -926,17 +927,17 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(0, 0, 0, 0.2);
+          background: rgba(16, 185, 129, 0.3);
           border-radius: 2px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(0, 0, 0, 0.3);
+          background: rgba(16, 185, 129, 0.5);
         }
         .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
+          background: rgba(16, 185, 129, 0.2);
         }
         .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.3);
+          background: rgba(16, 185, 129, 0.4);
         }
       `}</style>
     </>

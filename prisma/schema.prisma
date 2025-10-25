@@ -14,7 +14,6 @@ datasource db {
 }
 
 // schema.prisma - Version optimisée
-
 enum SubscriptionTier {
   FREE
   PREMIUM
@@ -57,7 +56,7 @@ enum Domain {
   DEVOPS
   CYBERSECURITY
   MARKETING
-  PRODUCT
+  PRODUCT 
   ARCHITECTURE
   MOBILE
   WEB
@@ -96,29 +95,33 @@ enum InterviewRoomType {
 }
 
 model User {
-  id                 String         @id @default(cuid())
-  email              String         @unique
-  kindeId            String?        @unique
-  firstName          String?
-  lastName           String?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  credits            Int            @default(5000)
-  matchingJobs       Int            @default(0)
-  skills             String[]      
-  role               Role           @default(CANDIDATE)
-  domains            Domain[]       
-  subscription       Subscription?
-  quizResults        QuizResult[]
-  skillAnalyses      SkillAnalysis[]
-  progressTracking   ProgressTracking[]
-  chatSessions       ChatSession[]
-  interviewRooms     InterviewRoom[]
-  voiceInterviews    VoiceInterview[]
-  recommendations    Recommendation[]
-  applications       Application[]  @relation("UserApplications") // AJOUT de la relation nommée
-  portfolio          Portfolio[]
-  jobPostings        JobPosting[]   @relation("UserJobPostings")
+  id               String              @id @default(cuid())
+  email            String              @unique
+  kindeId          String?             @unique
+  firstName        String?
+  lastName         String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  credits          Int                 @default(5000)
+  matchingJobs     Int                 @default(0)
+  skills           String[]
+  role             Role                @default(CANDIDATE)
+  domains          Domain[]
+
+  
+  // Relations
+  subscription     Subscription?
+  quizResults      QuizResult[]
+  skillAnalyses    SkillAnalysis[]
+  progressTracking ProgressTracking[]
+  chatSessions     ChatSession[]
+  interviewRooms   InterviewRoom[]
+  voiceInterviews  VoiceInterview[]
+  recommendations  Recommendation[]
+  applications     Application[]       @relation("UserApplications")
+  portfolio        Portfolio[]
+  jobPostings      JobPosting[]        @relation("UserJobPostings")
+  JobQuizResults   JobQuizResult[]
 
   @@index([createdAt])
   @@index([role])
@@ -126,89 +129,97 @@ model User {
 }
 
 model Portfolio {
-  id             String      @id @default(cuid())
-  userId         String
-  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title          String      @default("Mon Portfolio")
-  bio            String?
-  headline       String?     // phrase d'accroche IA
-  template       PortfolioTemplate @default(CLASSIC)
-  themeColor     String?     // ex: "blue", "slate", "amber"
-  avatarUrl      String?
-  bannerUrl      String?
-  projects       Json?       // liste de projets (nom, description, lien, image)
-  experiences    Json?       // expériences pro
-  education      Json?       // formations
-  certifications Json?       // badges IA, certificats, etc.
-  skills         String[]    // liste de compétences clés
-  languages      String[]    // langues parlées
-  interests      String[]    // centres d'intérêt
-  sections       String[]       // sections personnalisées
-  socialLinks    Json?       // github, linkedin, dribbble, etc.
-  achievements   Json?       // prix, distinctions
-  publishedAt    DateTime?
-  updatedAt      DateTime    @updatedAt
-  createdAt      DateTime    @default(now())
+  id               String              @id @default(cuid())
+  userId           String
+  title            String              @default("Mon Portfolio")
+  bio              String?
+  headline         String?
+  template         PortfolioTemplate   @default(CLASSIC)
+  themeColor       String?
+  avatarUrl        String?
+  bannerUrl        String?
+  projects         Json?
+  experiences      Json?
+  education        Json?
+  certifications   Json?
+  skills           String[]
+  languages        String[]
+  interests        String[]
+  sections         String[]
+  socialLinks      Json?
+  achievements     Json?
+  publishedAt      DateTime?
+  updatedAt        DateTime            @updatedAt
+  createdAt        DateTime            @default(now())
+  
+  // Relations
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("portfolios")
 }
 
-
 model JobPosting {
-  id               String         @id @default(cuid())
+  id               String              @id @default(cuid())
   companyName      String
   userId           String
   title            String
   description      String
   location         String?
-  domains          Domain[] 
-  skills           String[] 
+  domains          Domain[]
+  skills           String[]
   salaryMin        Float?
   salaryMax        Float?
-  currency         String         @default("FCFA")
+  currency         String              @default("FCFA")
   type             JobType
   workMode         WorkMode
   experienceLevel  Difficulty?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  isActive         Boolean        @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  isActive         Boolean             @default(true)
   metadata         Json?
-  user             User           @relation("UserJobPostings", fields: [userId], references: [id], onDelete: Cascade)
-  applications     Application[]  @relation("JobApplications") // AJOUT de la relation nommée
+  
+  // Relations
+  user             User                @relation("UserJobPostings", fields: [userId], references: [id], onDelete: Cascade)
+  applications     Application[]       @relation("JobApplications")
+  jobQuizzes       JobQuiz[]
 
   @@map("job_postings")
-}
+} 
 
 model Application {
-  id           String      @id @default(cuid())
-  userId       String
-  user         User        @relation("UserApplications", fields: [userId], references: [id], onDelete: Cascade)
-  jobId        String
-  job          JobPosting  @relation("JobApplications", fields: [jobId], references: [id], onDelete: Cascade)
-  coverLetter  String?
-  portfolioUrl String?
-  resumeUrl    String?
-  status       String      // "applied","prescreen","interview","rejected","hired"
-  score        Int?        // aggregated score from pre-screens
-  reportUrl    String?     // PDF report
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id               String              @id @default(cuid())
+  userId           String
+  jobId            String
+  coverLetter      String?
+  portfolioUrl     String?
+  resumeUrl        String?
+  status           String
+  score            Int?
+  reportUrl        String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  
+  // Relations
+  user             User                @relation("UserApplications", fields: [userId], references: [id], onDelete: Cascade)
+  job              JobPosting          @relation("JobApplications", fields: [jobId], references: [id], onDelete: Cascade)
 
   @@map("applications")
 }
 
 model Subscription {
-  id               String           @id @default(cuid())
-  userId           String           @unique
-  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tier             SubscriptionTier @default(FREE)
-  startDate        DateTime         @default(now())
-  endDate          DateTime?
-  isActive         Boolean          @default(true)
-  stripeCustomerId String?
+  id                   String            @id @default(cuid())
+  userId               String            @unique
+  tier                 SubscriptionTier  @default(FREE)
+  startDate            DateTime          @default(now())
+  endDate              DateTime?
+  isActive             Boolean           @default(true)
+  stripeCustomerId     String?
   stripeSubscriptionId String?
-  features         Json?
+  features             Json?
+  
+  // Relations
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
   @@index([endDate])
@@ -216,39 +227,97 @@ model Subscription {
 }
 
 model Quiz {
-  id          String     @id @default(cuid())
-  title       String
-  description String?
-  image       String?
-  type        QuizType
-  domain      Domain
-  questions   Json
-  difficulty  Difficulty @default(JUNIOR)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  company     String
-  technology  String[]
-  results     QuizResult[]
-  duration    Int
-  totalPoints Int
+  id               String              @id @default(cuid())
+  title            String
+  description      String?
+  image            String?
+  type             QuizType
+  domain           Domain
+  questions        Json
+  difficulty       Difficulty          @default(JUNIOR)
+  duration         Int
+  totalPoints      Int
+  company          String
+  technology       String[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  
+  // Relations
+  results          QuizResult[]
 
   @@index([type])
   @@index([difficulty])
   @@map("quizzes")
 }
 
+// JobQuiz contient maintenant tous les détails du quiz + la relation au job
+model JobQuiz {
+  id               String              @id @default(cuid())
+  
+  // Champs du quiz (mêmes que le modèle Quiz)
+  title            String
+  description      String?
+  image            String?
+  type             QuizType
+  domain           Domain
+  questions        Json
+  difficulty       Difficulty          @default(JUNIOR)
+  duration         Int
+  totalPoints      Int
+  company          String
+  technology       String[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  settings         Json?
+  
+  // Relations
+  jobPostingId     String
+  jobPosting       JobPosting          @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  results          JobQuizResult[]
+
+  @@index([type])
+  @@index([difficulty])
+  @@index([jobPostingId])
+  @@map("job_quizzes")
+} 
+
+// Résultats spécifiques aux JobQuiz
+model JobQuizResult {
+  id               String              @id @default(cuid())
+  userId           String
+  jobQuizId        String
+  score            Float
+  answers          Json
+  analysis         String
+  duration         Int?
+  completedAt      DateTime            @default(now())
+  
+  // Relations
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobQuiz          JobQuiz             @relation(fields: [jobQuizId], references: [id], onDelete: Cascade)
+  skillAnalysis    SkillAnalysis[]
+
+  @@index([userId, completedAt])
+  @@index([jobQuizId])
+  @@index([score])
+  @@index([completedAt])
+  @@map("job_quiz_results")
+}
+
 model QuizResult {
-  id          String     @id @default(cuid())
-  userId      String
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  quizId      String
-  quiz        Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  skillAnalysis SkillAnalysis[]
-  score       Float
-  answers     Json
-  analysis    String
-  duration    Int?
-  completedAt DateTime   @default(now())
+  id               String              @id @default(cuid())
+  userId           String
+  quizId           String
+  score            Float
+  answers          Json
+  analysis         String
+  duration         Int?
+  completedAt      DateTime            @default(now())
+  
+  // Relations
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz             Quiz                @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  skillAnalysis    SkillAnalysis[]
 
   @@index([userId, completedAt])
   @@index([quizId])
@@ -258,29 +327,36 @@ model QuizResult {
 }
 
 model SkillAnalysis {
-  id              String     @id @default(cuid())
-  userId          String
-  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  quizResultId    String?
-  quizResult      QuizResult? @relation(fields: [quizResultId], references: [id], onDelete: Cascade)
-  skills          Json
-  aiFeedback      String?
-  improvementTips String[]
-  analyzedAt      DateTime   @default(now())
+  id               String              @id @default(cuid())
+  userId           String
+  quizResultId     String?
+  jobQuizResultId  String?
+  skills           Json
+  aiFeedback       String?
+  improvementTips  String[]
+  analyzedAt       DateTime            @default(now())
+  
+  // Relations
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizResult       QuizResult?         @relation(fields: [quizResultId], references: [id], onDelete: Cascade)
+  jobQuizResult    JobQuizResult?      @relation(fields: [jobQuizResultId], references: [id], onDelete: Cascade)
 
   @@index([userId, analyzedAt])
   @@index([quizResultId])
+  @@index([jobQuizResultId])
   @@map("skill_analyses")
 }
 
 model ProgressTracking {
-  id          String     @id @default(cuid())
-  userId      String
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  metric      String
-  value       Float
-  date        DateTime   @default(now())
-  context     Json?
+  id               String              @id @default(cuid())
+  userId           String
+  metric           String
+  value            Float
+  date             DateTime            @default(now())
+  context          Json?
+  
+  // Relations
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, metric, date])
   @@index([date])
@@ -288,16 +364,18 @@ model ProgressTracking {
 }
 
 model Recommendation {
-  id           String     @id @default(cuid())
-  userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  source       String
-  content      String
-  vector       Json?
-  relatedItems Json?
-  weight       Float      @default(1.0)
-  viewed       Boolean    @default(false)
-  createdAt    DateTime   @default(now())
+  id               String              @id @default(cuid())
+  userId           String
+  source           String
+  content          String
+  vector           Json?
+  relatedItems     Json?
+  weight           Float               @default(1.0)
+  viewed           Boolean             @default(false)
+  createdAt        DateTime            @default(now())
+  
+  // Relations
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, viewed])
   @@index([createdAt])
@@ -305,52 +383,57 @@ model Recommendation {
 }
 
 model ChatSession {
-  id           String     @id @default(cuid())
-  userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages     Json
-  sessionType  String
-  startedAt    DateTime   @default(now())
-  lastActivity DateTime   @updatedAt
-  feedback     Json?
+  id               String              @id @default(cuid())
+  userId           String
+  messages         Json
+  sessionType      String
+  startedAt        DateTime            @default(now())
+  lastActivity     DateTime            @updatedAt
+  feedback         Json?
+  
+  // Relations
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, lastActivity])
   @@map("chat_sessions")
 }
 
 model InterviewRoom {
-  id           String           @id @default(cuid())
-  userId       String
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  roomType     InterviewRoomType
-  roomData     Json
-  participants Json?
-  startedAt    DateTime         @default(now())
-  endedAt      DateTime?
-  recordingUrl String?
+  id               String              @id @default(cuid())
+  userId           String
+  roomType         InterviewRoomType
+  roomData         Json
+  participants     Json?
+  startedAt        DateTime            @default(now())
+  endedAt          DateTime?
+  recordingUrl     String?
+  
+  // Relations
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, startedAt])
   @@map("interview_rooms")
 }
 
 model VoiceInterview {
-  id              String     @id @default(cuid())
-  userId          String
-  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  technologies    String[]
-  context         String
-  duration        Int
-  conversationId  String?
-  transcription   Json?
-  actualDuration  Int?
-  status          String     @default("pending")
-  startedAt       DateTime   @default(now())
-  endedAt         DateTime?
-  feedback        Json?
-  score           Float?
+  id               String              @id @default(cuid())
+  userId           String
+  technologies     String[]
+  context          String
+  duration         Int
+  conversationId   String?
+  transcription    Json?
+  actualDuration   Int?
+  status           String              @default("pending")
+  startedAt        DateTime            @default(now())
+  endedAt          DateTime?
+  feedback         Json?
+  score            Float?
+  
+  // Relations
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, startedAt])
   @@index([status])
   @@map("voice_interviews")
 }
-

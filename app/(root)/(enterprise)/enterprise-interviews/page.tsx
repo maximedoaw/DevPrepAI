@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Briefcase, FileText, Video, Settings } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useJobMutations } from "@/hooks/use-job-queries"
+import { useJobInterviewMutations, useUserJobQuizzes } from "@/hooks/use-job-interview"
 import { toast } from "sonner"
 import { JobFormData } from "@/lib/validations/job-validation-form"
 import { EnterpriseHeader } from "@/components/enterprise/enterprise-interview/enterprise-header"
@@ -15,6 +15,7 @@ import { QuizzesTab } from "@/components/enterprise/enterprise-interview/quizzes
 import { InterviewsTab } from "@/components/enterprise/enterprise-interview/interviews-tab"
 import { SettingsTab } from "@/components/enterprise/enterprise-interview/settings-tab"
 import { CreateJobModal } from "@/components/enterprise/enterprise-interview/create-job-modal"
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
 
 // Types
 interface JobOffer {
@@ -53,55 +54,35 @@ export default function EnterpriseInterviewsPage() {
   const [filterType, setFilterType] = useState("all")
   const [createModalOpen, setCreateModalOpen] = useState(false)
   
-  const { createJobMutation } = useJobMutations()
+  // Utilisation directe des hooks pour les quizzes
+  const { createJobQuiz, updateJobQuiz, deleteJobQuiz, isCreating, isUpdating, isDeleting } = useJobInterviewMutations()
+  const {user} = useKindeBrowserClient()
+  
+  // Récupération des quizzes depuis l'API (remplace les données mockées)
+  // Note: Vous devrez peut-être adapter le userId selon votre système d'authentification
+  const userId = user?.id // À remplacer par l'ID utilisateur réel
+  const { data: quizzesResponse, isLoading: isLoadingQuizzes, error: quizzesError } = useUserJobQuizzes(userId as string)
+  
+  // Extraction des données depuis la réponse API
+  const quizzesData = quizzesResponse?.data || []
+  
+  // Conversion des données API vers le format Quiz attendu par le composant
+  const quizzes: Quiz[] = quizzesData.map((apiQuiz: any) => ({
+    id: apiQuiz.id,
+    title: apiQuiz.title,
+    description: apiQuiz.description,
+    type: apiQuiz.type as 'QCM' | 'MOCK_INTERVIEW' | 'SOFT_SKILLS' | 'TECHNICAL',
+    difficulty: apiQuiz.difficulty as 'JUNIOR' | 'MID' | 'SENIOR',
+    technology: apiQuiz.technology || [],
+    duration: apiQuiz.duration,
+    totalPoints: apiQuiz.totalPoints,
+    company: apiQuiz.company,
+    image: apiQuiz.image,
+    createdAt: apiQuiz.createdAt
+  }))
 
-  // Données mockées
-  const [jobOffers, setJobOffers] = useState<JobOffer[]>([
-    {
-      id: "1",
-      title: "Développeur Full Stack React/Node.js",
-      company: "TechCorp",
-      location: "Paris, France",
-      salary: "€60k-€80k",
-      type: "CDI",
-      description: "Nous recherchons un développeur full stack passionné pour rejoindre notre équipe produit.",
-      requirements: ["React", "Node.js", "TypeScript", "PostgreSQL"],
-      postedDate: "2024-01-15",
-      applicants: 24,
-      status: 'active',
-      image: "/api/placeholder/400/200"
-    },
-    {
-      id: "2",
-      title: "Ingénieur DevOps Senior",
-      company: "CloudSolutions",
-      location: "Lyon, France",
-      salary: "€70k-€90k",
-      type: "CDI",
-      description: "Rejoignez notre équipe infrastructure pour optimiser nos processus de déploiement.",
-      requirements: ["AWS", "Docker", "Kubernetes", "Terraform"],
-      postedDate: "2024-01-10",
-      applicants: 18,
-      status: 'active',
-      image: "/api/placeholder/400/200"
-    }
-  ])
-
-  const [quizzes, setQuizzes] = useState<Quiz[]>([
-    {
-      id: "1",
-      title: "Test Technique React Avancé",
-      description: "Évaluez les compétences React de vos candidats avec ce quiz technique complet.",
-      type: "TECHNICAL",
-      difficulty: "SENIOR",
-      technology: ["React", "JavaScript", "TypeScript"],
-      duration: 60,
-      totalPoints: 100,
-      company: "Votre Entreprise",
-      image: "/api/placeholder/400/200",
-      createdAt: "2024-01-15"
-    }
-  ])
+  // Données mockées pour les offres d'emploi (à remplacer par vos propres hooks si disponibles)
+  const [jobOffers, setJobOffers] = useState<JobOffer[]>([])
 
   // Filtres
   const filteredOffers = jobOffers.filter(offer =>
@@ -117,7 +98,7 @@ export default function EnterpriseInterviewsPage() {
 
   const handleCreateJob = async (data: JobFormData) => {
     try {
-      // Simuler la création d'une offre
+      // Simuler la création d'une offre (à remplacer par votre logique réelle)
       const newJob: JobOffer = {
         id: Date.now().toString(),
         title: data.title,
@@ -135,19 +116,45 @@ export default function EnterpriseInterviewsPage() {
       setJobOffers(prev => [newJob, ...prev])
       toast.success("Offre créée avec succès!")
       
-      // Ici vous utiliseriez la mutation réelle :
-      // await createJobMutation.mutateAsync(data)
     } catch (error) {
       toast.error("Erreur lors de la création de l'offre")
     }
   }
 
-  const handleCreateQuiz = () => {
-    toast.info("Création de test - Fonctionnalité à venir")
+  const handleCreateQuiz = async (quizData: any) => {
+    try {
+      // Utilisation directe de la mutation pour créer un quiz
+      await createJobQuiz.mutateAsync(quizData)
+      // Le toast est géré dans le hook useJobInterviewMutations
+    } catch (error) {
+      // L'erreur est déjà gérée dans le hook
+      console.error("Error creating quiz:", error)
+    }
+  }
+
+  const handleUpdateQuiz = async (quizId: string, quizData: any) => {
+    try {
+      await updateJobQuiz.mutateAsync({ id: quizId, data: quizData })
+    } catch (error) {
+      console.error("Error updating quiz:", error)
+    }
+  }
+
+  const handleDeleteQuiz = async (quizId: string) => {
+    try {
+      await deleteJobQuiz.mutateAsync(quizId)
+    } catch (error) {
+      console.error("Error deleting quiz:", error)
+    }
   }
 
   const handleScheduleInterview = () => {
     toast.info("Planification d'entretien - Fonctionnalité à venir")
+  }
+
+  // Gestion des erreurs de chargement des quizzes
+  if (quizzesError) {
+    toast.error("Erreur lors du chargement des tests")
   }
 
   return (
@@ -155,7 +162,7 @@ export default function EnterpriseInterviewsPage() {
       <div className="container mx-auto px-4 py-8">
         <EnterpriseHeader 
           onCreateJobClick={() => setCreateModalOpen(true)}
-          onCreateQuizClick={handleCreateQuiz}
+          onCreateQuizClick={() => toast.info("Utilisez le bouton 'Nouveau Test' dans l'onglet Tests & Quiz")}
         />
         
         <div className="flex flex-col lg:flex-row gap-8">
@@ -166,7 +173,10 @@ export default function EnterpriseInterviewsPage() {
               selectedOffer={selectedOffer}
               onSelectOffer={setSelectedOffer}
             />
-            <QuickStats jobOffers={jobOffers} quizzes={quizzes} />
+            <QuickStats 
+              jobOffers={jobOffers} 
+              quizzes={quizzes} 
+            />
           </div>
 
           {/* Main Content */}
@@ -193,6 +203,9 @@ export default function EnterpriseInterviewsPage() {
                 >
                   <FileText className="w-4 h-4" />
                   Tests & Quiz
+                  {isLoadingQuizzes && (
+                    <span className="animate-pulse">...</span>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="interviews" 
@@ -217,7 +230,14 @@ export default function EnterpriseInterviewsPage() {
               </TabsContent>
 
               <TabsContent value="quizzes" className="space-y-6">
-                <QuizzesTab quizzes={filteredQuizzes} />
+                <QuizzesTab 
+                  quizzes={filteredQuizzes as any} 
+                  onCreateQuiz={handleCreateQuiz}
+                  onUpdateQuiz={handleUpdateQuiz}
+                  onDeleteQuiz={handleDeleteQuiz}
+                  isLoading={isLoadingQuizzes}
+                  isCreating={isCreating}
+                />
               </TabsContent>
 
               <TabsContent value="interviews">

@@ -37,7 +37,8 @@ export const jobFormSchema = z.object({
   description: z.string().min(10, "La description doit contenir au moins 10 caractères"),
   location: z.string().min(1, "La localisation est requise").optional().or(z.literal('')),
   domains: z.array(Domain).min(1, "Au moins un domaine doit être sélectionné"),
-  skills: z.array(z.string()).min(1, "Au moins une compétence doit être ajoutée"),
+  // Rendre les compétences optionnelles en enlevant .min(1)
+  skills: z.array(z.string()).optional().default([]),
   salaryMin: z.union([z.number().min(0, "Le salaire minimum doit être positif"), z.nan()]).optional().transform(val => isNaN(val as number) ? undefined : val),
   salaryMax: z.union([z.number().min(0, "Le salaire maximum doit être positif"), z.nan()]).optional().transform(val => isNaN(val as number) ? undefined : val),
   currency: z.string().default("FCFA"),
