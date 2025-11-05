@@ -86,6 +86,13 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useKindeBrowserClient();
   const { theme } = useTheme();
 
+  // Routes où la sidebar doit être cachée
+  const hideSidebarRoutes = [
+    '/jobs/',
+    '/interviews/'
+  ];
+  const shouldHideSidebar = hideSidebarRoutes.some(route => pathname?.includes(route));
+
   const { data: userData, isLoading: userDataLoading } = useQuery({
     queryKey: ["userRole", user?.id],
     queryFn: async () => {
@@ -666,7 +673,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {/* Sidebar */}
+      {/* Sidebar - Cachée pour certaines routes */}
+      {!shouldHideSidebar && (
       <div
         className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-emerald-100 dark:border-emerald-900/50 transition-all duration-300 ease-in-out flex flex-col ${
           sidebarOpen ? "w-80 translate-x-0" : "-translate-x-full md:translate-x-0 md:w-20"
@@ -888,9 +896,10 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
           )}
         </div>
       </div>
+      )}
 
-      {/* Overlay pour mobile */}
-      {sidebarOpen && (
+      {/* Overlay pour mobile - Caché pour certaines routes */}
+      {!shouldHideSidebar && sidebarOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden transition-opacity duration-300"
           onClick={() => setSidebarOpen(false)}

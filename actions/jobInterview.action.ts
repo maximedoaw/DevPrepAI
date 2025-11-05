@@ -307,11 +307,23 @@ export async function updateJobQuiz(id: string, data: UpdateJobQuizInput) {
     // Extraire jobPostingId et les autres données
     const { jobPostingId, settings, ...updateData } = data
 
-    // Préparer les données de mise à jour
+    // Préparer les données de mise à jour - ne garder que les champs valides du modèle Prisma
     const updatePayload: any = {
-      ...updateData,
       updatedAt: new Date()
     }
+
+    // Ajouter uniquement les champs qui existent dans le modèle Prisma
+    if (updateData.title !== undefined) updatePayload.title = updateData.title
+    if (updateData.description !== undefined) updatePayload.description = updateData.description
+    if (updateData.image !== undefined) updatePayload.image = updateData.image
+    if (updateData.type !== undefined) updatePayload.type = updateData.type
+    if (updateData.domain !== undefined) updatePayload.domain = updateData.domain
+    if (updateData.questions !== undefined) updatePayload.questions = updateData.questions
+    if (updateData.difficulty !== undefined) updatePayload.difficulty = updateData.difficulty
+    if (updateData.duration !== undefined) updatePayload.duration = updateData.duration
+    if (updateData.totalPoints !== undefined) updatePayload.totalPoints = updateData.totalPoints
+    if (updateData.company !== undefined) updatePayload.company = updateData.company
+    if (updateData.technology !== undefined) updatePayload.technology = updateData.technology
 
     // Gérer la relation jobPosting si jobPostingId est fourni
     if (jobPostingId) {
@@ -320,13 +332,15 @@ export async function updateJobQuiz(id: string, data: UpdateJobQuizInput) {
       }
     }
 
-    // Ajouter les settings s'ils sont fournis
+    // Ajouter les settings dans le champ JSON settings (pas comme champs séparés)
     if (settings) {
-      updatePayload.shuffleQuestions = settings.shuffleQuestions
-      updatePayload.showResults = settings.showResults
-      updatePayload.allowRetry = settings.allowRetry
-      updatePayload.timeLimit = settings.timeLimit
-      updatePayload.passingScore = settings.passingScore
+      updatePayload.settings = {
+        shuffleQuestions: settings.shuffleQuestions ?? false,
+        showResults: settings.showResults ?? true,
+        allowRetry: settings.allowRetry ?? false,
+        timeLimit: settings.timeLimit ?? 0,
+        passingScore: settings.passingScore ?? 70
+      }
     }
 
     const updatedQuiz = await prisma.jobQuiz.update({
@@ -610,6 +624,114 @@ export async function getJobQuizStats(jobQuizId: string) {
 }
 
 /**
+ * Récupérer les résultats de quiz d'une application avec skill analysis
+ */
+export async function getApplicationQuizResults(applicationId: string, jobId: string) {
+  try {
+    // Récupérer l'application
+    const application = await prisma.application.findUnique({
+      where: { id: applicationId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    })
+
+    if (!application) {
+      return {
+        success: false,
+        message: "Application non trouvée",
+        data: []
+      }
+    }
+
+    // Récupérer tous les quizzes liés au job
+    const jobQuizzes = await prisma.jobQuiz.findMany({
+      where: { jobPostingId: jobId }
+    })
+
+    // Récupérer tous les résultats de quiz pour cet utilisateur et ces quizzes
+    const quizResults = await prisma.jobQuizResult.findMany({
+      where: {
+        userId: application.userId,
+        jobQuizId: { in: jobQuizzes.map(q => q.id) }
+      },
+      include: {
+        jobQuiz: {
+          select: {
+            id: true,
+            title: true,
+            type: true,
+            totalPoints: true,
+            technology: true
+          }
+        },
+        skillAnalysis: {
+          select: {
+            id: true,
+            skills: true,
+            aiFeedback: true,
+            improvementTips: true
+          },
+          orderBy: {
+            analyzedAt: 'desc'
+          },
+          take: 1
+        }
+      },
+      orderBy: {
+        completedAt: 'desc'
+      }
+    })
+
+    // Formater les résultats avec les compétences
+    const formattedResults = quizResults.map(result => {
+      const skillAnalysis = result.skillAnalysis[0]
+      const skills = skillAnalysis?.skills ? (typeof skillAnalysis.skills === 'string' ? JSON.parse(skillAnalysis.skills) : skillAnalysis.skills) : []
+      
+      return {
+        id: result.id,
+        quizId: result.jobQuizId,
+        quizTitle: result.jobQuiz.title,
+        quizType: result.jobQuiz.type,
+        totalPoints: result.jobQuiz.totalPoints,
+        score: result.score,
+        percentage: (result.score / result.jobQuiz.totalPoints) * 100,
+        completedAt: result.completedAt,
+        duration: result.duration,
+        technology: result.jobQuiz.technology,
+        skills: skills.map((skill: any) => ({
+          name: skill.name || skill.skill || 'Compétence',
+          score: skill.score || skill.points || 0,
+          maxScore: skill.maxScore || 100,
+          percentage: skill.maxScore ? (skill.score / skill.maxScore) * 100 : (skill.score || 0)
+        })),
+        aiFeedback: skillAnalysis?.aiFeedback,
+        improvementTips: skillAnalysis?.improvementTips || []
+      }
+    })
+
+    return {
+      success: true,
+      data: formattedResults
+    }
+  } catch (error) {
+    console.error("Erreur lors de la récupération des résultats de quiz:", error)
+    return {
+      success: false,
+      message: "Erreur lors de la récupération des résultats",
+      data: []
+    }
+  }
+}
+
+/**
  * Dupliquer un JobQuiz
  */
 export async function duplicateJobQuiz(id: string, newJobPostingId?: string) {
@@ -664,5 +786,132 @@ export async function duplicateJobQuiz(id: string, newJobPostingId?: string) {
       message: error instanceof Error ? error.message : "Erreur lors de la duplication du quiz",
       data: null
     }
+  }
+}
+
+// Récupérer les détails complets d'un résultat de quiz pour la review
+export async function getQuizResultForReview(quizResultId: string) {
+  try {
+    const result = await prisma.jobQuizResult.findUnique({
+      where: { id: quizResultId },
+      include: {
+        jobQuiz: {
+          select: {
+            id: true,
+            title: true,
+            type: true,
+            questions: true,
+            totalPoints: true,
+            technology: true
+          }
+        },
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    if (!result) {
+      return {
+        success: false,
+        message: "Résultat de quiz non trouvé",
+        data: null
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        id: result.id,
+        quizId: result.jobQuizId,
+        quizTitle: result.jobQuiz.title,
+        quizType: result.jobQuiz.type,
+        questions: result.jobQuiz.questions,
+        answers: result.answers,
+        score: result.score,
+        originalScore: result.score,
+        totalPoints: result.jobQuiz.totalPoints,
+        analysis: result.analysis,
+        duration: result.duration,
+        completedAt: result.completedAt,
+        technology: result.jobQuiz.technology,
+        user: result.user
+      }
+    };
+  } catch (error) {
+    console.error("Erreur lors de la récupération du résultat de quiz:", error);
+    return {
+      success: false,
+      message: "Erreur lors de la récupération",
+      data: null
+    };
+  }
+}
+
+// Sauvegarder la review humaine d'un résultat de quiz
+export async function saveQuizResultReview(quizResultId: string, data: {
+  reviewedAnswers: any[];
+  reviewedScore: number;
+  reviewerNotes?: string;
+  manualCorrections?: Record<string, { isValid: boolean; points: number; note?: string }>;
+}) {
+  try {
+    // Récupérer le résultat existant
+    const existingResult = await prisma.jobQuizResult.findUnique({
+      where: { id: quizResultId },
+      include: {
+        jobQuiz: {
+          select: {
+            totalPoints: true
+          }
+        }
+      }
+    });
+
+    if (!existingResult) {
+      return {
+        success: false,
+        message: "Résultat de quiz non trouvé"
+      };
+    }
+
+    // Mettre à jour le résultat avec la review
+    const updatedResult = await prisma.jobQuizResult.update({
+      where: { id: quizResultId },
+      data: {
+        score: data.reviewedScore,
+        answers: {
+          ...(typeof existingResult.answers === 'object' && existingResult.answers !== null ? existingResult.answers as any : {}),
+          reviewedAnswers: data.reviewedAnswers,
+          manualCorrections: data.manualCorrections || {},
+          reviewerNotes: data.reviewerNotes,
+          reviewedAt: new Date().toISOString(),
+          isReviewed: true
+        } as any,
+        analysis: data.reviewerNotes 
+          ? `${existingResult.analysis}\n\n--- Review Humaine ---\n${data.reviewerNotes}`
+          : existingResult.analysis
+      }
+    });
+
+    revalidatePath("/enterprise/enterprise-interviews");
+    revalidatePath("/");
+    
+    return {
+      success: true,
+      message: "Review sauvegardée avec succès",
+      data: updatedResult
+    };
+  } catch (error) {
+    console.error("Erreur lors de la sauvegarde de la review:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Erreur lors de la sauvegarde"
+    };
   }
 }

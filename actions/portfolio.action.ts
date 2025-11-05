@@ -150,6 +150,117 @@ export async function getUserPortfolio(userId: string) {
   }
 }
 
+/**
+ * Récupérer le portfolio d'un utilisateur par son userId
+ */
+export async function getPortfolioByUserId(userId: string) {
+  try {
+    const portfolio = await prisma.portfolio.findFirst({
+      where: {
+        userId: userId,
+        publishedAt: { not: null } // Seulement les portfolios publiés
+      },
+      orderBy: {
+        updatedAt: 'desc'
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            domains: true
+          }
+        }
+      }
+    })
+
+    if (!portfolio) {
+      return null
+    }
+
+    return {
+      id: portfolio.id,
+      title: portfolio.title,
+      headline: portfolio.headline,
+      bio: portfolio.bio,
+      avatarUrl: portfolio.avatarUrl,
+      bannerUrl: portfolio.bannerUrl,
+      template: portfolio.template,
+      themeColor: portfolio.themeColor,
+      skills: portfolio.skills,
+      languages: portfolio.languages,
+      interests: portfolio.interests || [],
+      projects: portfolio.projects ? JSON.parse(JSON.stringify(portfolio.projects)) : [],
+      experiences: portfolio.experiences ? JSON.parse(JSON.stringify(portfolio.experiences)) : [],
+      education: portfolio.education ? JSON.parse(JSON.stringify(portfolio.education)) : [],
+      certifications: portfolio.certifications ? JSON.parse(JSON.stringify(portfolio.certifications)) : [],
+      sections: portfolio.sections || [],
+      socialLinks: portfolio.socialLinks ? JSON.parse(JSON.stringify(portfolio.socialLinks)) : null,
+      achievements: portfolio.achievements ? JSON.parse(JSON.stringify(portfolio.achievements)) : null,
+      user: portfolio.user,
+      publishedAt: portfolio.publishedAt,
+      updatedAt: portfolio.updatedAt,
+      createdAt: portfolio.createdAt
+    }
+  } catch (error) {
+    console.error("Erreur lors de la récupération du portfolio par userId:", error)
+    return null
+  }
+}
+
+export async function getPortfolioById(portfolioId: string) {
+  try {
+    const portfolio = await prisma.portfolio.findUnique({
+      where: { id: portfolioId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            domains: true
+          }
+        }
+      }
+    })
+
+    if (!portfolio || !portfolio.publishedAt) {
+      return null
+    }
+
+    return {
+      id: portfolio.id,
+      title: portfolio.title,
+      headline: portfolio.headline,
+      bio: portfolio.bio,
+      avatarUrl: portfolio.avatarUrl,
+      bannerUrl: portfolio.bannerUrl,
+      template: portfolio.template,
+      themeColor: portfolio.themeColor,
+      skills: portfolio.skills,
+      languages: portfolio.languages,
+      interests: portfolio.interests || [],
+      projects: portfolio.projects ? JSON.parse(JSON.stringify(portfolio.projects)) : [],
+      experiences: portfolio.experiences ? JSON.parse(JSON.stringify(portfolio.experiences)) : [],
+      education: portfolio.education ? JSON.parse(JSON.stringify(portfolio.education)) : [],
+      certifications: portfolio.certifications ? JSON.parse(JSON.stringify(portfolio.certifications)) : [],
+      sections: portfolio.sections || [],
+      socialLinks: portfolio.socialLinks ? JSON.parse(JSON.stringify(portfolio.socialLinks)) : null,
+      achievements: portfolio.achievements ? JSON.parse(JSON.stringify(portfolio.achievements)) : null,
+      user: portfolio.user,
+      publishedAt: portfolio.publishedAt,
+      updatedAt: portfolio.updatedAt,
+      createdAt: portfolio.createdAt
+    }
+  } catch (error) {
+    console.error("Erreur lors de la récupération du portfolio:", error)
+    return null
+  }
+}
+
 export async function deletePortfolio(userId: string) {
   try {
     const portfolio = await prisma.portfolio.findFirst({

@@ -202,3 +202,12 @@ Ouvrez la console du navigateur pour voir :
 5. ✅ Le dark mode est supporté
 
 L'interface d'aide aux réponses fonctionne maintenant parfaitement ! 🎉
+
+
+
+
+
+
+
+
+

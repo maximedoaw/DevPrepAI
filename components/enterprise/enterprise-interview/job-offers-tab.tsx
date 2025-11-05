@@ -81,6 +81,9 @@ interface JobOffer {
 
 interface JobOffersTabProps {
   onCreateJobClick: () => void;
+  loading: boolean;
+  jobs: JobOffer[];
+  refetchJobs: () => void;
 }
 
 const ITEMS_PER_PAGE = 9;
@@ -181,7 +184,7 @@ const StatsCardSkeleton = () => (
   </Card>
 );
 
-export function JobOffersTab({ onCreateJobClick }: JobOffersTabProps) {
+export function JobOffersTab({ onCreateJobClick, jobs, loading, refetchJobs }: JobOffersTabProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -193,8 +196,6 @@ export function JobOffersTab({ onCreateJobClick }: JobOffersTabProps) {
   const [editingJob, setEditingJob] = useState<JobOffer | null>(null);
   const [updatingJobs, setUpdatingJobs] = useState<Set<string>>(new Set());
 
-  const { user } = useKindeBrowserClient();
-  const { jobs, loadingJobs, refetchJobs } = useUserJobQueries(user?.id);
   const { deleteJobMutation, updateJobMutation } = useJobMutations();
 
   const handleEditClick = (job: JobOffer) => {
@@ -347,7 +348,7 @@ export function JobOffersTab({ onCreateJobClick }: JobOffersTabProps) {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, typeFilter]);
 
-  if (loadingJobs) {
+  if (loading) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

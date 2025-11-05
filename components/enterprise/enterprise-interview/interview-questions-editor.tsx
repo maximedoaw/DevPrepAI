@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Plus, Trash2, Code, FileText, MessageSquare, ChevronDown, ChevronUp } from "lucide-react"
+import { useState } from "react"
+import { Plus, Trash2, Code, FileText, MessageSquare, ChevronDown, ChevronUp, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -24,18 +24,28 @@ interface Question {
   codeSnippet?: string
 }
 
-interface InterviewBuilderProps {
+interface InterviewQuestionsEditorProps {
   quizType: 'QCM' | 'TECHNICAL' | 'MOCK_INTERVIEW' | 'SOFT_SKILLS'
   questions: Question[]
   onQuestionsChange: (questions: Question[]) => void
+  onSave?: () => void
+  isSaving?: boolean
   totalPoints?: number // Total de points attendu pour le test
 }
 
-export function InterviewBuilder({ quizType, questions, onQuestionsChange, totalPoints }: InterviewBuilderProps) {
+export function InterviewQuestionsEditor({ 
+  quizType, 
+  questions, 
+  onQuestionsChange, 
+  onSave,
+  isSaving = false,
+  totalPoints
+}: InterviewQuestionsEditorProps) {
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null)
+  const [localQuestions, setLocalQuestions] = useState<Question[]>(questions)
   
   // Calculer la somme des points
-  const totalQuestionsPoints = questions.reduce((sum, q) => sum + (q.points || 0), 0)
+  const totalQuestionsPoints = localQuestions.reduce((sum, q) => sum + (q.points || 0), 0)
   const pointsDifference = totalPoints ? totalPoints - totalQuestionsPoints : 0
 
   const getQuestionTypeConfig = () => {
@@ -45,14 +55,14 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
           type: 'multiple_choice' as const,
           title: 'Questions à Choix Multiple',
           icon: FileText,
-          description: 'Ajoutez des questions avec plusieurs choix de réponse'
+          description: 'Modifiez les questions avec plusieurs choix de réponse'
         }
       case 'TECHNICAL':
         return {
           type: 'coding' as const,
           title: 'Questions de Codage',
           icon: Code,
-          description: 'Créez des exercices de programmation avec éditeur de code'
+          description: 'Éditez les exercices de programmation'
         }
       case 'MOCK_INTERVIEW':
       case 'SOFT_SKILLS':
@@ -60,19 +70,25 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
           type: 'scenario' as const,
           title: 'Questions de Scénario',
           icon: MessageSquare,
-          description: 'Définissez des situations professionnelles à analyser'
+          description: 'Modifiez les situations professionnelles'
         }
       default:
         return {
           type: 'multiple_choice' as const,
           title: 'Questions',
           icon: FileText,
-          description: 'Ajoutez des questions au test'
+          description: 'Éditez les questions du test'
         }
     }
   }
 
   const config = getQuestionTypeConfig()
+
+  // Synchroniser les questions locales avec les props
+  const syncQuestions = (updatedQuestions: Question[]) => {
+    setLocalQuestions(updatedQuestions)
+    onQuestionsChange(updatedQuestions)
+  }
 
   const addQuestion = () => {
     const newQuestion: Question = {
@@ -87,23 +103,28 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
       }),
       ...(config.type === 'coding' && { codeSnippet: '// Votre code ici\n' })
     }
-    onQuestionsChange([...questions, newQuestion])
+    const updatedQuestions = [...localQuestions, newQuestion]
+    syncQuestions(updatedQuestions)
     setExpandedQuestion(newQuestion.id)
   }
 
   const updateQuestion = (id: string, updates: Partial<Question>) => {
-    onQuestionsChange(questions.map(q => q.id === id ? { ...q, ...updates } : q))
+    const updatedQuestions = localQuestions.map(q => 
+      q.id === id ? { ...q, ...updates } : q
+    )
+    syncQuestions(updatedQuestions)
   }
 
   const deleteQuestion = (id: string) => {
-    onQuestionsChange(questions.filter(q => q.id !== id))
+    const updatedQuestions = localQuestions.filter(q => q.id !== id)
+    syncQuestions(updatedQuestions)
     if (expandedQuestion === id) {
       setExpandedQuestion(null)
     }
   }
 
   const updateOption = (questionId: string, index: number, value: string) => {
-    const question = questions.find(q => q.id === questionId)
+    const question = localQuestions.find(q => q.id === questionId)
     if (question && question.options) {
       const newOptions = [...question.options]
       newOptions[index] = value
@@ -115,12 +136,10 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
     setExpandedQuestion(expandedQuestion === questionId ? null : questionId)
   }
 
-  // Fonction pour vérifier si une option est valide (non vide)
   const isValidOption = (option: string) => {
     return option && option.trim() !== ''
   }
 
-  // Fonction pour obtenir les options valides pour le Select
   const getValidOptions = (options: string[] = []) => {
     return options.filter(option => isValidOption(option))
   }
@@ -139,8 +158,6 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
             value={question.question}
             onChange={(e) => updateQuestion(question.id, { question: e.target.value })}
             rows={2}
-            className="resize-none"
-            maxLength={500}
           />
         </div>
 
@@ -156,13 +173,11 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
                   placeholder={`Option ${String.fromCharCode(65 + index)}`}
                   value={option}
                   onChange={(e) => updateOption(question.id, index, e.target.value)}
-                  className="truncate"
-                  maxLength={200}
                 />
               </div>
             ))}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+          <p className="text-xs text-slate-500">
             Toutes les options doivent être remplies pour pouvoir sélectionner une réponse correcte
           </p>
         </div>
@@ -179,8 +194,8 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
               </SelectTrigger>
               <SelectContent>
                 {validOptions.map((option, index) => (
-                  <SelectItem key={index} value={option} className="truncate max-w-[300px]">
-                    <span className="truncate">{String.fromCharCode(65 + index)}: {option}</span>
+                  <SelectItem key={index} value={option}>
+                    {String.fromCharCode(65 + index)}: {option}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -202,8 +217,6 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
             value={question.explanation || ''}
             onChange={(e) => updateQuestion(question.id, { explanation: e.target.value })}
             rows={2}
-            className="resize-none"
-            maxLength={500}
           />
         </div>
       </div>
@@ -220,8 +233,6 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
           value={question.question}
           onChange={(e) => updateQuestion(question.id, { question: e.target.value })}
           rows={3}
-          className="resize-none"
-          maxLength={500}
         />
       </div>
 
@@ -269,8 +280,6 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
           value={question.explanation || ''}
           onChange={(e) => updateQuestion(question.id, { explanation: e.target.value })}
           rows={2}
-          className="resize-none"
-          maxLength={500}
         />
       </div>
     </div>
@@ -286,8 +295,6 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
           value={question.question}
           onChange={(e) => updateQuestion(question.id, { question: e.target.value })}
           rows={3}
-          className="resize-none"
-          maxLength={500}
         />
       </div>
 
@@ -299,8 +306,6 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
           value={question.correctAnswer}
           onChange={(e) => updateQuestion(question.id, { correctAnswer: e.target.value })}
           rows={4}
-          className="resize-none"
-          maxLength={1000}
         />
       </div>
 
@@ -312,8 +317,6 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
           value={question.explanation || ''}
           onChange={(e) => updateQuestion(question.id, { explanation: e.target.value })}
           rows={3}
-          className="resize-none"
-          maxLength={500}
         />
       </div>
     </div>
@@ -332,9 +335,15 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
     }
   }
 
+  const handleSave = () => {
+    if (onSave) {
+      onSave()
+    }
+  }
+
   return (
     <div className="space-y-6">
-      {/* En-tête */}
+      {/* En-tête avec bouton de sauvegarde */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
@@ -345,78 +354,82 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
             {config.description}
           </p>
         </div>
-        <Button onClick={addQuestion} className="bg-green-600 hover:bg-green-700">
-          <Plus className="w-4 h-4 mr-2" />
-          Ajouter une question
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={addQuestion} variant="outline">
+            <Plus className="w-4 h-4 mr-2" />
+            Nouvelle question
+          </Button>
+          {onSave && (
+            <Button 
+              onClick={handleSave} 
+              disabled={isSaving}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isSaving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Sauvegarde...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Sauvegarder
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Affichage du total des points si totalPoints est fourni */}
-      {totalPoints && (
-        <div className={`p-3 rounded-lg border text-sm ${
-          pointsDifference === 0 
-            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300' 
-            : pointsDifference > 0
-            ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
-            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
-        }`}>
-          <div className="flex items-center justify-between">
-            <span className="font-medium">
-              Points: {totalQuestionsPoints}/{totalPoints}
-            </span>
-            {pointsDifference === 0 ? (
-              <span className="text-xs">✓ Équilibré</span>
-            ) : pointsDifference > 0 ? (
-              <span className="text-xs">{pointsDifference} point{pointsDifference > 1 ? 's' : ''} manquant{pointsDifference > 1 ? 's' : ''}</span>
-            ) : (
-              <span className="text-xs">{Math.abs(pointsDifference)} point{Math.abs(pointsDifference) > 1 ? 's' : ''} en trop</span>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Liste des questions */}
-      <div className="space-y-4 max-h-[600px] overflow-y-auto">
-        {questions.length === 0 ? (
+      <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+        {localQuestions.length === 0 ? (
           <Card className="border-2 border-dashed border-slate-300 dark:border-slate-600">
             <CardContent className="text-center py-12">
               <config.icon className="w-12 h-12 text-slate-400 mx-auto mb-4" />
               <h4 className="font-semibold text-slate-900 dark:text-white mb-2">
-                Aucune question ajoutée
+                Aucune question configurée
               </h4>
               <p className="text-slate-600 dark:text-slate-400 mb-4">
                 Commencez par ajouter votre première question
               </p>
-              <Button onClick={addQuestion} className="bg-green-600 hover:bg-green-700">
+              <Button onClick={addQuestion} variant="outline">
                 <Plus className="w-4 h-4 mr-2" />
                 Ajouter une question
               </Button>
             </CardContent>
           </Card>
         ) : (
-          questions.map((question, index) => (
-            <Card key={question.id} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50">
+          localQuestions.map((question, index) => (
+            <Card key={question.id} className="border border-slate-200 dark:border-slate-700">
               <CardHeader 
                 className="pb-3 cursor-pointer" 
                 onClick={() => toggleQuestion(question.id)}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <Badge variant="secondary" className="w-8 h-8 flex items-center justify-center shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Badge variant="secondary" className="w-8 h-8 flex items-center justify-center">
                       {index + 1}
                     </Badge>
-                    <CardTitle className="text-base line-clamp-2 min-w-0">
-                      {question.question || `Question ${index + 1}`}
-                    </CardTitle>
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base truncate">
+                        {question.question || `Question ${index + 1}`}
+                      </CardTitle>
+                      {question.question && (
+                        <p className="text-sm text-slate-500 truncate">
+                          {question.question}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
                       {question.points} pts
                     </Badge>
                     {expandedQuestion === question.id ? (
-                      <ChevronUp className="w-4 h-4 text-slate-500 shrink-0" />
+                      <ChevronUp className="w-4 h-4 text-slate-500" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
+                      <ChevronDown className="w-4 h-4 text-slate-500" />
                     )}
                   </div>
                 </div>
@@ -461,15 +474,21 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
       </div>
 
       {/* Résumé */}
-      {questions.length > 0 && (
-        <Card className={`bg-slate-50 dark:bg-slate-800/50 ${
-          totalPoints && pointsDifference === 0 ? 'border-l-4 border-l-green-500' : ''
+      {localQuestions.length > 0 && (
+        <Card className={`bg-slate-50 dark:bg-slate-800/50 border-l-4 ${
+          totalPoints 
+            ? pointsDifference === 0 
+              ? 'border-l-green-500' 
+              : pointsDifference > 0 
+              ? 'border-l-amber-500' 
+              : 'border-l-red-500'
+            : 'border-l-green-500'
         }`}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-slate-900 dark:text-white">
-                  {questions.length} question{questions.length > 1 ? 's' : ''} ajoutée{questions.length > 1 ? 's' : ''}
+                  {localQuestions.length} question{localQuestions.length > 1 ? 's' : ''} configurée{localQuestions.length > 1 ? 's' : ''}
                 </p>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   {totalPoints 
@@ -497,7 +516,7 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
                   ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'
                   : totalPoints && pointsDifference < 0
                   ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
-                  : ''
+                  : 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
               }`}>
                 {totalPoints ? `${totalQuestionsPoints}/${totalPoints}` : totalQuestionsPoints} pts
               </Badge>

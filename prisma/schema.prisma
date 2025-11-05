@@ -5,7 +5,8 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
 }
 
 datasource db {
@@ -13,7 +14,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// schema.prisma - Version optimisée
 enum SubscriptionTier {
   FREE
   PREMIUM
@@ -93,6 +93,7 @@ enum InterviewRoomType {
   HR
   EXECUTIVE
 }
+
 
 model User {
   id               String              @id @default(cuid())
@@ -194,7 +195,7 @@ model Application {
   coverLetter      String?
   portfolioUrl     String?
   resumeUrl        String?
-  status           String
+  status           String              @default("PENDING")
   score            Int?
   reportUrl        String?
   createdAt        DateTime            @default(now())

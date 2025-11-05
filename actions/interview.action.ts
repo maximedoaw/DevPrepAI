@@ -781,3 +781,70 @@ export async function getLeaderboard() {
     return []
   }
 }
+
+/**
+ * Récupérer tous les résultats de Quiz (entrainements) d'un utilisateur
+ */
+export async function getUserQuizResults(userId: string) {
+  try {
+    const quizResults = await prisma.quizResult.findMany({
+      where: {
+        userId: userId
+      },
+      include: {
+        quiz: {
+          select: {
+            id: true,
+            title: true,
+            type: true,
+            difficulty: true,
+            technology: true,
+            company: true,
+            totalPoints: true,
+            duration: true
+          }
+        },
+        skillAnalysis: {
+          select: {
+            skills: true,
+            aiFeedback: true,
+            improvementTips: true
+          },
+          orderBy: {
+            analyzedAt: 'desc'
+          },
+          take: 1
+        }
+      },
+      orderBy: {
+        completedAt: 'desc'
+      }
+    })
+
+    // Formater les résultats
+    return quizResults.map(result => ({
+      id: result.id,
+      quizId: result.quizId,
+      quizTitle: result.quiz.title,
+      quizType: result.quiz.type,
+      difficulty: result.quiz.difficulty,
+      technology: result.quiz.technology,
+      company: result.quiz.company,
+      score: result.score,
+      totalPoints: result.quiz.totalPoints,
+      percentage: result.quiz.totalPoints > 0 
+        ? Math.round((result.score / result.quiz.totalPoints) * 100)
+        : 0,
+      duration: result.duration || result.quiz.duration,
+      completedAt: result.completedAt,
+      answers: result.answers,
+      analysis: result.analysis,
+      skills: result.skillAnalysis?.[0]?.skills || {},
+      aiFeedback: result.skillAnalysis?.[0]?.aiFeedback || null,
+      improvementTips: result.skillAnalysis?.[0]?.improvementTips || []
+    }))
+  } catch (error) {
+    console.error("Error fetching user quiz results:", error)
+    return []
+  }
+}

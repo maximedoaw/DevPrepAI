@@ -12,6 +12,10 @@ import { formatTimeDetailed, getTimeDisplayProps } from "@/lib/time-utils"
 import AIVocalInterview from "@/components/interviews/vocal-interview"
 import { CodeEditor } from "@/components/interviews/code-editor"
 import { useEffect, useRef, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { ArrowLeft, Clock, ChevronLeft, ChevronRight } from "lucide-react"
 
 interface Question {
   id: string
@@ -296,21 +300,59 @@ export function InterviewContent({
     explanation: (rawQuestion as any).explanation, // Ajouter l'explication
   }
 
+  // Vérifier si c'est une interview TECHNICAL pour appliquer le design LeetCode
+  const isTechnicalInterview = interview.type === "TECHNICAL" || interview.type === "technical";
+  const questionProgress = ((currentQuestionIndex + 1) / interview.questions.length) * 100;
+
   return (
-    <div className="min-h-screen bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100">
+    <div className={`min-h-screen ${isTechnicalInterview && currentQuestion.type === "coding" ? "fixed inset-0 z-50" : ""} bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-emerald-50 to-slate-100`}>
       {/* Timer discret en haut à droite */}
-      <DiscreteTimer 
+      {!isTechnicalInterview && <DiscreteTimer 
         timeLeft={timeLeft}
         isRunning={isRunning}
-      />
+      />}
       
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
-        {/* Informations sur l'interview */}
-        <InterviewInfo 
-          interview={interview}
-          currentQuestionIndex={currentQuestionIndex}
-          totalQuestions={interview.questions.length}
-        />
+      <div className={`${isTechnicalInterview && currentQuestion.type === "coding" ? "h-full flex flex-col" : "max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8"}`}>
+        {/* Header avec retour pour TECHNICAL coding */}
+        {isTechnicalInterview && currentQuestion.type === "coding" && (
+          <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => window.history.back()}
+                className="flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors rounded-lg"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Retour aux interviews</span>
+              </Button>
+              <div className="h-6 w-px bg-slate-300 dark:bg-slate-600"></div>
+              <div>
+                <h1 className="text-lg font-bold text-slate-900 dark:text-white line-clamp-1">
+                  {interview.title}
+                </h1>
+                <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-1">
+                  {interview.description || `${interview.questions.length} questions`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <Clock className="h-4 w-4" />
+                {formatTime(timeLeft)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Informations sur l'interview - seulement si pas TECHNICAL coding */}
+        {(!isTechnicalInterview || currentQuestion.type !== "coding") && (
+          <InterviewInfo 
+            interview={interview}
+            currentQuestionIndex={currentQuestionIndex}
+            totalQuestions={interview.questions.length}
+          />
+        )}
 
         {(saveError || saveErr) && (
           <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 shadow-lg">
@@ -320,7 +362,63 @@ export function InterviewContent({
 
 
         {/* Interface adaptée selon le type de question */}
-        {currentQuestion.type === "coding" ? (
+        {currentQuestion.type === "coding" && isTechnicalInterview ? (
+          <div className="flex-1 flex overflow-hidden">
+            {/* Colonne gauche - Énoncé */}
+            <div className="w-1/2 border-r border-slate-200 dark:border-slate-700 overflow-y-auto bg-white dark:bg-slate-800/50">
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                    Question {currentQuestionIndex + 1}
+                  </h3>
+                  <Badge variant="outline" className="capitalize">
+                    {interview.difficulty?.toLowerCase() || "medium"}
+                  </Badge>
+                </div>
+                
+                <div className="prose dark:prose-invert max-w-none">
+                  <div className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {currentQuestion.question}
+                  </div>
+                </div>
+
+                {currentQuestion.expectedOutput && (
+                  <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <h4 className="font-semibold mb-2 text-slate-900 dark:text-white">Sortie attendue</h4>
+                    <div className="text-sm font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 p-3 rounded">
+                      {currentQuestion.expectedOutput}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                      {currentQuestion.points} points
+                    </span>
+                    <span className="text-slate-600 dark:text-slate-400">•</span>
+                    <span className="text-slate-600 dark:text-slate-400">
+                      Question {currentQuestionIndex + 1} / {interview.questions.length}
+                    </span>
+                  </div>
+                  <Progress value={questionProgress} className="h-2 mt-2" />
+                </div>
+              </div>
+            </div>
+
+            {/* Colonne droite - Éditeur */}
+            <div className="w-1/2 flex flex-col bg-slate-900">
+              <div className="flex-1 relative">
+                <CodeEditor
+                  value={answers[currentQuestion.id] || currentQuestion.codeTemplate || ''}
+                  onChange={(value) => onAnswerChange(currentQuestion.id, value)}
+                  language={interview.technology?.[0]?.toLowerCase() || 'javascript'}
+                  theme="dark"
+                />
+              </div>
+            </div>
+          </div>
+        ) : currentQuestion.type === "coding" ? (
           <div className="space-y-4 sm:space-y-6">
             {/* En-tête de la question de codage */}
             <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-xl border border-slate-200/50 dark:border-slate-700/50 shadow-xl p-4 sm:p-6">
@@ -406,13 +504,44 @@ export function InterviewContent({
           />
         )}
 
-        <NavigationControls
-          currentQuestionIndex={currentQuestionIndex}
-          totalQuestions={interview.questions.length}
-          onPrevious={onPreviousQuestion}
-          onNext={onNextQuestion}
-          isSaving={isSaving || saving}
-        />
+        {/* Navigation Controls - Design spécial pour TECHNICAL coding */}
+        {isTechnicalInterview && currentQuestion.type === "coding" ? (
+          <div className="flex items-center justify-between p-4 border-t border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onPreviousQuestion}
+              disabled={currentQuestionIndex === 0}
+              className="flex items-center gap-2"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Précédent
+            </Button>
+            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+              <span>
+                Question {currentQuestionIndex + 1} / {interview.questions.length}
+              </span>
+            </div>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onNextQuestion}
+              disabled={currentQuestionIndex === interview.questions.length - 1}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              Suivant
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <NavigationControls
+            currentQuestionIndex={currentQuestionIndex}
+            totalQuestions={interview.questions.length}
+            onPrevious={onPreviousQuestion}
+            onNext={onNextQuestion}
+            isSaving={isSaving || saving}
+          />
+        )}
       </div>
     </div>
   )

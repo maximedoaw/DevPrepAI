@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileText, Clock, Star, Plus, Search, Filter, Briefcase, ChevronRight, ChevronLeft, Settings, FileQuestion, Users, Target, Loader2, Check, Edit, Trash2, Table, Grid } from "lucide-react"
+import { FileText, Clock, Star, Plus, Search, Filter, Briefcase, ChevronRight, ChevronLeft, Settings, FileQuestion, Users, Target, Loader2, Check, Edit, Trash2, Table, Grid, Sparkles } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,19 +13,22 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Table as UITable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
 import { useUserJobQueries } from "@/hooks/use-job-queries"
-import { Domain } from "@prisma/client"
-import { any } from "zod"
+import { useUserJobQuizzes } from "@/hooks/use-job-interview"
+
 import { InterviewBuilder } from "./interview-builder"
+import { InterviewQuestionsEditor } from "./interview-questions-editor"
+import { Domain } from "@prisma/client"
 
 interface Quiz {
   id: string
   title: string
   description: string
   type: 'QCM' | 'MOCK_INTERVIEW' | 'SOFT_SKILLS' | 'TECHNICAL'
-  domain: 'MACHINE_LEARNING' | 'DEVELOPMENT' | 'DATA_SCIENCE' | 'FINANCE' | 'BUSINESS' | 'ENGINEERING' | 'DESIGN' | 'DEVOPS' | 'CYBERSECURITY' | 'MARKETING' | 'PRODUCT' | 'ARCHITECTURE' | 'MOBILE' | 'WEB' | 'COMMUNICATION' | 'MANAGEMENT' | 'EDUCATION' | 'HEALTH'
+  domain: Domain
   difficulty: 'JUNIOR' | 'MID' | 'SENIOR'
   technology: string[]
   duration: number
@@ -72,6 +75,7 @@ interface QuizzesTabProps {
   isLoading?: boolean
   isCreating?: boolean
 }
+
 
 // Composant Stepper pour la création de test
 function QuizCreationStepper({ currentStep, onStepChange, isEdit = false }: { currentStep: number; onStepChange: (step: number) => void; isEdit?: boolean }) {
@@ -160,10 +164,144 @@ function CreateQuizModal({
     jobPostingId: ''
   })
 
+  // États pour la génération IA intégrée
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generationProgress, setGenerationProgress] = useState(0)
+  const [generationStep, setGenerationStep] = useState<string>('')
+  const [numberOfQuestions, setNumberOfQuestions] = useState(5)
+
+  // Fonction pour générer avec l'IA
+  const handleAIGenerate = async () => {
+    setIsGenerating(true)
+    setGenerationProgress(0)
+    setGenerationStep('Initialisation de la génération...')
+
+    try {
+      // Simuler la progression
+      const progressInterval = setInterval(() => {
+        setGenerationProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval)
+            return 90
+          }
+          return prev + 10
+        })
+      }, 300)
+
+      setGenerationStep(`Génération du test ${newQuiz.type}...`)
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'generate-interview',
+          quizType: newQuiz.type,
+          domain: newQuiz.domain,
+          difficulty: newQuiz.difficulty,
+          numberOfQuestions,
+          technology: newQuiz.technology,
+          totalPoints: newQuiz.totalPoints,
+          description: newQuiz.description || ''
+        })
+      })
+
+      clearInterval(progressInterval)
+      setGenerationProgress(95)
+      setGenerationStep('Traitement de la réponse...')
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Erreur lors de la génération')
+      }
+
+      const result = await response.json()
+
+      if (!result.success || !result.data) {
+        throw new Error('Format de réponse invalide')
+      }
+
+      setGenerationProgress(100)
+      setGenerationStep('Génération terminée !')
+
+      // Convertir les questions au format attendu par InterviewBuilder
+      // IMPORTANT: Pour QCM, convertir l'index de correctAnswer vers l'option elle-même
+      const formattedQuestions = result.data.questions.map((q: any, index: number) => {
+        const baseQuestion = {
+          id: q.id || `q${index + 1}`,
+          question: q.text || q.question,
+          type: q.type === 'multiple_choice' ? 'multiple_choice' : q.type === 'coding' ? 'coding' : 'scenario',
+          points: q.points || Math.floor(newQuiz.totalPoints / numberOfQuestions),
+          explanation: q.explanation || ''
+        }
+
+        // Pour QCM : convertir l'index en option correspondante
+        if (q.type === 'multiple_choice' && q.options && Array.isArray(q.options)) {
+          const correctAnswerIndex = typeof q.correctAnswer === 'number' ? q.correctAnswer : parseInt(q.correctAnswer) || 0
+          const correctOption = q.options[correctAnswerIndex] || q.options[0] || ''
+          return { 
+            ...baseQuestion, 
+            options: q.options,
+            correctAnswer: correctOption // Utiliser l'option elle-même comme correctAnswer
+          }
+        }
+
+        // Pour TECHNICAL : ajouter le codeSnippet
+        if (q.type === 'coding' && q.codeSnippet) {
+          return { 
+            ...baseQuestion, 
+            codeSnippet: q.codeSnippet,
+            correctAnswer: q.correctAnswer || ''
+          }
+        }
+
+        // Pour MOCK_INTERVIEW et SOFT_SKILLS
+        return {
+          ...baseQuestion,
+          correctAnswer: q.correctAnswer || ''
+        }
+      })
+
+      // Mettre à jour le quiz avec les données générées
+      setTimeout(() => {
+        setNewQuiz(prev => ({
+          ...prev,
+          title: result.data.title || prev.title,
+          description: result.data.description || prev.description,
+          questions: formattedQuestions,
+          totalPoints: formattedQuestions.reduce((sum: number, q: any) => sum + (q.points || 0), 0) || prev.totalPoints
+        }))
+        setIsGenerating(false)
+        setGenerationProgress(0)
+        setGenerationStep('')
+        toast.success(`Test généré avec succès: ${formattedQuestions.length} questions créées`)
+      }, 500)
+
+    } catch (error: any) {
+      console.error("Erreur génération IA:", error)
+      setIsGenerating(false)
+      setGenerationProgress(0)
+      setGenerationStep('')
+      toast.error(error.message || 'Erreur lors de la génération du test')
+    }
+  }
+
   const handleCreate = async () => {
     try {
       if (!newQuiz.title || !newQuiz.company || !newQuiz.jobPostingId) {
         toast.error("Le titre, l'entreprise et le poste sont requis")
+        return
+      }
+
+      // Vérifier que la somme des points correspond au total
+      const totalQuestionsPoints = (newQuiz.questions || []).reduce((sum, q) => sum + (q.points || 0), 0);
+      if (totalQuestionsPoints !== newQuiz.totalPoints) {
+        toast.error(`La somme des points des questions (${totalQuestionsPoints}) doit correspondre au total (${newQuiz.totalPoints})`)
+        return
+      }
+
+      if (newQuiz.questions.length === 0) {
+        toast.error("Veuillez ajouter au moins une question")
         return
       }
 
@@ -208,6 +346,7 @@ function CreateQuizModal({
                   placeholder="Ex: Test technique React Senior"
                   value={newQuiz.title}
                   onChange={(e) => setNewQuiz(prev => ({ ...prev, title: e.target.value }))}
+                  className="truncate"
                 />
               </div>
               <div className="space-y-2">
@@ -217,6 +356,7 @@ function CreateQuizModal({
                   placeholder="Nom de l'entreprise"
                   value={newQuiz.company}
                   onChange={(e) => setNewQuiz(prev => ({ ...prev, company: e.target.value }))}
+                  className="truncate"
                 />
               </div>
             </div>
@@ -229,6 +369,7 @@ function CreateQuizModal({
                 value={newQuiz.description}
                 onChange={(e) => setNewQuiz(prev => ({ ...prev, description: e.target.value }))}
                 rows={3}
+                className="resize-none"
               />
             </div>
 
@@ -320,13 +461,127 @@ function CreateQuizModal({
         )
 
       case 2:
+        // Calculer la somme des points des questions
+        const totalQuestionsPoints = (newQuiz.questions || []).reduce((sum, q) => sum + (q.points || 0), 0);
+        const pointsDifference = newQuiz.totalPoints - totalQuestionsPoints;
+        
         return (
           <div className="space-y-4">
-            <InterviewBuilder
-              quizType={newQuiz.type}
-              questions={newQuiz.questions || []}
-              onQuestionsChange={(questions) => setNewQuiz(prev => ({ ...prev, questions }))}
-            />
+            {/* Section Génération IA intégrée */}
+            {!isGenerating ? (
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-950 dark:via-green-950/10 dark:to-blue-950/10 rounded-lg border border-blue-200 dark:border-slate-700">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h4 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      Génération automatique avec l'IA
+                    </h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                      L'IA créera un test complet basé sur vos paramètres
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    onClick={handleAIGenerate}
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Générer
+                  </Button>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-number-questions" className="text-sm">Nombre de questions</Label>
+                    <Input
+                      id="ai-number-questions"
+                      type="number"
+                      min={3}
+                      max={20}
+                      value={numberOfQuestions}
+                      onChange={(e) => setNumberOfQuestions(Math.max(3, Math.min(20, parseInt(e.target.value) || 5)))}
+                      className="bg-white dark:bg-slate-800"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Points par question: {Math.floor(newQuiz.totalPoints / numberOfQuestions)}
+                    </p>
+                  </div>
+                  
+                  <div className="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">Paramètres:</p>
+                    <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                      <li className="truncate">• {newQuiz.type}</li>
+                      <li className="truncate">• {newQuiz.domain}</li>
+                      <li className="truncate">• {newQuiz.difficulty}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-950 dark:via-green-950/10 dark:to-blue-950/10 rounded-lg border border-blue-200 dark:border-slate-700">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{generationStep}</span>
+                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{generationProgress}%</span>
+                  </div>
+                  <Progress value={generationProgress} className="h-2" />
+                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Génération de {numberOfQuestions} questions en cours...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Affichage du total des points */}
+            <div className={`p-4 rounded-lg border ${
+              pointsDifference === 0 
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                : pointsDifference > 0
+                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-slate-900 dark:text-white truncate">
+                    Total des points du test: {newQuiz.totalPoints}
+                  </p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
+                    Points des questions: {totalQuestionsPoints}/{newQuiz.totalPoints}
+                  </p>
+                </div>
+                {pointsDifference === 0 ? (
+                  <Badge className="bg-green-600 hover:bg-green-700 text-white shrink-0">
+                    ✓ Équilibré
+                  </Badge>
+                ) : pointsDifference > 0 ? (
+                  <Badge className="bg-amber-600 hover:bg-amber-700 text-white shrink-0">
+                    {pointsDifference} points manquants
+                  </Badge>
+                ) : (
+                  <Badge className="bg-red-600 hover:bg-red-700 text-white shrink-0">
+                    {Math.abs(pointsDifference)} points en trop
+                  </Badge>
+                )}
+              </div>
+              {pointsDifference !== 0 && (
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 line-clamp-2">
+                  {pointsDifference > 0 
+                    ? `Il manque ${pointsDifference} point${pointsDifference > 1 ? 's' : ''} pour atteindre le total. Ajustez les points des questions.`
+                    : `Vous avez ${Math.abs(pointsDifference)} point${Math.abs(pointsDifference) > 1 ? 's' : ''} en trop. Réduisez les points des questions.`}
+                </p>
+              )}
+            </div>
+            
+            <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:via-green-950/10 dark:to-blue-950/10 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+              <InterviewBuilder
+                quizType={newQuiz.type}
+                questions={newQuiz.questions || []}
+                onQuestionsChange={(questions) => setNewQuiz(prev => ({ ...prev, questions }))}
+                totalPoints={newQuiz.totalPoints}
+              />
+            </div>
           </div>
         )
 
@@ -457,22 +712,22 @@ function CreateQuizModal({
                         }`}>
                           {isSelected && <Check className="w-3 h-3" />}
                         </div>
-                        <div>
-                          <p className="font-medium">{position.title}</p>
-                          <p className="text-sm text-slate-500">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate">{position.title}</p>
+                          <p className="text-sm text-slate-500 truncate dark:text-slate-400">
                             {position.department} • {position.level}
                           </p>
                         </div>
                       </div>
                       <Badge 
                         variant="outline" 
-                        className={
+                        className={`shrink-0 ${
                           position.status === 'OPEN' 
                             ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/50 dark:text-green-300' 
                             : position.status === 'DRAFT'
                             ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300'
                             : 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/50 dark:text-slate-300'
-                        }
+                        }`}
                       >
                         {position.status === 'OPEN' ? 'Ouvert' : position.status === 'DRAFT' ? 'Brouillon' : 'Fermé'}
                       </Badge>
@@ -484,9 +739,9 @@ function CreateQuizModal({
             
             {newQuiz.jobPostingId && (
               <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <p className="text-sm text-green-700 dark:text-green-300 flex items-center">
-                  <Check className="w-4 h-4 mr-2" />
-                  Poste sélectionné: {availablePositions.find(p => p.id === newQuiz.jobPostingId)?.title}
+                <p className="text-sm text-green-700 dark:text-green-300 flex items-center line-clamp-2">
+                  <Check className="w-4 h-4 mr-2 shrink-0" />
+                  <span className="truncate">Poste sélectionné: {availablePositions.find(p => p.id === newQuiz.jobPostingId)?.title}</span>
                 </p>
               </div>
             )}
@@ -500,19 +755,23 @@ function CreateQuizModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Créer un nouveau test</DialogTitle>
           <DialogDescription>
             Configurez un nouveau test d&apos;entretien pour vos candidats.
           </DialogDescription>
         </DialogHeader>
         
-        <QuizCreationStepper currentStep={creationStep} onStepChange={setCreationStep} />
+        <div className="flex-shrink-0">
+          <QuizCreationStepper currentStep={creationStep} onStepChange={setCreationStep} />
+        </div>
         
-        {renderStep()}
+        <div className="flex-1 overflow-y-auto min-h-0 pr-2">
+          {renderStep()}
+        </div>
         
-        <div className="flex justify-between pt-6">
+        <div className="flex justify-between pt-6 flex-shrink-0 border-t border-slate-200 dark:border-slate-700 mt-4">
           <Button
             variant="outline"
             onClick={() => setCreationStep(prev => Math.max(1, prev - 1))}
@@ -590,31 +849,83 @@ function EditQuizModal({
     jobPostingId: ''
   })
 
-  // Initialiser les données quand le quiz change
+  // CORRECTION : Initialiser correctement les données
   useEffect(() => {
-    if (quiz) {
+    if (quiz && open) {
+      // S'assurer que les questions sont bien disponibles
+      const quizQuestions = quiz.questions || []
+      
+      // Convertir les questions du format Quiz vers le format InterviewQuestionsEditor
+      const convertedQuestions = quizQuestions.map((q: any) => ({
+        id: q.id || `q-${Date.now()}-${Math.random()}`,
+        type: convertQuestionType(q.type || 'multiple_choice'), // Convertir le type
+        points: q.points || 10,
+        question: q.text || q.question || '', // "text" devient "question"
+        correctAnswer: q.correctAnswer || '',
+        explanation: q.explanation || '',
+        options: q.options || [],
+        ...(q.type === 'coding' && { codeSnippet: q.codeSnippet || '' })
+      }))
+
+      // Parser les settings correctement
+      let parsedSettings = {
+        shuffleQuestions: false,
+        showResults: true,
+        allowRetry: false,
+        timeLimit: 0,
+        passingScore: 70
+      }
+      
+      if (quiz.settings) {
+        try {
+          parsedSettings = typeof quiz.settings === 'string' 
+            ? JSON.parse(quiz.settings) 
+            : quiz.settings
+        } catch (e) {
+          console.error("Erreur parsing settings:", e)
+        }
+      }
+
       setEditedQuiz({
-        title: quiz.title,
+        title: quiz.title || '',
         description: quiz.description || '',
         type: quiz.type as any,
         domain: quiz.domain as any,
         difficulty: quiz.difficulty as any,
         technology: quiz.technology || [],
-        duration: quiz.duration,
-        totalPoints: quiz.totalPoints,
-        company: quiz.company,
-        questions: quiz.questions || [],
-        settings: quiz.settings || {
-          shuffleQuestions: false,
-          showResults: true,
-          allowRetry: false,
-          timeLimit: 0,
-          passingScore: 70
-        },
-        jobPostingId: quiz.jobPostingId
+        duration: quiz.duration || 30,
+        totalPoints: quiz.totalPoints || 100,
+        company: quiz.company || '',
+        questions: convertedQuestions, // Utiliser les questions converties
+        settings: parsedSettings,
+        jobPostingId: quiz.jobPostingId || ''
       })
     }
-  }, [quiz])
+  }, [quiz?.id, open]) // Utiliser quiz.id au lieu de quiz pour éviter les re-renders inutiles
+
+  // CORRECTION : Fonction pour convertir les types de questions
+  const convertQuestionType = (type: string): 'multiple_choice' | 'coding' | 'scenario' => {
+    switch (type) {
+      case 'multiple_choice': return 'multiple_choice'
+      case 'coding': return 'coding'
+      case 'open_ended': return 'scenario'
+      case 'system_design': return 'scenario'
+      default: return 'multiple_choice'
+    }
+  }
+
+  // CORRECTION : Fonction pour reconvertir les questions avant sauvegarde
+  const convertQuestionsBack = (questions: any[]): any[] => {
+    return questions.map(q => ({
+      id: q.id,
+      text: q.question, // "question" redevient "text"
+      type: q.type === 'scenario' ? 'open_ended' : q.type, // Reconvertir le type
+      points: q.points,
+      correctAnswer: q.correctAnswer,
+      options: q.options,
+      timeLimit: q.timeLimit
+    }))
+  }
 
   const handleUpdate = async () => {
     if (!quiz) return
@@ -625,11 +936,20 @@ function EditQuizModal({
         return
       }
 
-      await onUpdateQuiz(quiz.id, editedQuiz)
+      // CORRECTION : Convertir les questions avant la sauvegarde
+      const quizDataToSave = {
+        ...editedQuiz,
+        questions: convertQuestionsBack(editedQuiz.questions)
+      }
+
+      console.log("Saving quiz data:", quizDataToSave)
+      
+      await onUpdateQuiz(quiz.id, quizDataToSave)
       onOpenChange(false)
       setEditStep(1)
     } catch (error) {
       console.error("Erreur mise à jour:", error)
+      toast.error("Erreur lors de la mise à jour du quiz")
     }
   }
 
@@ -646,6 +966,7 @@ function EditQuizModal({
                   placeholder="Ex: Test technique React Senior"
                   value={editedQuiz.title}
                   onChange={(e) => setEditedQuiz(prev => ({ ...prev, title: e.target.value }))}
+                  className="truncate"
                 />
               </div>
               <div className="space-y-2">
@@ -655,6 +976,7 @@ function EditQuizModal({
                   placeholder="Nom de l'entreprise"
                   value={editedQuiz.company}
                   onChange={(e) => setEditedQuiz(prev => ({ ...prev, company: e.target.value }))}
+                  className="truncate"
                 />
               </div>
             </div>
@@ -667,6 +989,7 @@ function EditQuizModal({
                 value={editedQuiz.description}
                 onChange={(e) => setEditedQuiz(prev => ({ ...prev, description: e.target.value }))}
                 rows={3}
+                className="resize-none"
               />
             </div>
 
@@ -758,22 +1081,67 @@ function EditQuizModal({
         )
 
       case 2:
+        // Calculer la somme des points des questions pour l'édition
+        const totalEditedQuestionsPoints = (editedQuiz.questions || []).reduce((sum, q) => sum + (q.points || 0), 0);
+        const editedPointsDifference = editedQuiz.totalPoints - totalEditedQuestionsPoints;
+        
         return (
           <div className="space-y-4">
-            <div className="text-center py-8 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg">
-              <FileQuestion className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-              <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Configuration des questions</h4>
-              <p className="text-slate-600 dark:text-slate-400 mb-4">
-                Modifiez les questions de votre test
-              </p>
-              <Button variant="outline">
-                <Plus className="w-4 h-4 mr-2" />
-                Ajouter une question
-              </Button>
+            {/* Affichage du total des points */}
+            <div className={`p-4 rounded-lg border ${
+              editedPointsDifference === 0 
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                : editedPointsDifference > 0
+                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-slate-900 dark:text-white truncate">
+                    Total des points du test: {editedQuiz.totalPoints}
+                  </p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
+                    Points des questions: {totalEditedQuestionsPoints}/{editedQuiz.totalPoints}
+                  </p>
+                </div>
+                {editedPointsDifference === 0 ? (
+                  <Badge className="bg-green-600 hover:bg-green-700 text-white">
+                    ✓ Équilibré
+                  </Badge>
+                ) : editedPointsDifference > 0 ? (
+                  <Badge className="bg-amber-600 hover:bg-amber-700 text-white">
+                    {editedPointsDifference} points manquants
+                  </Badge>
+                ) : (
+                  <Badge className="bg-red-600 hover:bg-red-700 text-white">
+                    {Math.abs(editedPointsDifference)} points en trop
+                  </Badge>
+                )}
+              </div>
+              {editedPointsDifference !== 0 && (
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 line-clamp-2">
+                  {editedPointsDifference > 0 
+                    ? `Il manque ${editedPointsDifference} point${editedPointsDifference > 1 ? 's' : ''} pour atteindre le total. Ajustez les points des questions.`
+                    : `Vous avez ${Math.abs(editedPointsDifference)} point${Math.abs(editedPointsDifference) > 1 ? 's' : ''} en trop. Réduisez les points des questions.`}
+                </p>
+              )}
+            </div>
+            
+            <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:via-green-950/10 dark:to-blue-950/10 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+              <InterviewQuestionsEditor
+              quizType={editedQuiz.type}
+              questions={editedQuiz.questions || []}
+              onQuestionsChange={(questions) => {
+                console.log("Questions updated in editor:", questions)
+                setEditedQuiz(prev => ({ ...prev, questions }))
+              }}
+              onSave={handleUpdate}
+              isSaving={isCreating}
+                totalPoints={editedQuiz.totalPoints}
+              />
             </div>
           </div>
         )
-
       case 3:
         return (
           <div className="space-y-6">
@@ -901,22 +1269,22 @@ function EditQuizModal({
                         }`}>
                           {isSelected && <Check className="w-3 h-3" />}
                         </div>
-                        <div>
-                          <p className="font-medium">{position.title}</p>
-                          <p className="text-sm text-slate-500">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate">{position.title}</p>
+                          <p className="text-sm text-slate-500 truncate dark:text-slate-400">
                             {position.department} • {position.level}
                           </p>
                         </div>
                       </div>
                       <Badge 
                         variant="outline" 
-                        className={
+                        className={`shrink-0 ${
                           position.status === 'OPEN' 
                             ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/50 dark:text-green-300' 
                             : position.status === 'DRAFT'
                             ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300'
                             : 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/50 dark:text-slate-300'
-                        }
+                        }`}
                       >
                         {position.status === 'OPEN' ? 'Ouvert' : position.status === 'DRAFT' ? 'Brouillon' : 'Fermé'}
                       </Badge>
@@ -928,9 +1296,9 @@ function EditQuizModal({
             
             {editedQuiz.jobPostingId && (
               <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <p className="text-sm text-green-700 dark:text-green-300 flex items-center">
-                  <Check className="w-4 h-4 mr-2" />
-                  Poste sélectionné: {availablePositions.find(p => p.id === editedQuiz.jobPostingId)?.title}
+                <p className="text-sm text-green-700 dark:text-green-300 flex items-center line-clamp-2">
+                  <Check className="w-4 h-4 mr-2 shrink-0" />
+                  <span className="truncate">Poste sélectionné: {availablePositions.find(p => p.id === editedQuiz.jobPostingId)?.title}</span>
                 </p>
               </div>
             )}
@@ -946,19 +1314,23 @@ function EditQuizModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Modifier le test</DialogTitle>
           <DialogDescription>
             Modifiez les informations de ce test d&apos;entretien.
           </DialogDescription>
         </DialogHeader>
         
-        <QuizCreationStepper currentStep={editStep} onStepChange={setEditStep} isEdit={true} />
+        <div className="flex-shrink-0">
+          <QuizCreationStepper currentStep={editStep} onStepChange={setEditStep} isEdit={true} />
+        </div>
         
-        {renderStep()}
+        <div className="flex-1 overflow-y-auto min-h-0 pr-2">
+          {renderStep()}
+        </div>
         
-        <div className="flex justify-between pt-6">
+        <div className="flex justify-between pt-6 flex-shrink-0 border-t border-slate-200 dark:border-slate-700 mt-4">
           <Button
             variant="outline"
             onClick={() => setEditStep(prev => Math.max(1, prev - 1))}
@@ -1009,7 +1381,13 @@ export function QuizzesTab({
   const { user } = useKindeBrowserClient()
   const { jobs, loadingJobs } = useUserJobQueries(user?.id)
   
-  const [quizzes, setQuizzes] = useState<Quiz[]>(initialQuizzes || [])
+  // Utiliser le hook pour récupérer les quizzes en temps réel
+  const { data: quizzesResponse, isLoading: isLoadingQuizzesFromHook, refetch: refetchQuizzes } = useUserJobQuizzes(user?.id || "")
+  
+  // Combiner les quizzes des props et du hook (le hook prend la priorité pour le realtime)
+  const quizzesFromHook = quizzesResponse?.data || []
+  const quizzesToUse = quizzesFromHook.length > 0 ? quizzesFromHook : (initialQuizzes || [])
+  
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedType, setSelectedType] = useState<string>("all")
   const [selectedDomain, setSelectedDomain] = useState<string>("all")
@@ -1030,12 +1408,74 @@ export function QuizzesTab({
     status: job.status as 'OPEN' | 'CLOSED' | 'DRAFT'
   })) || []
 
-  // Mise à jour des quizzes quand les props changent
+  // Rafraîchir après les mutations - avec une condition pour éviter les boucles infinies
   useEffect(() => {
-    if (initialQuizzes) {
-      setQuizzes(initialQuizzes)
+    // Ne rafraîchir que lorsqu'on vient de terminer une mutation
+    // Utiliser un flag pour éviter les rafraîchissements inutiles
+    if (!isCreating && !isLoading) {
+      const timer = setTimeout(() => {
+        refetchQuizzes()
+      }, 2000) // Délai de 2 secondes pour laisser le temps à Prisma de finaliser
+      return () => clearTimeout(timer)
     }
-  }, [initialQuizzes])
+  }, [isCreating, isLoading]) // Ne dépendre que de isCreating et isLoading
+
+  // Conversion des données API vers le format Quiz attendu
+  const quizzes: Quiz[] = quizzesToUse.map((apiQuiz: any) => {
+    // Parser les questions et settings correctement
+    let parsedQuestions = []
+    try {
+      parsedQuestions = typeof apiQuiz.questions === 'string' 
+        ? JSON.parse(apiQuiz.questions) 
+        : (apiQuiz.questions || [])
+    } catch (e) {
+      console.error("Erreur parsing questions:", e)
+      parsedQuestions = []
+    }
+
+    let parsedSettings = {
+      shuffleQuestions: false,
+      showResults: true,
+      allowRetry: false,
+      timeLimit: 0,
+      passingScore: 70
+    }
+    try {
+      if (apiQuiz.settings) {
+        parsedSettings = typeof apiQuiz.settings === 'string' 
+          ? JSON.parse(apiQuiz.settings) 
+          : apiQuiz.settings
+        // S'assurer que tous les champs sont présents
+        parsedSettings = {
+          shuffleQuestions: parsedSettings.shuffleQuestions ?? false,
+          showResults: parsedSettings.showResults ?? true,
+          allowRetry: parsedSettings.allowRetry ?? false,
+          timeLimit: parsedSettings.timeLimit ?? 0,
+          passingScore: parsedSettings.passingScore ?? 70
+        }
+      }
+    } catch (e) {
+      console.error("Erreur parsing settings:", e)
+    }
+
+    return {
+      id: apiQuiz.id,
+      title: apiQuiz.title,
+      description: apiQuiz.description || '',
+      type: apiQuiz.type as 'QCM' | 'MOCK_INTERVIEW' | 'SOFT_SKILLS' | 'TECHNICAL',
+      domain: apiQuiz.domain as Domain,
+      difficulty: apiQuiz.difficulty as 'JUNIOR' | 'MID' | 'SENIOR',
+      technology: apiQuiz.technology || [],
+      duration: apiQuiz.duration || 30,
+      totalPoints: apiQuiz.totalPoints || 100,
+      company: apiQuiz.company || '',
+      image: apiQuiz.image,
+      createdAt: apiQuiz.createdAt || new Date().toISOString(),
+      jobPostingId: apiQuiz.jobPostingId || '',
+      questions: parsedQuestions,
+      settings: parsedSettings
+    }
+  })
 
   // Protection contre les données undefined
   const safeQuizzes = quizzes || []
@@ -1128,13 +1568,43 @@ export function QuizzesTab({
 
   const handleConfirmDelete = async () => {
     if (quizToDelete && onDeleteQuiz) {
-      await onDeleteQuiz(quizToDelete)
-      setIsDeleteDialogOpen(false)
-      setQuizToDelete(null)
+      try {
+        await onDeleteQuiz(quizToDelete)
+        setIsDeleteDialogOpen(false)
+        setQuizToDelete(null)
+        // Le rafraîchissement sera géré par le useEffect qui surveille isDeleting
+      } catch (error) {
+        console.error("Erreur lors de la suppression:", error)
+      }
     }
   }
 
-  if (isLoading) {
+  const handleCreateQuizWithRefresh = async (quizData: any) => {
+    if (onCreateQuiz) {
+      try {
+        await onCreateQuiz(quizData)
+        // Le rafraîchissement sera géré par le useEffect qui surveille isCreating
+      } catch (error) {
+        console.error("Erreur lors de la création:", error)
+      }
+    }
+  }
+
+  const handleUpdateQuizWithRefresh = async (quizId: string, quizData: any) => {
+    if (onUpdateQuiz) {
+      try {
+        await onUpdateQuiz(quizId, quizData)
+        // Le rafraîchissement sera géré par le useEffect qui surveille isUpdating
+        // Fermer le modal après la mise à jour
+        setIsEditModalOpen(false)
+        setSelectedQuiz(null)
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour:", error)
+      }
+    }
+  }
+
+  if (isLoading || isLoadingQuizzesFromHook) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-center sm:items-center gap-4">
@@ -1196,6 +1666,17 @@ export function QuizzesTab({
             <Plus className="w-4 h-4 mr-2" />
             Nouveau Test
           </Button>
+          {isLoadingQuizzesFromHook && (
+            <Button 
+              variant="ghost"
+              size="sm"
+              onClick={() => refetchQuizzes()}
+              className="text-slate-600 dark:text-slate-400"
+            >
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Actualiser
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1490,7 +1971,7 @@ export function QuizzesTab({
       <CreateQuizModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
-        onCreateQuiz={onCreateQuiz!}
+        onCreateQuiz={handleCreateQuizWithRefresh}
         isCreating={isCreating}
         availablePositions={availablePositions}
       />
@@ -1498,7 +1979,7 @@ export function QuizzesTab({
       <EditQuizModal
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
-        onUpdateQuiz={onUpdateQuiz!}
+        onUpdateQuiz={handleUpdateQuizWithRefresh}
         isCreating={isCreating}
         availablePositions={availablePositions}
         quiz={selectedQuiz}

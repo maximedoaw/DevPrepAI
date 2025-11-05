@@ -10,6 +10,8 @@ import {
   analyzeSkillCompatibility,
   generateCoverLetter
 } from "@/actions/application.action";
+import { getUserPortfolioAndResume, checkJobQuizCompletion } from "@/actions/user-data.action";
+import { getJobQuizzesByJobPosting } from "@/actions/jobInterview.action";
 import { toast } from "sonner";
 
 export function useApplicationMutations() {
@@ -29,8 +31,9 @@ export function useApplicationMutations() {
       queryClient.invalidateQueries({ queryKey: ["applications", variables.jobId] });
       queryClient.invalidateQueries({ queryKey: ["user-applications"] });
     },
-    onError: (error) => {
-      toast.error("Erreur lors de l'envoi de la candidature");
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Erreur lors de l'envoi de la candidature";
+      toast.error(errorMessage);
       console.error("Apply error:", error);
     },
   });
@@ -104,12 +107,48 @@ export function useApplicationQueries(jobId: string) {
     enabled: !!jobId && !!userSkills,
   });
 
+  // Récupérer le portfolio et CV de l'utilisateur
+  const { data: portfolioData, isLoading: loadingPortfolio } = useQuery({
+    queryKey: ["user-portfolio-resume"],
+    queryFn: getUserPortfolioAndResume,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Récupérer les quizzes liés au job
+  const { data: jobQuizzesResponse, isLoading: loadingJobQuizzes } = useQuery({
+    queryKey: ["job-quizzes", jobId],
+    queryFn: () => getJobQuizzesByJobPosting(jobId),
+    enabled: !!jobId,
+    staleTime: 1000 * 30, // 30 secondes
+    refetchInterval: 1000 * 10, // Refetch toutes les 10 secondes pour realtime
+  });
+
+  // Vérifier si tous les tests sont complétés
+  const { data: quizCompletion, isLoading: loadingCompletion } = useQuery({
+    queryKey: ["job-quiz-completion", jobId],
+    queryFn: () => checkJobQuizCompletion(jobId),
+    enabled: !!jobId && !!jobQuizzesResponse?.success && (jobQuizzesResponse?.data?.length || 0) > 0,
+    staleTime: 1000 * 5, // 5 secondes - très fréquent pour realtime
+    refetchInterval: 1000 * 5, // Refetch toutes les 5 secondes pour détecter la completion
+  });
+
   return {
     hasApplied,
     applicationDetails,
     userSkills: userSkills || [],
     testResults: testResults || { validated: [], invalid: [] },
     skillAnalysis: skillAnalysis || { matchPercent: 0, matchedSkills: [], missingSkills: [] },
-    isLoading: loadingApplied || loadingDetails || loadingSkills || loadingTests || loadingAnalysis,
+    portfolio: portfolioData?.portfolio || null,
+    resumeUrl: portfolioData?.resumeUrl || null,
+    portfolioUrl: portfolioData?.portfolioUrl || null,
+    jobQuizzes: jobQuizzesResponse?.data || [],
+    hasJobQuizzes: (jobQuizzesResponse?.data?.length || 0) > 0,
+    quizCompletion: quizCompletion || {
+      allCompleted: false,
+      completedQuizzes: [],
+      pendingQuizzes: [],
+      totalQuizzes: 0
+    },
+    isLoading: loadingApplied || loadingDetails || loadingSkills || loadingTests || loadingAnalysis || loadingPortfolio || loadingJobQuizzes || loadingCompletion,
   };
 }

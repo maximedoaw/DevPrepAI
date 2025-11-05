@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Code, Database, Calculator, BarChart3, Cpu, Palette, Cloud, Shield, 
@@ -109,10 +109,12 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
     mutationFn: async () => {
       if (isLoading) {
         throw new Error("Chargement des données utilisateur en cours");
+        
       }
 
       if (!user?.id) {
         throw new Error("ID utilisateur manquant");
+        console.log(user?.id);
       }
 
       if (!user.email) {
