@@ -73,6 +73,7 @@ import {
   X,
   Code,
   AlertTriangle,
+  Video,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -117,6 +118,11 @@ interface TestResult {
   }[];
   aiFeedback?: string;
   improvementTips?: string[];
+  videoUrl?: string;
+  imageUrls?: string[];
+  answers?: any;
+  technology?: string[];
+  domain?: string;
 }
 
 interface Candidate {
@@ -626,14 +632,66 @@ const ReviewModal = ({
 
                   {quizType === 'TECHNICAL' && (
                     <div className="space-y-3 mb-4">
-                      <div>
-                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Code soumis :</p>
-                        <div className="bg-slate-900 dark:bg-slate-950 p-4 rounded-lg border border-slate-700">
-                          <pre className="text-green-400 dark:text-green-300 text-sm font-mono whitespace-pre-wrap overflow-x-auto">
-                            {answer?.code || answer?.answer || "Aucun code soumis"}
-                          </pre>
+                      {answer?.videoUrl ? (
+                        <div>
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Vidéo de présentation :</p>
+                          <div className="bg-slate-900 dark:bg-slate-950 p-4 rounded-lg border border-slate-700">
+                            <video
+                              src={answer.videoUrl}
+                              controls
+                              className="w-full rounded-lg max-h-[400px]"
+                              preload="metadata"
+                            >
+                              Votre navigateur ne supporte pas la lecture de vidéos.
+                            </video>
+                            <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                              <Video className="w-3 h-3" />
+                              <span>Vidéo hébergée sur Uploadcare</span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      ) : answer?.imageUrls && Array.isArray(answer.imageUrls) && answer.imageUrls.length > 0 ? (
+                        <div>
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Catalogue d'images ({answer.imageUrls.length}) :</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {answer.imageUrls.map((url: string, imgIdx: number) => (
+                              <div key={imgIdx} className="relative group">
+                                <img
+                                  src={url}
+                                  alt={`Preuve ${imgIdx + 1}`}
+                                  className="w-full h-32 object-cover rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer hover:opacity-90 transition-opacity"
+                                  onClick={() => window.open(url, '_blank')}
+                                />
+                                <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                                  {imgIdx + 1}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                            <FileTextIcon className="w-3 h-3" />
+                            <span>Images hébergées sur Uploadcare</span>
+                          </div>
+                        </div>
+                      ) : answer?.answer && answer.type === 'technical_text' ? (
+                        <div>
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Réponse textuelle :</p>
+                          <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                              {answer.answer}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Code soumis :</p>
+                          <div className="bg-slate-900 dark:bg-slate-950 p-4 rounded-lg border border-slate-700">
+                            <pre className="text-green-400 dark:text-green-300 text-sm font-mono whitespace-pre-wrap overflow-x-auto">
+                              {answer?.code || answer?.answer || "Aucun code soumis"}
+                            </pre>
+                          </div>
+                        </div>
+                      )}
                       {question.codeSnippet && (
                         <div>
                           <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Contexte fourni :</p>
@@ -775,6 +833,9 @@ export const ApplicationsTab = () => {
   // États pour l'évaluation sémantique des tests TECHNICAL
   const [semanticEvaluations, setSemanticEvaluations] = useState<Record<string, any>>({});
   const [loadingSemanticEvaluation, setLoadingSemanticEvaluation] = useState<Record<string, boolean>>({});
+  // États pour l'évaluation des MOCK_INTERVIEW
+  const [mockInterviewEvaluations, setMockInterviewEvaluations] = useState<Record<string, any>>({});
+  const [loadingMockInterviewEvaluation, setLoadingMockInterviewEvaluation] = useState<Record<string, boolean>>({});
   
   // Récupérer les applications détaillées pour le job sélectionné avec realtime
   const { data: jobApplications, isLoading: loadingJobApplications, refetch: refetchJobApplications } = useJobApplications(selectedJob?.id || "");
@@ -981,6 +1042,14 @@ export const ApplicationsTab = () => {
       case "rejected": return "Rejetée";
       default: return status;
     }
+  };
+
+  const formatDomainLabel = (domain?: string | null) => {
+    if (!domain) return "Domaine";
+    return domain
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/(^|\s)\w/g, (char) => char.toUpperCase());
   };
 
   const formatDate = (dateString: string) => {
@@ -1323,15 +1392,18 @@ export const ApplicationsTab = () => {
         </div>
 
         {filteredApplications.length === 0 && (
-          <Card className="text-center py-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
+          <Card className="text-center py-12 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
             <CardContent>
-              <User className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                Aucune candidature trouvée
+              <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+                Aucun test complété
               </h3>
-              <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto">
-                Aucune candidature ne correspond à vos critères de recherche. Essayez de modifier vos filtres.
+              <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-md mx-auto">
+                Ce candidat n&apos;a pas encore complété de test technique pour ce poste.
               </p>
+              <Button variant="outline" className="rounded-lg">
+                Assigner un test
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -1442,6 +1514,28 @@ export const ApplicationsTab = () => {
   // Vue : Détails d'une candidature avec résultats
   const ResultsView = () => {
     const router = useRouter();
+    const [conversationDialog, setConversationDialog] = useState<{
+      testId: string;
+      testName: string;
+      messages: Array<{ id: string; author: 'ai' | 'user'; content: string; timestamp?: Date }>;
+      feedback?: any;
+      callDuration?: number;
+      technologies: string[];
+    } | null>(null);
+    const [isConversationDialogOpen, setIsConversationDialogOpen] = useState(false);
+
+    const formatCallDuration = (seconds?: number) => {
+      if (seconds === undefined || seconds === null || Number.isNaN(seconds)) {
+        return "—";
+      }
+      const totalSeconds = Math.max(0, Math.round(seconds));
+      const minutes = Math.floor(totalSeconds / 60);
+      const remainingSeconds = totalSeconds % 60;
+      if (minutes === 0) {
+        return `${remainingSeconds}s`;
+      }
+      return `${minutes}m ${remainingSeconds.toString().padStart(2, '0')}s`;
+    };
     
     // Calculer les statistiques des tests
     const testStatistics = useMemo(() => {
@@ -1557,19 +1651,59 @@ export const ApplicationsTab = () => {
       if (jobQuizResultsOnly && jobQuizResultsOnly.length > 0) {
         return {
           ...selectedApplication,
-          testResults: jobQuizResultsOnly.map((qr: any) => ({
-            id: qr.id,
-            testName: qr.quizTitle,
-            quizType: qr.quizType,
-            score: qr.score,
-            maxScore: qr.totalPoints,
-            status: 'completed' as TestStatus,
-            completedAt: qr.completedAt,
-            duration: qr.duration || 0,
-            skills: qr.skills || [],
-            aiFeedback: qr.aiFeedback,
-            improvementTips: qr.improvementTips || []
-          }))
+          testResults: jobQuizResultsOnly.map((qr: any) => {
+            // Extraire l'URL de la vidéo et les images depuis le schema (champs directs) ou les réponses (fallback)
+            let videoUrl = qr.videoUrl || '';
+            let imageUrls: string[] = [];
+            
+            // Si imageUrls est dans le schema (JSON)
+            if (qr.imageUrls) {
+              try {
+                if (typeof qr.imageUrls === 'string') {
+                  imageUrls = JSON.parse(qr.imageUrls);
+                } else if (Array.isArray(qr.imageUrls)) {
+                  imageUrls = qr.imageUrls;
+                }
+              } catch (e) {
+                console.error("Error parsing imageUrls:", e);
+              }
+            }
+            
+            // Fallback : chercher dans les réponses si pas dans le schema
+            if (!videoUrl || imageUrls.length === 0) {
+              if (qr.answers && Array.isArray(qr.answers)) {
+                const videoAnswer = qr.answers.find((a: any) => a.videoUrl || a.type === 'technical_video');
+                if (!videoUrl) videoUrl = videoAnswer?.videoUrl || '';
+                const imagesAnswer = qr.answers.find((a: any) => a.imageUrls || a.type === 'technical_images');
+                if (imageUrls.length === 0) imageUrls = imagesAnswer?.imageUrls || [];
+              } else if (qr.answers && typeof qr.answers === 'object') {
+                const answersArray = Object.values(qr.answers) as any[];
+                const videoAnswer = answersArray.find((a: any) => a.videoUrl || a.type === 'technical_video');
+                if (!videoUrl) videoUrl = videoAnswer?.videoUrl || '';
+                const imagesAnswer = answersArray.find((a: any) => a.imageUrls || a.type === 'technical_images');
+                if (imageUrls.length === 0) imageUrls = imagesAnswer?.imageUrls || [];
+              }
+            }
+            
+            return {
+              id: qr.id,
+              testName: qr.quizTitle,
+              quizType: qr.quizType,
+              score: qr.score,
+              maxScore: qr.totalPoints,
+              status: 'completed' as TestStatus,
+              completedAt: qr.completedAt,
+              duration: qr.duration || 0,
+              skills: qr.skills || [],
+              aiFeedback: qr.aiFeedback,
+              improvementTips: qr.improvementTips || [],
+              videoUrl: videoUrl,
+              imageUrls: imageUrls,
+              answers: qr.answers,
+              technology: Array.isArray(qr.technology) ? qr.technology : Array.isArray((qr as any)?.quizTechnology) ? (qr as any).quizTechnology : [],
+              domain: qr.domain || (qr as any)?.quizDomain || null
+            };
+          })
         };
       }
       return selectedApplication;
@@ -1600,158 +1734,344 @@ export const ApplicationsTab = () => {
       );
     }
 
+    const openConversationDialog = (test: TestResult) => {
+      let rawAnswers: any = test.answers;
+      if (typeof rawAnswers === "string") {
+        try {
+          rawAnswers = JSON.parse(rawAnswers);
+        } catch (error) {
+          rawAnswers = {};
+        }
+      }
+
+      const sessionData = rawAnswers && typeof rawAnswers === "object" ? rawAnswers : {};
+      let messageEntries: any[] = Array.isArray(sessionData.messages) ? sessionData.messages : [];
+      const transcriptionEntries: any[] = Array.isArray(sessionData.transcription) ? sessionData.transcription : [];
+
+      if ((!messageEntries || messageEntries.length === 0) && Array.isArray(test.answers)) {
+        messageEntries = test.answers as any[];
+      }
+
+      const baseEntries = messageEntries.length > 0 ? messageEntries : transcriptionEntries;
+
+      const normalizedMessages = Array.isArray(baseEntries)
+        ? baseEntries
+            .map((entry: any, index: number) => {
+              const role = entry.author || entry.type || entry.speaker;
+              const author: 'ai' | 'user' = role === 'user' ? 'user' : 'ai';
+              const text = entry.content ?? entry.text ?? entry.message ?? '';
+              if (!text) {
+                return null;
+              }
+              const timestampRaw = entry.timestamp || entry.createdAt;
+              const timestampDate = timestampRaw ? new Date(timestampRaw) : undefined;
+              const timestamp = timestampDate && !Number.isNaN(timestampDate.getTime()) ? timestampDate : undefined;
+              return {
+                id: entry.id || `message-${index}`,
+                author,
+                content: text,
+                timestamp,
+              };
+            })
+            .filter(Boolean) as Array<{ id: string; author: 'ai' | 'user'; content: string; timestamp?: Date }>
+        : [];
+
+      const combinedTechnologies = new Set<string>();
+      (selectedJob?.skills || []).forEach((skill: string) => {
+        if (skill) combinedTechnologies.add(skill);
+      });
+      if (Array.isArray(test.skills)) {
+        test.skills.forEach((skill: any) => {
+          if (skill?.name) {
+            combinedTechnologies.add(skill.name);
+          }
+        });
+      }
+      if (Array.isArray(sessionData.feedback?.skillsAnalysis?.matched)) {
+        sessionData.feedback.skillsAnalysis.matched.forEach((skill: string) => combinedTechnologies.add(skill));
+      }
+      if (Array.isArray(sessionData.feedback?.skillsAnalysis?.missing)) {
+        sessionData.feedback.skillsAnalysis.missing.forEach((skill: string) => combinedTechnologies.add(skill));
+      }
+
+      const durationValue = typeof sessionData.callDuration === 'number'
+        ? sessionData.callDuration
+        : typeof sessionData.duration === 'number'
+        ? sessionData.duration
+        : undefined;
+
+      setConversationDialog({
+        testId: test.id,
+        testName: test.testName,
+        messages: normalizedMessages,
+        feedback: sessionData.feedback || mockInterviewEvaluations[test.id] || null,
+        callDuration: durationValue,
+        technologies: Array.from(combinedTechnologies),
+      });
+      setIsConversationDialogOpen(true);
+    };
+
+    const handleConversationDialogChange = (open: boolean) => {
+      setIsConversationDialogOpen(open);
+      if (!open) {
+        setConversationDialog(null);
+      }
+    };
+
     return (
-      <div className="space-y-8">
-        <Breadcrumb />
+      <>
+        <div className="space-y-8">
+          <Breadcrumb />
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          {/* Colonne gauche : Informations du candidat */}
-          <div className="lg:col-span-1 space-y-6">
-            <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
-              <CardContent className="p-6">
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <Avatar className="h-24 w-24 border-4 border-white dark:border-slate-800">
-                    <AvatarImage src={updatedApplication.candidate.avatar} />
-                    <AvatarFallback className="text-xl font-medium bg-slate-100 dark:bg-slate-800">
-                      {updatedApplication.candidate.firstName?.[0]}{updatedApplication.candidate.lastName?.[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                      {updatedApplication.candidate.firstName} {updatedApplication.candidate.lastName}
-                    </h2>
-                    <p className="text-slate-600 dark:text-slate-400">
-                      {updatedApplication.candidate.education}
-                    </p>
+          <div className="grid gap-8 lg:grid-cols-3">
+            {/* Colonne gauche : Informations du candidat */}
+            <div className="lg:col-span-1 space-y-6">
+              <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
+                <CardContent className="p-6">
+                  <div className="flex flex-col items-center text-center space-y-4">
+                    <Avatar className="h-24 w-24 border-4 border-white dark:border-slate-800">
+                      <AvatarImage src={updatedApplication.candidate.avatar} />
+                      <AvatarFallback className="text-xl font-medium bg-slate-100 dark:bg-slate-800">
+                        {updatedApplication.candidate.firstName?.[0]}{updatedApplication.candidate.lastName?.[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="space-y-1">
+                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                        {updatedApplication.candidate.firstName} {updatedApplication.candidate.lastName}
+                      </h2>
+                      <p className="text-slate-600 dark:text-slate-400">
+                        {updatedApplication.candidate.education}
+                      </p>
+                    </div>
+
+                    <Badge className={`text-sm ${getStatusColor(updatedApplication.status)} border`}>
+                      {getStatusText(updatedApplication.status)}
+                    </Badge>
                   </div>
 
-                  <Badge className={`text-sm ${getStatusColor(updatedApplication.status)} border`}>
-                    {getStatusText(updatedApplication.status)}
-                  </Badge>
-                </div>
-
-                <div className="space-y-4 mt-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 text-sm">
-                      <Mail className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                      <span className="break-all">{updatedApplication.candidate.email}</span>
-                    </div>
-                    {updatedApplication.candidate.phone && (
+                  <div className="space-y-4 mt-6">
+                    <div className="space-y-3">
                       <div className="flex items-center gap-3 text-sm">
-                        <Phone className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                        <span>{updatedApplication.candidate.phone}</span>
+                        <Mail className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                        <span className="break-all">{updatedApplication.candidate.email}</span>
                       </div>
-                    )}
-                    {updatedApplication.candidate.location && (
+                      {updatedApplication.candidate.phone && (
+                        <div className="flex items-center gap-3 text-sm">
+                          <Phone className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                          <span>{updatedApplication.candidate.phone}</span>
+                        </div>
+                      )}
+                      {updatedApplication.candidate.location && (
+                        <div className="flex items-center gap-3 text-sm">
+                          <MapPin className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                          <span>{updatedApplication.candidate.location}</span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 text-sm">
-                        <MapPin className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                        <span>{updatedApplication.candidate.location}</span>
+                        <Briefcase className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                        <span>{updatedApplication.candidate.experience}</span>
                       </div>
-                    )}
-                    <div className="flex items-center gap-3 text-sm">
-                      <Briefcase className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                      <span>{updatedApplication.candidate.experience}</span>
                     </div>
-                  </div>
 
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                    <Button 
-                      size="sm" 
-                      className="w-full rounded-lg bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => {
-                        // Rediriger vers le portfolio si disponible
-                        if (candidatePortfolio?.id) {
-                          router.push(`/portfolio/${candidatePortfolio.id}`);
-                        } else if (updatedApplication.resumeUrl || updatedApplication.candidate.resumeUrl) {
-                          // Sinon ouvrir le CV en nouvel onglet
-                          window.open(updatedApplication.resumeUrl || updatedApplication.candidate.resumeUrl, '_blank');
-                        }
-                      }}
-                    >
-                      <FileTextIcon className="w-4 h-4 mr-2" />
-                      {candidatePortfolio ? "Voir le Portfolio" : "Voir le CV"}
-                      <ExternalLink className="w-3 h-3 ml-2" />
-                    </Button>
-                    {updatedApplication.portfolioUrl && (
-                      <Button size="sm" variant="outline" className="w-full rounded-lg" asChild>
-                        <a href={updatedApplication.portfolioUrl} target="_blank" rel="noopener noreferrer">
-                          <FileTextIcon className="w-4 h-4 mr-2" />
-                          Voir le Portfolio
-                          <ExternalLink className="w-3 h-3 ml-2" />
-                        </a>
-                      </Button>
-                    )}
+                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
                       <Button 
                         size="sm" 
-                        variant="outline"
-                      onClick={() => selectedJob && handleScheduleInterview(updatedApplication.candidate, selectedJob)}
-                        className="w-full rounded-lg"
+                        className="w-full rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                        onClick={() => {
+                          // Rediriger vers le portfolio si disponible
+                          if (candidatePortfolio?.id) {
+                            router.push(`/portfolio/${candidatePortfolio.id}`);
+                          } else if (updatedApplication.resumeUrl || updatedApplication.candidate.resumeUrl) {
+                            // Sinon ouvrir le CV en nouvel onglet
+                            window.open(updatedApplication.resumeUrl || updatedApplication.candidate.resumeUrl, '_blank');
+                          }
+                        }}
                       >
-                        <Calendar className="w-4 h-4 mr-2" />
-                        Planifier un entretien
+                        <FileTextIcon className="w-4 h-4 mr-2" />
+                        {candidatePortfolio ? "Voir le Portfolio" : "Voir le CV"}
+                        <ExternalLink className="w-3 h-3 ml-2" />
                       </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Colonne droite : Résultats des tests */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Section : Statistiques et Graphiques des Tests */}
-            {quizResults && quizResults.length > 0 && (
-              <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
-                <CardHeader>
-                  <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    Statistiques des Tests Techniques
-                  </CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-400">
-                    Vue d'ensemble des performances aux différents types de tests
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Statistiques résumées */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Total de tests</p>
-                      <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{testStatistics.totalTests}</p>
-                    </div>
-                    <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                      <p className="text-sm font-medium text-green-800 dark:text-green-300 mb-1">Moyenne globale</p>
-                      <p className="text-2xl font-bold text-green-900 dark:text-green-100">{testStatistics.averageScore}%</p>
-                    </div>
-                    <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                      <p className="text-sm font-medium text-purple-800 dark:text-purple-300 mb-1">Types de tests</p>
-                      <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{testStatistics.averageByType.length}</p>
+                      {updatedApplication.portfolioUrl && (
+                        <Button size="sm" variant="outline" className="w-full rounded-lg" asChild>
+                          <a href={updatedApplication.portfolioUrl} target="_blank" rel="noopener noreferrer">
+                            <FileTextIcon className="w-4 h-4 mr-2" />
+                            Voir le Portfolio
+                            <ExternalLink className="w-3 h-3 ml-2" />
+                          </a>
+                        </Button>
+                      )}
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
 
-                  {/* Graphiques - Responsive */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Graphique en barres : Moyenne par type */}
-                    <Card className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-semibold text-slate-900 dark:text-white">
-                          Moyenne par type de test
-                        </CardTitle>
-                        <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
-                          Score moyen en % pour chaque catégorie
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {testStatistics.averageByType.length > 0 ? (
+            {/* Colonne droite : Résultats des tests */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Section : Statistiques et Graphiques des Tests */}
+              {quizResults && quizResults.length > 0 && (
+                <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
+                  <CardHeader>
+                    <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      Statistiques des Tests Techniques
+                    </CardTitle>
+                    <CardDescription className="text-slate-600 dark:text-slate-400">
+                      Vue d'ensemble des performances aux différents types de tests
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Statistiques résumées */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Total de tests</p>
+                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{testStatistics.totalTests}</p>
+                      </div>
+                      <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <p className="text-sm font-medium text-green-800 dark:text-green-300 mb-1">Moyenne globale</p>
+                        <p className="text-2xl font-bold text-green-900 dark:text-green-100">{testStatistics.averageScore}%</p>
+                      </div>
+                      <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                        <p className="text-sm font-medium text-purple-800 dark:text-purple-300 mb-1">Types de tests</p>
+                        <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{testStatistics.averageByType.length}</p>
+                      </div>
+                    </div>
+
+                    {/* Graphiques - Responsive */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Graphique en barres : Moyenne par type */}
+                      <Card className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-semibold text-slate-900 dark:text-white">
+                            Moyenne par type de test
+                          </CardTitle>
+                          <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
+                            Score moyen en % pour chaque catégorie
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {testStatistics.averageByType.length > 0 ? (
+                            <ResponsiveContainer width="100%" height={250}>
+                              <BarChart data={testStatistics.averageByType}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-700" />
+                                <XAxis 
+                                  dataKey="type" 
+                                  stroke="#64748b"
+                                  className="text-xs"
+                                  angle={-45}
+                                  textAnchor="end"
+                                  height={60}
+                                />
+                                <YAxis 
+                                  stroke="#64748b"
+                                  className="text-xs"
+                                  domain={[0, 100]}
+                                  label={{ value: 'Score (%)', angle: -90, position: 'insideLeft', className: 'text-xs fill-slate-600 dark:fill-slate-400' }}
+                                />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '8px',
+                                    color: '#1e293b'
+                                  }}
+                                  formatter={(value: number) => [`${value}%`, 'Moyenne']}
+                                />
+                                <Bar 
+                                  dataKey="moyenne" 
+                                  fill="#3b82f6"
+                                  radius={[8, 8, 0, 0]}
+                                  label={{ position: 'top', formatter: (v: number) => `${v}%`, fill: '#64748b', fontSize: 12 }}
+                                >
+                                  {testStatistics.averageByType.map((entry: { type: string; moyenne: number; count: number }, index: number) => (
+                                    <Cell 
+                                      key={`cell-${index}`} 
+                                      fill={
+                                        entry.moyenne >= 80 ? '#10b981' :
+                                        entry.moyenne >= 60 ? '#3b82f6' :
+                                        entry.moyenne >= 40 ? '#f59e0b' : '#ef4444'
+                                      }
+                                    />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          ) : (
+                            <div className="h-[250px] flex items-center justify-center text-slate-500 dark:text-slate-400">
+                              <p className="text-sm">Aucune donnée disponible</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      {/* Graphique en camembert : Distribution par type */}
+                      <Card className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-semibold text-slate-900 dark:text-white">
+                            Répartition par type
+                          </CardTitle>
+                          <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
+                            Nombre de tests par catégorie
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {testStatistics.typeDistribution.length > 0 ? (
+                            <ResponsiveContainer width="100%" height={250}>
+                              <PieChart>
+                                <Pie
+                                  data={testStatistics.typeDistribution}
+                                  cx="50%"
+                                  cy="50%"
+                                  labelLine={false}
+                                  label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                                  outerRadius={80}
+                                  fill="#8884d8"
+                                  dataKey="value"
+                                  className="text-xs"
+                                >
+                                  {testStatistics.typeDistribution.map((entry: { name: string; value: number; type: string }, index: number) => {
+                                    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
+                                    return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                                  })}
+                                </Pie>
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '8px'
+                                  }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          ) : (
+                            <div className="h-[250px] flex items-center justify-center text-slate-500 dark:text-slate-400">
+                              <p className="text-sm">Aucune donnée disponible</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Graphique linéaire : Évolution des scores */}
+                    {testStatistics.scoreEvolution.length > 1 && (
+                      <Card className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-semibold text-slate-900 dark:text-white">
+                            Évolution des scores
+                          </CardTitle>
+                          <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
+                            Progression des performances au fil des tests
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
                           <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={testStatistics.averageByType}>
+                            <LineChart data={testStatistics.scoreEvolution}>
                               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-700" />
                               <XAxis 
-                                dataKey="type" 
+                                dataKey="date" 
                                 stroke="#64748b"
                                 className="text-xs"
-                                angle={-45}
-                                textAnchor="end"
-                                height={60}
                               />
                               <YAxis 
                                 stroke="#64748b"
@@ -1763,1052 +2083,1582 @@ export const ApplicationsTab = () => {
                                 contentStyle={{
                                   backgroundColor: 'rgba(255, 255, 255, 0.95)',
                                   border: '1px solid #e2e8f0',
-                                  borderRadius: '8px',
-                                  color: '#1e293b'
+                                  borderRadius: '8px'
                                 }}
-                                formatter={(value: number) => [`${value}%`, 'Moyenne']}
+                                formatter={(value: number, name: string, props: any) => [
+                                  `${value}% - ${props.payload.testName}`,
+                                  'Score'
+                                ]}
                               />
-                              <Bar 
-                                dataKey="moyenne" 
-                                fill="#3b82f6"
-                                radius={[8, 8, 0, 0]}
-                                label={{ position: 'top', formatter: (v: number) => `${v}%`, fill: '#64748b', fontSize: 12 }}
-                              >
-                                {testStatistics.averageByType.map((entry: { type: string; moyenne: number; count: number }, index: number) => (
-                                  <Cell 
-                                    key={`cell-${index}`} 
-                                    fill={
-                                      entry.moyenne >= 80 ? '#10b981' :
-                                      entry.moyenne >= 60 ? '#3b82f6' :
-                                      entry.moyenne >= 40 ? '#f59e0b' : '#ef4444'
-                                    }
-                                  />
-                                ))}
-                              </Bar>
-                            </BarChart>
+                              <Legend />
+                              <Line 
+                                type="monotone" 
+                                dataKey="score" 
+                                stroke="#3b82f6" 
+                                strokeWidth={2}
+                                dot={{ fill: '#3b82f6', r: 4 }}
+                                activeDot={{ r: 6 }}
+                                name="Score (%)"
+                              />
+                            </LineChart>
                           </ResponsiveContainer>
-                        ) : (
-                          <div className="h-[250px] flex items-center justify-center text-slate-500 dark:text-slate-400">
-                            <p className="text-sm">Aucune donnée disponible</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
+                        </CardContent>
+                      </Card>
+                    )}
 
-                    {/* Graphique en camembert : Distribution par type */}
-                    <Card className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-semibold text-slate-900 dark:text-white">
-                          Répartition par type
-                        </CardTitle>
-                        <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
-                          Nombre de tests par catégorie
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {testStatistics.typeDistribution.length > 0 ? (
-                          <ResponsiveContainer width="100%" height={250}>
-                            <PieChart>
-                              <Pie
-                                data={testStatistics.typeDistribution}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
-                                outerRadius={80}
-                                fill="#8884d8"
-                                dataKey="value"
+                    {/* Graphique Radar : Compétences techniques */}
+                    {testStatistics.skillsRadarData.length > 0 && (
+                      <Card className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-semibold text-slate-900 dark:text-white">
+                            Niveau de maîtrise des compétences
+                          </CardTitle>
+                          <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
+                            Évaluation sur 100 points
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <RadarChart data={testStatistics.skillsRadarData}>
+                              <PolarGrid stroke="#e2e8f0" className="dark:stroke-slate-700" />
+                              <PolarAngleAxis 
+                                dataKey="skill" 
+                                stroke="#64748b"
                                 className="text-xs"
-                              >
-                                {testStatistics.typeDistribution.map((entry: { name: string; value: number; type: string }, index: number) => {
-                                  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
-                                  return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-                                })}
-                              </Pie>
+                                tick={{ fill: '#64748b', fontSize: 12 }}
+                              />
+                              <PolarRadiusAxis 
+                                angle={90} 
+                                domain={[0, 100]}
+                                stroke="#64748b"
+                                className="text-xs"
+                              />
+                              <Radar
+                                name="Score"
+                                dataKey="score"
+                                stroke="#3b82f6"
+                                fill="#3b82f6"
+                                fillOpacity={0.6}
+                              />
                               <Tooltip
                                 contentStyle={{
                                   backgroundColor: 'rgba(255, 255, 255, 0.95)',
                                   border: '1px solid #e2e8f0',
                                   borderRadius: '8px'
                                 }}
+                                formatter={(value: number, name: string, props: any) => [
+                                  `${value}% - ${props.payload.fullName}`,
+                                  'Maîtrise'
+                                ]}
                               />
-                            </PieChart>
+                              <Legend />
+                            </RadarChart>
                           </ResponsiveContainer>
-                        ) : (
-                          <div className="h-[250px] flex items-center justify-center text-slate-500 dark:text-slate-400">
-                            <p className="text-sm">Aucune donnée disponible</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Graphique linéaire : Évolution des scores */}
-                  {testStatistics.scoreEvolution.length > 1 && (
-                    <Card className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-semibold text-slate-900 dark:text-white">
-                          Évolution des scores
-                        </CardTitle>
-                        <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
-                          Progression des performances au fil des tests
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <ResponsiveContainer width="100%" height={250}>
-                          <LineChart data={testStatistics.scoreEvolution}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-700" />
-                            <XAxis 
-                              dataKey="date" 
-                              stroke="#64748b"
-                              className="text-xs"
-                            />
-                            <YAxis 
-                              stroke="#64748b"
-                              className="text-xs"
-                              domain={[0, 100]}
-                              label={{ value: 'Score (%)', angle: -90, position: 'insideLeft', className: 'text-xs fill-slate-600 dark:fill-slate-400' }}
-                            />
-                            <Tooltip
-                              contentStyle={{
-                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '8px'
-                              }}
-                              formatter={(value: number, name: string, props: any) => [
-                                `${value}% - ${props.payload.testName}`,
-                                'Score'
-                              ]}
-                            />
-                            <Legend />
-                            <Line 
-                              type="monotone" 
-                              dataKey="score" 
-                              stroke="#3b82f6" 
-                              strokeWidth={2}
-                              dot={{ fill: '#3b82f6', r: 4 }}
-                              activeDot={{ r: 6 }}
-                              name="Score (%)"
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Graphique Radar : Compétences techniques */}
-                  {testStatistics.skillsRadarData.length > 0 && (
-                    <Card className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-semibold text-slate-900 dark:text-white">
-                          Niveau de maîtrise des compétences
-                        </CardTitle>
-                        <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
-                          Évaluation sur 100 points
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <RadarChart data={testStatistics.skillsRadarData}>
-                            <PolarGrid stroke="#e2e8f0" className="dark:stroke-slate-700" />
-                            <PolarAngleAxis 
-                              dataKey="skill" 
-                              stroke="#64748b"
-                              className="text-xs"
-                              tick={{ fill: '#64748b', fontSize: 12 }}
-                            />
-                            <PolarRadiusAxis 
-                              angle={90} 
-                              domain={[0, 100]}
-                              stroke="#64748b"
-                              className="text-xs"
-                            />
-                            <Radar
-                              name="Score"
-                              dataKey="score"
-                              stroke="#3b82f6"
-                              fill="#3b82f6"
-                              fillOpacity={0.6}
-                            />
-                            <Tooltip
-                              contentStyle={{
-                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '8px'
-                              }}
-                              formatter={(value: number, name: string, props: any) => [
-                                `${value}% - ${props.payload.fullName}`,
-                                'Maîtrise'
-                              ]}
-                            />
-                            <Legend />
-                          </RadarChart>
-                        </ResponsiveContainer>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Détails par type */}
-                  <div className="space-y-3">
-                    <h4 className="text-base font-semibold text-slate-900 dark:text-white">
-                      Détails par type de test
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                      {testStatistics.averageByType.map((item: { type: string; moyenne: number; count: number }, index: number) => (
-                        <div 
-                          key={index}
-                          className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                              {item.type}
-                            </span>
-                            <Badge 
-                              variant="outline" 
-                              className={`text-xs ${
-                                item.moyenne >= 80 ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
-                                item.moyenne >= 60 ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
-                                item.moyenne >= 40 ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
-                                'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                              }`}
-                            >
-                              {item.moyenne}%
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                            <FileCheck className="w-3 h-3" />
-                            <span>{item.count} test{item.count > 1 ? 's' : ''}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Section Review et Evaluation - Nouvelle section */}
-            <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Star className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                  Évaluation et Review
-                </CardTitle>
-                <CardDescription className="text-slate-600 dark:text-slate-400 text-sm">
-                  Évaluez le candidat et définissez le statut de sa candidature
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="app-review-score" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
-                      Score global (0-100)
-                    </Label>
-                    <Input
-                      id="app-review-score"
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={applicationReviewScore ?? (updatedApplication.testResults.length > 0 
-                        ? Math.round(updatedApplication.testResults.reduce((sum: number, t: TestResult) => sum + (t.score / t.maxScore) * 100, 0) / updatedApplication.testResults.length)
-                        : 0)}
-                      onChange={(e) => setApplicationReviewScore(parseInt(e.target.value) || 0)}
-                      className="bg-white dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="app-review-status" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
-                      Statut de candidature
-                    </Label>
-                    <Select
-                      value={applicationReviewStatus}
-                      onValueChange={setApplicationReviewStatus}
-                    >
-                      <SelectTrigger id="app-review-status" className="bg-white dark:bg-slate-800">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">En attente</SelectItem>
-                        <SelectItem value="reviewed">En cours d'examen</SelectItem>
-                        <SelectItem value="interview">Entretien programmé</SelectItem>
-                        <SelectItem value="accepted">Acceptée</SelectItem>
-                        <SelectItem value="rejected">Rejetée</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="reviewer-notes-general" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
-                    Notes générales de review
-                  </Label>
-                  <Textarea
-                    id="reviewer-notes-general"
-                    placeholder="Ajoutez vos notes générales sur le candidat..."
-                    value={reviewerNotes}
-                    onChange={(e) => setReviewerNotes(e.target.value)}
-                    className="min-h-24 bg-white dark:bg-slate-800"
-                  />
-                </div>
-                <Button
-                  onClick={async () => {
-                    if (!updatedApplication) return;
-                    try {
-                      await updateApplicationReviewMutation.mutateAsync({
-                        applicationId: updatedApplication.id,
-                        data: {
-                          status: applicationReviewStatus,
-                          score: applicationReviewScore || undefined,
-                          reviewerNotes: reviewerNotes
-                        }
-                      });
-                      toast.success("Évaluation sauvegardée avec succès");
-                    } catch (error) {
-                      console.error("Error updating application review:", error);
-                      toast.error("Erreur lors de la sauvegarde de l'évaluation");
-                    }
-                  }}
-                  disabled={updateApplicationReviewMutation.isPending}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                >
-                  {updateApplicationReviewMutation.isPending ? (
-                    <>
-                      <Clock className="w-4 h-4 mr-2 animate-spin" />
-                      Sauvegarde...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      Sauvegarder l'évaluation
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-            {loadingQuizResults ? (
-              <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
-                <CardContent className="p-6">
-                  <Skeleton className="h-8 w-48 mb-4" />
-                  <div className="space-y-3">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-3/4" />
-                  </div>
-                </CardContent>
-              </Card>
-            ) : updatedApplication.testResults.length > 0 ? (
-              updatedApplication.testResults.map((test) => (
-                <Card key={test.id} className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
-                  <CardContent className="p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-                      <div className="space-y-1">
-                        <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
-                          {test.testName}
-                        </h3>
-                        <p className="text-slate-600 dark:text-slate-400 text-sm">
-                          Complété le {formatDate(test.completedAt!)} • Durée: {test.duration} min
-                        </p>
-                      </div>
-                      <div className="text-center sm:text-right">
-                        <div className={`text-3xl font-bold ${getScoreColor(test.score, test.maxScore)}`}>
-                          {test.score}/{test.maxScore}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                          {Math.round((test.score / test.maxScore) * 100)}%
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Score par compétence - Amélioré avec affichage sur 100 */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-slate-900 dark:text-white text-lg">
-                          Compétences techniques évaluées
-                      </h4>
-                        <Badge variant="outline" className="bg-slate-50 dark:bg-slate-800">
-                          {test.skills.length} compétence{test.skills.length > 1 ? 's' : ''}
-                        </Badge>
-                      </div>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {test.skills && test.skills.length > 0 ? (
-                          test.skills.map((skill : { name: string; score: number; maxScore: number }, index: number) => {
-                          const percentage = (skill.score / skill.maxScore) * 100;
-                            const normalizedScore = Math.round((skill.score / skill.maxScore) * 100);
-                          return (
-                              <div key={index} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                                <div className="flex justify-between items-start mb-2">
-                                  <span className="font-semibold text-slate-900 dark:text-white text-sm">{skill.name}</span>
-                                  <Badge className={`${getScoreColor(skill.score, skill.maxScore)} border-0 font-bold`}>
-                                    {normalizedScore}/100
-                                  </Badge>
-                                </div>
-                                <div className="space-y-1">
-                                  <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
-                                    <span>Score: {skill.score}/{skill.maxScore}</span>
-                                    <span>{normalizedScore}%</span>
-                              </div>
-                              <Progress 
-                                value={percentage} 
-                                    className="h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full"
-                              />
-                                </div>
-                            </div>
-                          );
-                          })
-                        ) : (
-                          <div className="col-span-2 text-center py-8 text-slate-500 dark:text-slate-400">
-                            <FileTextIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <p>Aucune compétence évaluée</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Évaluation sémantique IA pour TECHNICAL */}
-                    {test.quizType === 'TECHNICAL' && (
-                      <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                            <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                            Évaluation sémantique IA
-                          </h4>
-                          {!semanticEvaluations[test.id] && !loadingSemanticEvaluation[test.id] && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                try {
-                                  setLoadingSemanticEvaluation(prev => ({ ...prev, [test.id]: true }));
-                                  
-                                  // Récupérer les détails du test pour obtenir le code soumis
-                                  const result = await getQuizResultForReview(test.id);
-                                  if (result.success && result.data) {
-                                    const answers = result.data.answers as any[];
-                                    const questions = result.data.questions as any[];
-                                    
-                                    if (answers.length > 0 && questions.length > 0) {
-                                      const answer = answers[0];
-                                      const question = questions[0];
-                                      
-                                      // Appeler l'API pour l'évaluation sémantique
-                                      const evalResponse = await fetch('/api/gemini', {
-                                        method: 'POST',
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify({
-                                          type: 'evaluate-code',
-                                          userCode: answer.code || answer.answer || '',
-                                          expectedSolution: question.correctAnswer || '',
-                                          problemDescription: question.text || question.question || '',
-                                          codeSnippet: question.codeSnippet || ''
-                                        })
-                                      });
-                                      
-                                      if (evalResponse.ok) {
-                                        const evalResult = await evalResponse.json();
-                                        if (evalResult.success && evalResult.data) {
-                                          setSemanticEvaluations(prev => ({
-                                            ...prev,
-                                            [test.id]: evalResult.data
-                                          }));
-                                        }
-                                      }
-                                    }
-                                  }
-                                } catch (error) {
-                                  console.error("Error evaluating code semantically:", error);
-                                  toast.error("Erreur lors de l'évaluation sémantique");
-                                } finally {
-                                  setLoadingSemanticEvaluation(prev => ({ ...prev, [test.id]: false }));
-                                }
-                              }}
-                              className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-700 dark:text-purple-300"
-                            >
-                              <Sparkles className="w-4 h-4 mr-2" />
-                              Analyser avec l'IA
-                            </Button>
-                          )}
-                        </div>
-                        
-                        {loadingSemanticEvaluation[test.id] && (
-                          <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                            <div className="flex items-center gap-3">
-                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
-                              <div>
-                                <p className="text-sm font-medium text-purple-900 dark:text-purple-300">Analyse sémantique en cours...</p>
-                                <p className="text-xs text-purple-700 dark:text-purple-400">Évaluation du code, best practices et qualité du travail</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {semanticEvaluations[test.id] && (
-                          <div className="p-4 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg border border-purple-200 dark:border-purple-800 space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-purple-200 dark:border-purple-700">
-                                <p className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">Score sémantique</p>
-                                <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-                                  {semanticEvaluations[test.id].score}/100
-                                </p>
-                              </div>
-                              <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-purple-200 dark:border-purple-700">
-                                <p className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">Problème résolu</p>
-                                <p className="text-lg font-semibold text-purple-900 dark:text-purple-100">
-                                  {semanticEvaluations[test.id].solvesProblem ? '✅ Oui' : '⚠️ Partiellement'}
-                                </p>
-                              </div>
-                              <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-purple-200 dark:border-purple-700">
-                                <p className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">Travail effectué</p>
-                                <p className="text-lg font-semibold text-purple-900 dark:text-purple-100">
-                                  {semanticEvaluations[test.id].workDone ? '✅ Oui' : '⚠️ Non'}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <div className="space-y-3">
-                              <div>
-                                <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Évaluation détaillée</h5>
-                                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                                  {semanticEvaluations[test.id].evaluation}
-                                </p>
-                              </div>
-                              
-                              {semanticEvaluations[test.id].strengths && semanticEvaluations[test.id].strengths.length > 0 && (
-                                <div>
-                                  <h5 className="font-semibold text-green-700 dark:text-green-300 mb-2 flex items-center gap-2">
-                                    <TrendingUp className="w-4 h-4" />
-                                    Points forts
-                                  </h5>
-                                  <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                                    {semanticEvaluations[test.id].strengths.map((strength: string, idx: number) => (
-                                      <li key={idx}>{strength}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                              
-                              {semanticEvaluations[test.id].weaknesses && semanticEvaluations[test.id].weaknesses.length > 0 && (
-                                <div>
-                                  <h5 className="font-semibold text-amber-700 dark:text-amber-300 mb-2 flex items-center gap-2">
-                                    <AlertTriangle className="w-4 h-4" />
-                                    Points à améliorer
-                                  </h5>
-                                  <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                                    {semanticEvaluations[test.id].weaknesses.map((weakness: string, idx: number) => (
-                                      <li key={idx}>{weakness}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                              
-                              {semanticEvaluations[test.id].bestPractices && (
-                                <div>
-                                  <h5 className="font-semibold text-blue-700 dark:text-blue-300 mb-2 flex items-center gap-2">
-                                    <Star className="w-4 h-4" />
-                                    Best Practices
-                                  </h5>
-                                  <div className="space-y-2">
-                                    {semanticEvaluations[test.id].bestPractices.followed && semanticEvaluations[test.id].bestPractices.followed.length > 0 && (
-                                      <div>
-                                        <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">✅ Suivies:</p>
-                                        <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                                          {semanticEvaluations[test.id].bestPractices.followed.map((bp: string, idx: number) => (
-                                            <li key={idx}>{bp}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                    {semanticEvaluations[test.id].bestPractices.missing && semanticEvaluations[test.id].bestPractices.missing.length > 0 && (
-                                      <div>
-                                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">⚠️ Manquantes:</p>
-                                        <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                                          {semanticEvaluations[test.id].bestPractices.missing.map((bp: string, idx: number) => (
-                                            <li key={idx}>{bp}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                    {semanticEvaluations[test.id].bestPractices.review && (
-                                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                                        <p className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-1">Review détaillée:</p>
-                                        <p className="text-sm text-slate-700 dark:text-slate-300">
-                                          {semanticEvaluations[test.id].bestPractices.review}
-                                        </p>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {semanticEvaluations[test.id].suggestions && (
-                                <div>
-                                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
-                                    <MessageSquare className="w-4 h-4" />
-                                    Suggestions d'amélioration
-                                  </h5>
-                                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                                    {semanticEvaluations[test.id].suggestions}
-                                  </p>
-                                </div>
-                              )}
-                              
-                              {semanticEvaluations[test.id].workQuality && (
-                                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                                  <p className="text-xs font-medium text-emerald-900 dark:text-emerald-300 mb-1">Qualité du travail:</p>
-                                  <p className="text-sm text-slate-700 dark:text-slate-300">
-                                    {semanticEvaluations[test.id].workQuality}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                        </CardContent>
+                      </Card>
                     )}
 
-                    {/* Actions avec Review */}
-                    <div className="flex gap-2 pt-6 border-t border-slate-100 dark:border-slate-800">
-                      {(test.quizType === 'QCM' || test.quizType === 'TECHNICAL') ? (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="flex-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                          onClick={() => handleOpenReviewModal(test)}
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Réviser le test
-                        </Button>
-                      ) : (
-                      <Button variant="outline" size="sm" className="flex-1 rounded-lg">
-                        <Eye className="w-4 h-4 mr-2" />
-                        Voir les détails
-                      </Button>
-                      )}
-                      <Button variant="outline" size="sm" className="flex-1 rounded-lg">
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        Notes
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
-                <CardContent className="text-center py-12">
-                  <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                    Aucun test complété
-                  </h3>
-                  <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-md mx-auto">
-                    Ce candidat n&apos;a pas encore complété de test technique pour ce poste.
-                  </p>
-                  <Button variant="outline" className="rounded-lg">
-                    Assigner un test
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Section : Analyse IA des compétences techniques du poste */}
-            {selectedJob && (
-              <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
-                <CardHeader>
-                  <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    Analyse IA des compétences techniques
-                  </CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-400">
-                    Évaluation du niveau de maîtrise par rapport aux compétences demandées pour le poste
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isEvaluatingSkills ? (
-                    <div className="space-y-4 py-8">
-                      <div className="flex items-center justify-center gap-3">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-white">Analyse en cours...</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">Évaluation des compétences techniques par IA</p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        {[1, 2, 3].map((i) => (
-                          <div key={i} className="flex items-center gap-3">
-                            <Skeleton className="h-4 w-32" />
-                            <Skeleton className="h-2 flex-1" />
-                            <Skeleton className="h-6 w-16" />
+                    {/* Détails par type */}
+                    <div className="space-y-3">
+                      <h4 className="text-base font-semibold text-slate-900 dark:text-white">
+                        Détails par type de test
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {testStatistics.averageByType.map((item: { type: string; moyenne: number; count: number }, index: number) => (
+                          <div 
+                            key={index}
+                            className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                {item.type}
+                              </span>
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${
+                                  item.moyenne >= 80 ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                                  item.moyenne >= 60 ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                                  item.moyenne >= 40 ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
+                                  'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                }`}
+                              >
+                                {item.moyenne}%
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                              <FileCheck className="w-3 h-3" />
+                              <span>{item.count} test{item.count > 1 ? 's' : ''}</span>
+                            </div>
                           </div>
                         ))}
                       </div>
                     </div>
-                  ) : simulateSkillEvaluation && simulateSkillEvaluation.length > 0 ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Basé sur {jobQuizResultsOnly.length} test{jobQuizResultsOnly.length > 1 ? 's' : ''} technique{jobQuizResultsOnly.length > 1 ? 's' : ''} du poste complété{jobQuizResultsOnly.length > 1 ? 's' : ''}
-                        </p>
-                        <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
-                          <Sparkles className="w-3 h-3 mr-1" />
-                          Évaluation IA
-                        </Badge>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Section Review et Evaluation - Nouvelle section */}
+              <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Star className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    Évaluation et Review
+                  </CardTitle>
+                  <CardDescription className="text-slate-600 dark:text-slate-400 text-sm">
+                    Évaluez le candidat et définissez le statut de sa candidature
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="app-review-score" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+                        Score global (0-100)
+                      </Label>
+                      <Input
+                        id="app-review-score"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={applicationReviewScore ?? (updatedApplication.testResults.length > 0 
+                          ? Math.round(updatedApplication.testResults.reduce((sum: number, t: TestResult) => sum + (t.score / t.maxScore) * 100, 0) / updatedApplication.testResults.length)
+                          : 0)}
+                        onChange={(e) => setApplicationReviewScore(parseInt(e.target.value) || 0)}
+                        className="bg-white dark:bg-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="app-review-status" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+                        Statut de candidature
+                      </Label>
+                      <Select
+                        value={applicationReviewStatus}
+                        onValueChange={setApplicationReviewStatus}
+                      >
+                        <SelectTrigger id="app-review-status" className="bg-white dark:bg-slate-800">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">En attente</SelectItem>
+                          <SelectItem value="reviewed">En cours d'examen</SelectItem>
+                          <SelectItem value="interview">Entretien programmé</SelectItem>
+                          <SelectItem value="accepted">Acceptée</SelectItem>
+                          <SelectItem value="rejected">Rejetée</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="reviewer-notes-general" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+                      Notes générales de review
+                    </Label>
+                    <Textarea
+                      id="reviewer-notes-general"
+                      placeholder="Ajoutez vos notes générales sur le candidat..."
+                      value={reviewerNotes}
+                      onChange={(e) => setReviewerNotes(e.target.value)}
+                      className="min-h-24 bg-white dark:bg-slate-800"
+                    />
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      if (!updatedApplication) return;
+                      try {
+                        await updateApplicationReviewMutation.mutateAsync({
+                          applicationId: updatedApplication.id,
+                          data: {
+                            status: applicationReviewStatus,
+                            score: applicationReviewScore || undefined,
+                            reviewerNotes: reviewerNotes
+                          }
+                        });
+                        toast.success("Évaluation sauvegardée avec succès");
+                      } catch (error) {
+                        console.error("Error updating application review:", error);
+                        toast.error("Erreur lors de la sauvegarde de l'évaluation");
+                      }
+                    }}
+                    disabled={updateApplicationReviewMutation.isPending}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                  >
+                    {updateApplicationReviewMutation.isPending ? (
+                      <>
+                        <Clock className="w-4 h-4 mr-2 animate-spin" />
+                        Sauvegarde...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Sauvegarder l'évaluation
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+              {loadingQuizResults ? (
+                <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
+                  <CardContent className="p-6">
+                    <Skeleton className="h-8 w-48 mb-4" />
+                    <div className="space-y-3">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : updatedApplication.testResults.length > 0 ? (
+                updatedApplication.testResults.map((test) => (
+                  <Card key={test.id} className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+                        <div className="space-y-1">
+                          <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+                            {test.testName}
+                          </h3>
+                          <p className="text-slate-600 dark:text-slate-400 text-sm">
+                            Complété le {formatDate(test.completedAt!)} • Durée: {test.duration} min
+                          </p>
+                        </div>
+                        <div className="text-center sm:text-right">
+                          <div className={`text-3xl font-bold ${getScoreColor(test.score, test.maxScore)}`}>
+                            {test.score}/{test.maxScore}
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            {Math.round((test.score / test.maxScore) * 100)}%
+                          </div>
+                        </div>
                       </div>
-                      
-                      <div className="space-y-3">
-                        {simulateSkillEvaluation.map((skill: any, index: number) => {
-                          const masteryColor = skill.percentage >= 80 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : skill.percentage >= 60 
-                            ? 'text-blue-600 dark:text-blue-400'
-                            : skill.percentage >= 40
-                            ? 'text-amber-600 dark:text-amber-400'
-                            : 'text-red-600 dark:text-red-400';
-                          
-                          const masteryBg = skill.percentage >= 80 
-                            ? 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800' 
-                            : skill.percentage >= 60 
-                            ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800'
-                            : skill.percentage >= 40
-                            ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800'
-                            : 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800';
 
-                          const isReviewing = reviewingSkillIndex === index;
-                          const reviewScore = skillReviewScores[index] ?? skill.score;
-                          const reviewNote = skillReviewNotes[index] || "";
-
-                          return (
-                            <div key={index} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="font-semibold text-slate-900 dark:text-white">{skill.name}</span>
-                                    <Badge className={`${masteryBg} ${masteryColor} border-0 text-xs`}>
-                                      {skill.mastery}
+                      {/* Score par compétence - Amélioré avec affichage sur 100 */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-slate-900 dark:text-white text-lg">
+                            Compétences techniques évaluées
+                        </h4>
+                          <Badge variant="outline" className="bg-slate-50 dark:bg-slate-800">
+                            {test.skills.length} compétence{test.skills.length > 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {test.skills && test.skills.length > 0 ? (
+                            test.skills.map((skill : { name: string; score: number; maxScore: number }, index: number) => {
+                            const percentage = (skill.score / skill.maxScore) * 100;
+                              const normalizedScore = Math.round((skill.score / skill.maxScore) * 100);
+                            return (
+                                <div key={index} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <span className="font-semibold text-slate-900 dark:text-white text-sm">{skill.name}</span>
+                                    <Badge className={`${getScoreColor(skill.score, skill.maxScore)} border-0 font-bold`}>
+                                      {normalizedScore}/100
                                     </Badge>
-                                    {/* Trouver les tests MOCK_INTERVIEW ou SOFT_SKILLS pour cette compétence */}
-                                    {updatedApplication?.testResults?.some((t: TestResult) => 
-                                      (t.quizType === 'MOCK_INTERVIEW' || t.quizType === 'SOFT_SKILLS') && 
-                                      t.skills?.some((s: any) => s.name === skill.name)
-                                    ) && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setReviewingSkillIndex(isReviewing ? null : index)}
-                                        className="h-6 px-2 text-xs ml-2"
-                                      >
-                                        <Edit className="w-3 h-3 mr-1" />
-                                        {isReviewing ? "Annuler" : "Réviser"}
-                                      </Button>
-                                    )}
                                   </div>
-                                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                                    <TrendingUpIcon className="w-3 h-3" />
-                                    <span>{reviewScore} points sur {skill.maxScore} possibles</span>
-                                    {reviewScore !== skill.score && (
-                                      <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
-                                        Révisé
-                                      </Badge>
-                                    )}
-                                  </div>
+                                  <div className="space-y-1">
+                                    <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
+                                      <span>Score: {skill.score}/{skill.maxScore}</span>
+                                      <span>{normalizedScore}%</span>
                                 </div>
-                                <div className="text-right">
-                                  <div className={`text-lg font-bold ${masteryColor}`}>
-                                    {Math.round((reviewScore / skill.maxScore) * 100)}%
+                                <Progress 
+                                  value={percentage} 
+                                      className="h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full"
+                                />
                                   </div>
-                                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                                    Niveau de maîtrise
-                                  </div>
-                                </div>
                               </div>
-                              <Progress 
-                                value={Math.round((reviewScore / skill.maxScore) * 100)} 
-                                className="h-3 bg-slate-200 dark:bg-slate-700 rounded-full"
-                              />
-                              <div className="mt-2 flex justify-between text-xs text-slate-500 dark:text-slate-400">
-                                <span>Points obtenus: {reviewScore}/{skill.maxScore}</span>
-                                <span>Répartition basée sur le total du test</span>
-                              </div>
+                            );
+                            })
+                          ) : (
+                            <div className="col-span-2 text-center py-8 text-slate-500 dark:text-slate-400">
+                              <FileTextIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                              <p>Aucune compétence évaluée</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
 
-                              {/* Section de review inline pour MOCK_INTERVIEW et SOFT_SKILLS */}
-                              {isReviewing && updatedApplication?.testResults?.some((t: TestResult) => 
-                                (t.quizType === 'MOCK_INTERVIEW' || t.quizType === 'SOFT_SKILLS') && 
-                                t.skills?.some((s: any) => s.name === skill.name)
-                              ) && (
-                                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
-                                  <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                                    <p className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-2">
-                                      Review manuelle pour {skill.name}
-                                    </p>
-                                    <div className="space-y-2">
-                                      <div className="flex items-center gap-2">
-                                        <Label htmlFor={`review-score-${index}`} className="text-xs text-slate-700 dark:text-slate-300 w-20">
-                                          Score :
-                                        </Label>
-                                        <Input
-                                          id={`review-score-${index}`}
-                                          type="number"
-                                          min={0}
-                                          max={skill.maxScore}
-                                          value={reviewScore}
-                                          onChange={(e) => setSkillReviewScores({
-                                            ...skillReviewScores,
-                                            [index]: Math.max(0, Math.min(parseInt(e.target.value) || 0, skill.maxScore))
-                                          })}
-                                          className="h-8 w-24 text-sm"
-                                        />
-                                        <span className="text-xs text-slate-500 dark:text-slate-400">/ {skill.maxScore}</span>
+                      {/* Réponses textuelles, Vidéo ou Images de présentation pour TECHNICAL */}
+                      {test.quizType === 'TECHNICAL' && (
+                        <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                          {/* Réponses textuelles */}
+                          {test.answers && Array.isArray(test.answers) && test.answers.some((a: any) => a.answer && a.type === 'technical_text') && (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                  <FileTextIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                  Réponses textuelles
+                                </h4>
+                              </div>
+                              <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                                <div className="mb-3">
+                                  <p className="text-sm text-emerald-800 dark:text-emerald-200 mb-2">
+                                    Le candidat a soumis des réponses textuelles pour ce test technique.
+                                  </p>
+                                </div>
+                                <div className="space-y-4">
+                                  {test.answers
+                                    .filter((a: any) => a.answer && a.type === 'technical_text')
+                                    .map((answer: any, idx: number) => (
+                                      <div key={idx} className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-emerald-200 dark:border-emerald-700">
+                                        <div className="mb-2">
+                                          <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+                                            Question {idx + 1}: {answer.questionText || 'Question non spécifiée'}
+                                          </p>
+                                        </div>
+                                        <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded border border-slate-200 dark:border-slate-700">
+                                          <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                                            {answer.answer}
+                                          </p>
+                                        </div>
                                       </div>
-                                      <div>
-                                        <Label htmlFor={`review-note-${index}`} className="text-xs text-slate-700 dark:text-slate-300">
-                                          Notes de review :
-                                        </Label>
-                                        <Textarea
-                                          id={`review-note-${index}`}
-                                          placeholder="Ajoutez vos notes sur cette compétence..."
-                                          value={reviewNote}
-                                          onChange={(e) => setSkillReviewNotes({
-                                            ...skillReviewNotes,
-                                            [index]: e.target.value
-                                          })}
-                                          className="min-h-20 mt-1 bg-white dark:bg-slate-800 text-sm"
-                                        />
+                                    ))}
+                                </div>
+                              </div>
+                            </>
+                          )}
+
+                          {/* Vidéo ou Images (si présentes) */}
+                          {((test as any).videoUrl || ((test as any).imageUrls && (test as any).imageUrls.length > 0)) && (
+                            <>
+                              {/* Vidéo */}
+                              {(test as any).videoUrl && (
+                                <>
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                      <Video className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                      Vidéo de présentation du test technique
+                                    </h4>
+                                  </div>
+                                  <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                    <div className="mb-3">
+                                      <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
+                                        Le candidat a soumis une vidéo résumant son approche et sa solution pour ce test technique.
+                                      </p>
+                                    </div>
+                                    <div className="relative w-full rounded-lg overflow-hidden bg-slate-900">
+                                      <video
+                                        src={(test as any).videoUrl}
+                                        controls
+                                        className="w-full h-auto max-h-[600px]"
+                                        preload="metadata"
+                                      >
+                                        Votre navigateur ne supporte pas la lecture de vidéos.
+                                      </video>
+                                    </div>
+                                    <div className="mt-3 flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+                                      <Video className="w-4 h-4" />
+                                      <span>Vidéo hébergée sur Uploadcare</span>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+
+                              {/* Images */}
+                              {(test as any).imageUrls && (test as any).imageUrls.length > 0 && (
+                                <>
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                      <FileTextIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                                      Catalogue d'images ({((test as any).imageUrls as string[]).length})
+                                    </h4>
+                                  </div>
+                                  <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                                    <div className="mb-3">
+                                      <p className="text-sm text-purple-800 dark:text-purple-200 mb-2">
+                                        Le candidat a soumis un catalogue d'images comme preuve de son travail pour ce test technique.
+                                      </p>
+                                    </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                      {((test as any).imageUrls as string[]).map((url: string, index: number) => (
+                                        <div key={index} className="relative group">
+                                          <img
+                                            src={url}
+                                            alt={`Preuve ${index + 1}`}
+                                            className="w-full h-40 object-cover rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:opacity-90 transition-opacity"
+                                            onClick={() => window.open(url, '_blank')}
+                                          />
+                                          <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                                            Image {index + 1}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div className="mt-3 flex items-center gap-2 text-xs text-purple-700 dark:text-purple-300">
+                                      <FileTextIcon className="w-4 h-4" />
+                                      <span>Images hébergées sur Uploadcare</span>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Évaluation IA pour MOCK_INTERVIEW */}
+                      {test.quizType === 'MOCK_INTERVIEW' && (
+                        <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <h4 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                              <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                              Évaluation IA de l'entretien
+                            </h4>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openConversationDialog(test)}
+                                className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                              >
+                                <MessageSquare className="w-4 h-4 mr-2" />
+                                Voir la conversation
+                              </Button>
+                              {!mockInterviewEvaluations[test.id] && !loadingMockInterviewEvaluation[test.id] && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      setLoadingMockInterviewEvaluation(prev => ({ ...prev, [test.id]: true }));
+                                      
+                                      // Récupérer les détails du test pour obtenir la transcription
+                                      const result = await getQuizResultForReview(test.id);
+                                      if (result.success && result.data) {
+                                        const answers = result.data.answers as any;
+                                        const questions = result.data.questions as any[];
+                                        
+                                        // Extraire la transcription depuis answers
+                                        let transcription = answers;
+                                        if (Array.isArray(answers)) {
+                                          transcription = answers;
+                                        } else if (typeof answers === 'object' && answers.transcription) {
+                                          transcription = answers.transcription;
+                                        } else if (typeof answers === 'object' && answers.messages) {
+                                          transcription = answers.messages;
+                                        }
+                                        
+                                        // Récupérer les informations du poste depuis selectedJob
+                                        const combinedSkills = new Set<string>();
+                                        (selectedJob?.skills || []).forEach((skill: string) => skill && combinedSkills.add(skill));
+                                        if (Array.isArray(test.skills)) {
+                                          test.skills.forEach((skill: any) => skill?.name && combinedSkills.add(skill.name));
+                                        }
+                                        const requirementDomain = (result.data as any)?.domain || (test as any)?.domain || (selectedJob as any)?.domain || 'DEVELOPMENT';
+                                        const jobRequirements = selectedJob ? {
+                                          title: selectedJob.title,
+                                          description: selectedJob.companyName,
+                                          skills: Array.from(combinedSkills),
+                                          experienceLevel: 'MID',
+                                          domain: requirementDomain
+                                        } : {
+                                          title: 'Poste non spécifié',
+                                          description: '',
+                                          skills: Array.from(combinedSkills),
+                                          experienceLevel: 'MID',
+                                          domain: requirementDomain
+                                        };
+                                        
+                                        // Appeler l'API pour l'évaluation MOCK_INTERVIEW
+                                        const evalResponse = await fetch('/api/gemini', {
+                                          method: 'POST',
+                                          headers: {
+                                            'Content-Type': 'application/json',
+                                          },
+                                          body: JSON.stringify({
+                                            type: 'evaluate-mock-interview',
+                                            transcription: transcription,
+                                            jobRequirements: jobRequirements,
+                                            questions: questions || []
+                                          })
+                                        });
+                                        
+                                        if (evalResponse.ok) {
+                                          const evalResult = await evalResponse.json();
+                                          if (evalResult.success && evalResult.data) {
+                                            setMockInterviewEvaluations(prev => ({
+                                              ...prev,
+                                              [test.id]: evalResult.data
+                                            }));
+                                            toast.success("Évaluation de l'entretien terminée");
+                                          }
+                                        } else {
+                                          const errorData = await evalResponse.json();
+                                          toast.error(errorData.error || "Erreur lors de l'évaluation");
+                                        }
+                                      }
+                                    } catch (error) {
+                                      console.error("Error evaluating mock interview:", error);
+                                      toast.error("Erreur lors de l'évaluation de l'entretien");
+                                    } finally {
+                                      setLoadingMockInterviewEvaluation(prev => ({ ...prev, [test.id]: false }));
+                                    }
+                                  }}
+                                  className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                >
+                                  <Sparkles className="w-4 h-4 mr-2" />
+                                  Évaluer avec l'IA
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {loadingMockInterviewEvaluation[test.id] && (
+                            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                              <div className="flex items-center gap-3">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                <div>
+                                  <p className="text-sm font-medium text-blue-900 dark:text-blue-300">Évaluation en cours...</p>
+                                  <p className="text-xs text-blue-700 dark:text-blue-400">Comparaison des réponses aux exigences du poste</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {mockInterviewEvaluations[test.id] && (
+                            <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800 space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Score global</p>
+                                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                                    {mockInterviewEvaluations[test.id].overallScore}/100
+                                  </p>
+                                </div>
+                                <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Adéquation au poste</p>
+                                  <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                                    {mockInterviewEvaluations[test.id].jobMatch?.percentage || 0}%
+                                  </p>
+                                </div>
+                                <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Compétences</p>
+                                  <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                                    {mockInterviewEvaluations[test.id].criteriaScores?.technicalSkills || 0}/25
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Scores par critère */}
+                              {mockInterviewEvaluations[test.id].criteriaScores && (
+                                <div className="space-y-3">
+                                  <h5 className="font-semibold text-slate-900 dark:text-white text-sm">Scores par critère</h5>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                                      <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Adéquation au poste</span>
+                                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                          {mockInterviewEvaluations[test.id].criteriaScores.jobFit}/25
+                                        </span>
                                       </div>
-                                      <div className="flex gap-2">
-                                        <Button
-                                          size="sm"
-                                          onClick={async () => {
-                                            // Trouver le test qui correspond à cette compétence
-                                            const relevantTest = updatedApplication.testResults.find((t: TestResult) => 
-                                              (t.quizType === 'MOCK_INTERVIEW' || t.quizType === 'SOFT_SKILLS') && 
-                                              t.skills?.some((s: any) => s.name === skill.name)
-                                            );
-                                            if (relevantTest) {
-                                              try {
-                                                const result = await getQuizResultForReview(relevantTest.id);
-                                                if (result.success && result.data) {
-                                                  // Créer une correction manuelle pour cette compétence
-                                                  const skillCorrection = {
-                                                    skillName: skill.name,
-                                                    originalScore: skill.score,
-                                                    reviewedScore: reviewScore,
-                                                    note: reviewNote
-                                                  };
-                                                  
-                                                  await saveQuizReviewMutation.mutateAsync({
-                                                    quizResultId: relevantTest.id,
-                                                    data: {
-                                                      reviewedAnswers: result.data.answers || [],
-                                                      reviewedScore: result.data.score, // Score global du test
-                                                      reviewerNotes: reviewNote || "",
-                                                      manualCorrections: {
-                                                        [skill.name]: skillCorrection
-                                                      }
-                                                    }
-                                                  });
-                                                  
-                                                  setReviewingSkillIndex(null);
-                                                }
-                                              } catch (error) {
-                                                console.error("Error saving skill review:", error);
-                                              }
-                                            }
-                                          }}
-                                          className="bg-blue-600 hover:bg-blue-700 text-white h-8"
-                                        >
-                                          <Save className="w-3 h-3 mr-1" />
-                                          Sauvegarder
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => {
-                                            setReviewingSkillIndex(null);
-                                            setSkillReviewScores({ ...skillReviewScores, [index]: skill.score });
-                                            setSkillReviewNotes({ ...skillReviewNotes, [index]: "" });
-                                          }}
-                                          className="h-8"
-                                        >
-                                          <X className="w-3 h-3 mr-1" />
-                                          Annuler
-                                        </Button>
+                                      <Progress 
+                                        value={(mockInterviewEvaluations[test.id].criteriaScores.jobFit / 25) * 100} 
+                                        className="h-2"
+                                      />
+                                    </div>
+                                    <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                                      <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Compétences techniques</span>
+                                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                          {mockInterviewEvaluations[test.id].criteriaScores.technicalSkills}/25
+                                        </span>
                                       </div>
+                                      <Progress 
+                                        value={(mockInterviewEvaluations[test.id].criteriaScores.technicalSkills / 25) * 100} 
+                                        className="h-2"
+                                      />
+                                    </div>
+                                    <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                                      <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Communication</span>
+                                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                          {mockInterviewEvaluations[test.id].criteriaScores.communication}/20
+                                        </span>
+                                      </div>
+                                      <Progress 
+                                        value={(mockInterviewEvaluations[test.id].criteriaScores.communication / 20) * 100} 
+                                        className="h-2"
+                                      />
+                                    </div>
+                                    <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                                      <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Expérience</span>
+                                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                          {mockInterviewEvaluations[test.id].criteriaScores.experience}/15
+                                        </span>
+                                      </div>
+                                      <Progress 
+                                        value={(mockInterviewEvaluations[test.id].criteriaScores.experience / 15) * 100} 
+                                        className="h-2"
+                                      />
+                                    </div>
+                                    <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                                      <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Soft Skills</span>
+                                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                          {mockInterviewEvaluations[test.id].criteriaScores.softSkills}/15
+                                        </span>
+                                      </div>
+                                      <Progress 
+                                        value={(mockInterviewEvaluations[test.id].criteriaScores.softSkills / 15) * 100} 
+                                        className="h-2"
+                                      />
                                     </div>
                                   </div>
                                 </div>
                               )}
+                              
+                              <div className="space-y-3">
+                                <div>
+                                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Évaluation détaillée</h5>
+                                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                                    {mockInterviewEvaluations[test.id].evaluation}
+                                  </p>
+                                </div>
+                                
+                                {mockInterviewEvaluations[test.id].jobMatch && (
+                                  <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                                    <p className="text-xs font-medium text-indigo-900 dark:text-indigo-300 mb-1">Adéquation au poste:</p>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300">
+                                      {mockInterviewEvaluations[test.id].jobMatch.analysis}
+                                    </p>
+                                    <div className="mt-2">
+                                      <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
+                                        <span>Correspondance</span>
+                                        <span>{mockInterviewEvaluations[test.id].jobMatch.percentage}%</span>
+                                      </div>
+                                      <Progress 
+                                        value={mockInterviewEvaluations[test.id].jobMatch.percentage} 
+                                        className="h-2"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {mockInterviewEvaluations[test.id].strengths && mockInterviewEvaluations[test.id].strengths.length > 0 && (
+                                  <div>
+                                    <h5 className="font-semibold text-green-700 dark:text-green-300 mb-2 flex items-center gap-2">
+                                      <TrendingUp className="w-4 h-4" />
+                                      Points forts
+                                    </h5>
+                                    <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                                      {mockInterviewEvaluations[test.id].strengths.map((strength: string, idx: number) => (
+                                        <li key={idx}>{strength}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                
+                                {mockInterviewEvaluations[test.id].weaknesses && mockInterviewEvaluations[test.id].weaknesses.length > 0 && (
+                                  <div>
+                                    <h5 className="font-semibold text-amber-700 dark:text-amber-300 mb-2 flex items-center gap-2">
+                                      <AlertTriangle className="w-4 h-4" />
+                                      Points à améliorer
+                                    </h5>
+                                    <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                                      {mockInterviewEvaluations[test.id].weaknesses.map((weakness: string, idx: number) => (
+                                        <li key={idx}>{weakness}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                
+                                {mockInterviewEvaluations[test.id].skillsAnalysis && (
+                                  <div>
+                                    <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Analyse des compétences</h5>
+                                    <div className="space-y-2">
+                                      {mockInterviewEvaluations[test.id].skillsAnalysis.matched && mockInterviewEvaluations[test.id].skillsAnalysis.matched.length > 0 && (
+                                        <div>
+                                          <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">✅ Compétences correspondantes:</p>
+                                          <div className="flex flex-wrap gap-2">
+                                            {mockInterviewEvaluations[test.id].skillsAnalysis.matched.map((skill: string, idx: number) => (
+                                              <Badge key={idx} variant="outline" className="bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800">
+                                                {skill}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {mockInterviewEvaluations[test.id].skillsAnalysis.missing && mockInterviewEvaluations[test.id].skillsAnalysis.missing.length > 0 && (
+                                        <div>
+                                          <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">⚠️ Compétences manquantes:</p>
+                                          <div className="flex flex-wrap gap-2">
+                                            {mockInterviewEvaluations[test.id].skillsAnalysis.missing.map((skill: string, idx: number) => (
+                                              <Badge key={idx} variant="outline" className="bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800">
+                                                {skill}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {mockInterviewEvaluations[test.id].skillsAnalysis.exceeds && mockInterviewEvaluations[test.id].skillsAnalysis.exceeds.length > 0 && (
+                                        <div>
+                                          <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">⭐ Compétences supérieures:</p>
+                                          <div className="flex flex-wrap gap-2">
+                                            {mockInterviewEvaluations[test.id].skillsAnalysis.exceeds.map((skill: string, idx: number) => (
+                                              <Badge key={idx} variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                                                {skill}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {mockInterviewEvaluations[test.id].recommendations && (
+                                  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <p className="text-xs font-medium text-slate-900 dark:text-white mb-1">Recommandations:</p>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300">
+                                      {mockInterviewEvaluations[test.id].recommendations}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          );
-                        })}
+                          )}
+                        </div>
+                      )}
+
+                      {/* Évaluation sémantique IA pour TECHNICAL */}
+                      {test.quizType === 'TECHNICAL' && (
+                        <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                              <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                              Évaluation sémantique IA
+                            </h4>
+                            {!semanticEvaluations[test.id] && !loadingSemanticEvaluation[test.id] && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    setLoadingSemanticEvaluation(prev => ({ ...prev, [test.id]: true }));
+                                    
+                                    // Récupérer les détails du test pour obtenir les réponses
+                                    const result = await getQuizResultForReview(test.id);
+                                    if (result.success && result.data) {
+                                      const answers = result.data.answers as any[];
+                                      const questions = result.data.questions as any[];
+                                      
+                                      if (answers.length > 0 && questions.length > 0) {
+                                        const answer = answers[0];
+                                        const question = questions[0];
+                                        
+                                        // Déterminer le type d'évaluation selon le type de réponse
+                                        const isTextAnswer = answer.type === 'technical_text' || (answer.answer && !answer.code);
+                                        
+                                        if (isTextAnswer) {
+                                          // Évaluation pour réponses textuelles
+                                          const textAnswers = answers
+                                            .filter(a => a.answer && (a.type === 'technical_text' || !a.code))
+                                            .map(a => ({
+                                              questionId: a.questionId,
+                                              questionText: a.questionText || question.text || question.question,
+                                              answer: a.answer,
+                                              points: a.points || question.points
+                                            }));
+                                          
+                                          if (textAnswers.length > 0) {
+                                            const evalResponse = await fetch('/api/gemini', {
+                                              method: 'POST',
+                                              headers: {
+                                                'Content-Type': 'application/json',
+                                              },
+                                              body: JSON.stringify({
+                                                type: 'evaluate-technical-text',
+                                                textAnswers: textAnswers,
+                                                domain: (result.data as any)?.domain || (test as any)?.domain || 'DESIGN'
+                                              })
+                                            });
+                                            
+                                            if (evalResponse.ok) {
+                                              const evalResult = await evalResponse.json();
+                                              if (evalResult.success && evalResult.data) {
+                                                setSemanticEvaluations(prev => ({
+                                                  ...prev,
+                                                  [test.id]: evalResult.data
+                                                }));
+                                              }
+                                            }
+                                          }
+                                        } else {
+                                          // Évaluation pour code (domaines techniques)
+                                          const evalResponse = await fetch('/api/gemini', {
+                                            method: 'POST',
+                                            headers: {
+                                              'Content-Type': 'application/json',
+                                            },
+                                            body: JSON.stringify({
+                                              type: 'evaluate-code',
+                                              userCode: answer.code || answer.answer || '',
+                                              expectedSolution: question.correctAnswer || '',
+                                              problemDescription: question.text || question.question || '',
+                                              codeSnippet: question.codeSnippet || ''
+                                            })
+                                          });
+                                          
+                                          if (evalResponse.ok) {
+                                            const evalResult = await evalResponse.json();
+                                            if (evalResult.success && evalResult.data) {
+                                              setSemanticEvaluations(prev => ({
+                                                ...prev,
+                                                [test.id]: evalResult.data
+                                              }));
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  } catch (error) {
+                                    console.error("Error evaluating code semantically:", error);
+                                    toast.error("Erreur lors de l'évaluation sémantique");
+                                  } finally {
+                                    setLoadingSemanticEvaluation(prev => ({ ...prev, [test.id]: false }));
+                                  }
+                                }}
+                                className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+                              >
+                                <Sparkles className="w-4 h-4 mr-2" />
+                                Analyser avec l'IA
+                              </Button>
+                            )}
+                          </div>
+                          
+                          {loadingSemanticEvaluation[test.id] && (
+                            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                              <div className="flex items-center gap-3">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                                <div>
+                                  <p className="text-sm font-medium text-purple-900 dark:text-purple-300">Analyse sémantique en cours...</p>
+                                  <p className="text-xs text-purple-700 dark:text-purple-400">Évaluation du code, best practices et qualité du travail</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {semanticEvaluations[test.id] && (
+                            <div className="p-4 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg border border-purple-200 dark:border-purple-800 space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-purple-200 dark:border-purple-700">
+                                  <p className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">Score sémantique</p>
+                                  <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                                    {semanticEvaluations[test.id].score}/100
+                                  </p>
+                                </div>
+                                <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-purple-200 dark:border-purple-700">
+                                  <p className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">Problème résolu</p>
+                                  <p className="text-lg font-semibold text-purple-900 dark:text-purple-100">
+                                    {semanticEvaluations[test.id].solvesProblem ? '✅ Oui' : '⚠️ Partiellement'}
+                                  </p>
+                                </div>
+                                <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-purple-200 dark:border-purple-700">
+                                  <p className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">Travail effectué</p>
+                                  <p className="text-lg font-semibold text-purple-900 dark:text-purple-100">
+                                    {semanticEvaluations[test.id].workDone ? '✅ Oui' : '⚠️ Non'}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-3">
+                                <div>
+                                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Évaluation détaillée</h5>
+                                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                                    {semanticEvaluations[test.id].evaluation}
+                                  </p>
+                                </div>
+                                
+                                {semanticEvaluations[test.id].strengths && semanticEvaluations[test.id].strengths.length > 0 && (
+                                  <div>
+                                    <h5 className="font-semibold text-green-700 dark:text-green-300 mb-2 flex items-center gap-2">
+                                      <TrendingUp className="w-4 h-4" />
+                                      Points forts
+                                    </h5>
+                                    <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                                      {semanticEvaluations[test.id].strengths.map((strength: string, idx: number) => (
+                                        <li key={idx}>{strength}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                
+                                {semanticEvaluations[test.id].weaknesses && semanticEvaluations[test.id].weaknesses.length > 0 && (
+                                  <div>
+                                    <h5 className="font-semibold text-amber-700 dark:text-amber-300 mb-2 flex items-center gap-2">
+                                      <AlertTriangle className="w-4 h-4" />
+                                      Points à améliorer
+                                    </h5>
+                                    <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                                      {semanticEvaluations[test.id].weaknesses.map((weakness: string, idx: number) => (
+                                        <li key={idx}>{weakness}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                
+                                {semanticEvaluations[test.id].bestPractices && (
+                                  <div>
+                                    <h5 className="font-semibold text-blue-700 dark:text-blue-300 mb-2 flex items-center gap-2">
+                                      <Star className="w-4 h-4" />
+                                      Best Practices
+                                    </h5>
+                                    <div className="space-y-2">
+                                      {semanticEvaluations[test.id].bestPractices.followed && semanticEvaluations[test.id].bestPractices.followed.length > 0 && (
+                                        <div>
+                                          <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">✅ Suivies:</p>
+                                          <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                                            {semanticEvaluations[test.id].bestPractices.followed.map((bp: string, idx: number) => (
+                                              <li key={idx}>{bp}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                      {semanticEvaluations[test.id].bestPractices.missing && semanticEvaluations[test.id].bestPractices.missing.length > 0 && (
+                                        <div>
+                                          <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">⚠️ Manquantes:</p>
+                                          <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                                            {semanticEvaluations[test.id].bestPractices.missing.map((bp: string, idx: number) => (
+                                              <li key={idx}>{bp}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                      {semanticEvaluations[test.id].bestPractices.review && (
+                                        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                          <p className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-1">Review détaillée:</p>
+                                          <p className="text-sm text-slate-700 dark:text-slate-300">
+                                            {semanticEvaluations[test.id].bestPractices.review}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {semanticEvaluations[test.id].suggestions && (
+                                  <div>
+                                    <h5 className="font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                                      <MessageSquare className="w-4 h-4" />
+                                      Suggestions d'amélioration
+                                    </h5>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                                      {semanticEvaluations[test.id].suggestions}
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                {semanticEvaluations[test.id].workQuality && (
+                                  <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                                    <p className="text-xs font-medium text-emerald-900 dark:text-emerald-300 mb-1">Qualité du travail:</p>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300">
+                                      {semanticEvaluations[test.id].workQuality}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Actions avec Review */}
+                      <div className="flex gap-2 pt-6 border-t border-slate-100 dark:border-slate-800">
+                        {(test.quizType === 'QCM' || test.quizType === 'TECHNICAL') ? (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                            onClick={() => handleOpenReviewModal(test)}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Réviser le test
+                          </Button>
+                        ) : (
+                        <Button variant="outline" size="sm" className="flex-1 rounded-lg">
+                          <Eye className="w-4 h-4 mr-2" />
+                          Voir les détails
+                        </Button>
+                        )}
+                        <Button variant="outline" size="sm" className="flex-1 rounded-lg">
+                          <MessageSquare className="w-4 h-4 mr-2" />
+                          Notes
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
+                  <CardContent className="text-center py-12">
+                    <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+                      Aucun test complété
+                    </h3>
+                    <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-md mx-auto">
+                      Ce candidat n&apos;a pas encore complété de test technique pour ce poste.
+                    </p>
+                    <Button variant="outline" className="rounded-lg">
+                      Assigner un test
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Section : Analyse IA des compétences techniques du poste */}
+              {selectedJob && (
+                <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
+                  <CardHeader>
+                    <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      Analyse IA des compétences techniques
+                    </CardTitle>
+                    <CardDescription className="text-slate-600 dark:text-slate-400">
+                      Évaluation du niveau de maîtrise par rapport aux compétences demandées pour le poste
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isEvaluatingSkills ? (
+                      <div className="space-y-4 py-8">
+                        <div className="flex items-center justify-center gap-3">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-900 dark:text-white">Analyse en cours...</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Évaluation des compétences techniques par IA</p>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          {[1, 2, 3].map((i) => (
+                            <div key={i} className="flex items-center gap-3">
+                              <Skeleton className="h-4 w-32" />
+                              <Skeleton className="h-2 flex-1" />
+                              <Skeleton className="h-6 w-16" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : simulateSkillEvaluation && simulateSkillEvaluation.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
+                            Basé sur {jobQuizResultsOnly.length} test{jobQuizResultsOnly.length > 1 ? 's' : ''} technique{jobQuizResultsOnly.length > 1 ? 's' : ''} du poste complété{jobQuizResultsOnly.length > 1 ? 's' : ''}
+                          </p>
+                          <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
+                            <Sparkles className="w-3 h-3 mr-1" />
+                            Évaluation IA
+                          </Badge>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          {simulateSkillEvaluation.map((skill: any, index: number) => {
+                            const masteryColor = skill.percentage >= 80 
+                              ? 'text-green-600 dark:text-green-400' 
+                              : skill.percentage >= 60 
+                              ? 'text-blue-600 dark:text-blue-400'
+                              : skill.percentage >= 40
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-red-600 dark:text-red-400';
+                            
+                            const masteryBg = skill.percentage >= 80 
+                              ? 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800' 
+                              : skill.percentage >= 60 
+                              ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800'
+                              : skill.percentage >= 40
+                              ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800'
+                              : 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800';
+
+                            const isReviewing = reviewingSkillIndex === index;
+                            const reviewScore = skillReviewScores[index] ?? skill.score;
+                            const reviewNote = skillReviewNotes[index] || "";
+
+                            return (
+                              <div key={index} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                                <div className="flex items-start justify-between mb-3">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="font-semibold text-slate-900 dark:text-white">{skill.name}</span>
+                                      <Badge className={`${masteryBg} ${masteryColor} border-0 text-xs`}>
+                                        {skill.mastery}
+                                      </Badge>
+                                      {/* Trouver les tests MOCK_INTERVIEW ou SOFT_SKILLS pour cette compétence */}
+                                      {updatedApplication?.testResults?.some((t: TestResult) => 
+                                        (t.quizType === 'MOCK_INTERVIEW' || t.quizType === 'SOFT_SKILLS') && 
+                                        t.skills?.some((s: any) => s.name === skill.name)
+                                      ) && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => setReviewingSkillIndex(isReviewing ? null : index)}
+                                          className="h-6 px-2 text-xs ml-2"
+                                        >
+                                          <Edit className="w-3 h-3 mr-1" />
+                                          {isReviewing ? "Annuler" : "Réviser"}
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                                      <TrendingUpIcon className="w-3 h-3" />
+                                      <span>{reviewScore} points sur {skill.maxScore} possibles</span>
+                                      {reviewScore !== skill.score && (
+                                        <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                                          Révisé
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className={`text-lg font-bold ${masteryColor}`}>
+                                      {Math.round((reviewScore / skill.maxScore) * 100)}%
+                                    </div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                                      Niveau de maîtrise
+                                    </div>
+                                  </div>
+                                </div>
+                                <Progress 
+                                  value={Math.round((reviewScore / skill.maxScore) * 100)} 
+                                  className="h-3 bg-slate-200 dark:bg-slate-700 rounded-full"
+                                />
+                                <div className="mt-2 flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Points obtenus: {reviewScore}/{skill.maxScore}</span>
+                                  <span>Répartition basée sur le total du test</span>
+                                </div>
+
+                                {/* Section de review inline pour MOCK_INTERVIEW et SOFT_SKILLS */}
+                                {isReviewing && updatedApplication?.testResults?.some((t: TestResult) => 
+                                  (t.quizType === 'MOCK_INTERVIEW' || t.quizType === 'SOFT_SKILLS') && 
+                                  t.skills?.some((s: any) => s.name === skill.name)
+                                ) && (
+                                  <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                                      <p className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-2">
+                                        Review manuelle pour {skill.name}
+                                      </p>
+                                      <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                          <Label htmlFor={`review-score-${index}`} className="text-xs text-slate-700 dark:text-slate-300 w-20">
+                                            Score :
+                                          </Label>
+                                          <Input
+                                            id={`review-score-${index}`}
+                                            type="number"
+                                            min={0}
+                                            max={skill.maxScore}
+                                            value={reviewScore}
+                                            onChange={(e) => setSkillReviewScores({
+                                              ...skillReviewScores,
+                                              [index]: Math.max(0, Math.min(parseInt(e.target.value) || 0, skill.maxScore))
+                                            })}
+                                            className="h-8 w-24 text-sm"
+                                          />
+                                          <span className="text-xs text-slate-500 dark:text-slate-400">/ {skill.maxScore}</span>
+                                        </div>
+                                        <div>
+                                          <Label htmlFor={`review-note-${index}`} className="text-xs text-slate-700 dark:text-slate-300">
+                                            Notes de review :
+                                          </Label>
+                                          <Textarea
+                                            id={`review-note-${index}`}
+                                            placeholder="Ajoutez vos notes sur cette compétence..."
+                                            value={reviewNote}
+                                            onChange={(e) => setSkillReviewNotes({
+                                              ...skillReviewNotes,
+                                              [index]: e.target.value
+                                            })}
+                                            className="min-h-20 mt-1 bg-white dark:bg-slate-800 text-sm"
+                                          />
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <Button
+                                            size="sm"
+                                            onClick={async () => {
+                                              // Trouver le test qui correspond à cette compétence
+                                              const relevantTest = updatedApplication.testResults.find((t: TestResult) => 
+                                                (t.quizType === 'MOCK_INTERVIEW' || t.quizType === 'SOFT_SKILLS') && 
+                                                t.skills?.some((s: any) => s.name === skill.name)
+                                              );
+                                              if (relevantTest) {
+                                                try {
+                                                  const result = await getQuizResultForReview(relevantTest.id);
+                                                  if (result.success && result.data) {
+                                                    // Créer une correction manuelle pour cette compétence
+                                                    const skillCorrection = {
+                                                      skillName: skill.name,
+                                                      originalScore: skill.score,
+                                                      reviewedScore: reviewScore,
+                                                      note: reviewNote
+                                                    };
+                                                    
+                                                    await saveQuizReviewMutation.mutateAsync({
+                                                      quizResultId: relevantTest.id,
+                                                      data: {
+                                                        reviewedAnswers: result.data.answers || [],
+                                                        reviewedScore: result.data.score, // Score global du test
+                                                        reviewerNotes: reviewNote || "",
+                                                        manualCorrections: {
+                                                          [skill.name]: skillCorrection
+                                                        }
+                                                      }
+                                                    });
+                                                    
+                                                    setReviewingSkillIndex(null);
+                                                  }
+                                                } catch (error) {
+                                                  console.error("Error saving skill review:", error);
+                                                }
+                                              }
+                                            }}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white h-8"
+                                          >
+                                            <Save className="w-3 h-3 mr-1" />
+                                            Sauvegarder
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                              setReviewingSkillIndex(null);
+                                              setSkillReviewScores({ ...skillReviewScores, [index]: skill.score });
+                                              setSkillReviewNotes({ ...skillReviewNotes, [index]: "" });
+                                            }}
+                                            className="h-8"
+                                          >
+                                            <X className="w-3 h-3 mr-1" />
+                                            Annuler
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                        <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p>Aucune compétence technique spécifiée pour ce poste</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* CV et Portfolio - Section améliorée */}
+              <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
+                <CardHeader>
+                  <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                    <FileTextIcon className="w-5 h-5" />
+                    Documents du candidat
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {updatedApplication.resumeUrl && (
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                          <FileTextIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-white">CV / Curriculum Vitae</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Document PDF</p>
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          // Rediriger vers le portfolio si disponible, sinon ouvrir le CV
+                          if (candidatePortfolio?.id) {
+                            router.push(`/portfolio/${candidatePortfolio.id}`);
+                          } else if (updatedApplication.resumeUrl || updatedApplication.candidate.resumeUrl) {
+                            window.open(updatedApplication.resumeUrl || updatedApplication.candidate.resumeUrl, '_blank');
+                          }
+                        }}
+                      >
+                        {candidatePortfolio ? (
+                          <>
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            Voir le portfolio
+                          </>
+                        ) : (
+                          <>
+                            <ExternalLink className="w-4 h-4" />
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Portfolio avec aperçu */}
+                  {loadingPortfolio ? (
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <Skeleton className="h-20 w-full" />
+                    </div>
+                  ) : candidatePortfolio ? (
+                    <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-start gap-4 mb-4">
+                        {candidatePortfolio.avatarUrl && (
+                          <Avatar className="h-16 w-16 border-2 border-white dark:border-slate-800">
+                            <AvatarImage src={candidatePortfolio.avatarUrl} />
+                            <AvatarFallback className="text-lg font-medium bg-blue-100 dark:bg-blue-900/30">
+                              {candidatePortfolio.user?.firstName?.[0] || candidatePortfolio.user?.email?.[0] || 'P'}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold text-slate-900 dark:text-white text-lg">
+                              {candidatePortfolio.title}
+                            </h4>
+                            <Button size="sm" variant="outline" asChild>
+                              <a href={`/portfolio/${candidatePortfolio.id}`} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                Voir le portfolio complet
+                              </a>
+                            </Button>
+                          </div>
+                          {candidatePortfolio.headline && (
+                            <p className="text-sm text-blue-700 dark:text-blue-300 mb-2 font-medium">
+                              {candidatePortfolio.headline}
+                            </p>
+                          )}
+                          {candidatePortfolio.bio && (
+                            <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-3">
+                              {candidatePortfolio.bio}
+                            </p>
+                          )}
+                          {candidatePortfolio.skills && candidatePortfolio.skills.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {candidatePortfolio.skills.slice(0, 6).map((skill: string, idx: number) => (
+                                <Badge key={idx} variant="outline" className="text-xs bg-white dark:bg-slate-800">
+                                  {skill}
+                                </Badge>
+                              ))}
+                              {candidatePortfolio.skills.length > 6 && (
+                                <Badge variant="outline" className="text-xs bg-white dark:bg-slate-800">
+                                  +{candidatePortfolio.skills.length - 6}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-4 mt-3 text-xs text-slate-500 dark:text-slate-400">
+                            {candidatePortfolio.projects && Array.isArray(candidatePortfolio.projects) && candidatePortfolio.projects.length > 0 && (
+                              <span className="flex items-center gap-1">
+                                <Code className="w-3 h-3" />
+                                {candidatePortfolio.projects.length} projet{candidatePortfolio.projects.length > 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {candidatePortfolio.experiences && Array.isArray(candidatePortfolio.experiences) && candidatePortfolio.experiences.length > 0 && (
+                              <span className="flex items-center gap-1">
+                                <Briefcase className="w-3 h-3" />
+                                {candidatePortfolio.experiences.length} expérience{candidatePortfolio.experiences.length > 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  ) : (
-                    <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                      <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      <p>Aucune compétence technique spécifiée pour ce poste</p>
+                  ) : updatedApplication.portfolioUrl ? (
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                          <FileTextIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-white">Portfolio</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Lien vers le portfolio</p>
+                        </div>
+                      </div>
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={updatedApplication.portfolioUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </Button>
                     </div>
+                  ) : null}
+
+                  {!updatedApplication.resumeUrl && !updatedApplication.portfolioUrl && !candidatePortfolio && (
+                    <p className="text-center text-slate-500 dark:text-slate-400 py-4">
+                      Aucun document disponible
+                    </p>
                   )}
                 </CardContent>
               </Card>
-            )}
 
-            {/* CV et Portfolio - Section améliorée */}
-            <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                  <FileTextIcon className="w-5 h-5" />
-                  Documents du candidat
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {updatedApplication.resumeUrl && (
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                        <FileTextIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-900 dark:text-white">CV / Curriculum Vitae</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Document PDF</p>
-                      </div>
-                    </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => {
-                        // Rediriger vers le portfolio si disponible, sinon ouvrir le CV
-                        if (candidatePortfolio?.id) {
-                          router.push(`/portfolio/${candidatePortfolio.id}`);
-                        } else if (updatedApplication.resumeUrl || updatedApplication.candidate.resumeUrl) {
-                          window.open(updatedApplication.resumeUrl || updatedApplication.candidate.resumeUrl, '_blank');
-                        }
-                      }}
-                    >
-                      {candidatePortfolio ? (
-                        <>
-                          <ExternalLink className="w-4 h-4 mr-2" />
-                          Voir le portfolio
-                        </>
-                      ) : (
-                        <>
-                          <ExternalLink className="w-4 h-4" />
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
-                
-                {/* Portfolio avec aperçu */}
-                {loadingPortfolio ? (
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <Skeleton className="h-20 w-full" />
-                  </div>
-                ) : candidatePortfolio ? (
-                  <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <div className="flex items-start gap-4 mb-4">
-                      {candidatePortfolio.avatarUrl && (
-                        <Avatar className="h-16 w-16 border-2 border-white dark:border-slate-800">
-                          <AvatarImage src={candidatePortfolio.avatarUrl} />
-                          <AvatarFallback className="text-lg font-medium bg-blue-100 dark:bg-blue-900/30">
-                            {candidatePortfolio.user?.firstName?.[0] || candidatePortfolio.user?.email?.[0] || 'P'}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-semibold text-slate-900 dark:text-white text-lg">
-                            {candidatePortfolio.title}
-                          </h4>
-                          <Button size="sm" variant="outline" asChild>
-                            <a href={`/portfolio/${candidatePortfolio.id}`} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="w-4 h-4 mr-2" />
-                              Voir le portfolio complet
-                            </a>
-                          </Button>
-                        </div>
-                        {candidatePortfolio.headline && (
-                          <p className="text-sm text-blue-700 dark:text-blue-300 mb-2 font-medium">
-                            {candidatePortfolio.headline}
-                          </p>
-                        )}
-                        {candidatePortfolio.bio && (
-                          <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-3">
-                            {candidatePortfolio.bio}
-                          </p>
-                        )}
-                        {candidatePortfolio.skills && candidatePortfolio.skills.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-3">
-                            {candidatePortfolio.skills.slice(0, 6).map((skill: string, idx: number) => (
-                              <Badge key={idx} variant="outline" className="text-xs bg-white dark:bg-slate-800">
-                                {skill}
-                              </Badge>
-                            ))}
-                            {candidatePortfolio.skills.length > 6 && (
-                              <Badge variant="outline" className="text-xs bg-white dark:bg-slate-800">
-                                +{candidatePortfolio.skills.length - 6}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-4 mt-3 text-xs text-slate-500 dark:text-slate-400">
-                          {candidatePortfolio.projects && Array.isArray(candidatePortfolio.projects) && candidatePortfolio.projects.length > 0 && (
-                            <span className="flex items-center gap-1">
-                              <Code className="w-3 h-3" />
-                              {candidatePortfolio.projects.length} projet{candidatePortfolio.projects.length > 1 ? 's' : ''}
-                            </span>
-                          )}
-                          {candidatePortfolio.experiences && Array.isArray(candidatePortfolio.experiences) && candidatePortfolio.experiences.length > 0 && (
-                            <span className="flex items-center gap-1">
-                              <Briefcase className="w-3 h-3" />
-                              {candidatePortfolio.experiences.length} expérience{candidatePortfolio.experiences.length > 1 ? 's' : ''}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : updatedApplication.portfolioUrl ? (
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                        <FileTextIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-900 dark:text-white">Portfolio</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Lien vers le portfolio</p>
-                      </div>
-                    </div>
-                    <Button size="sm" variant="outline" asChild>
-                      <a href={updatedApplication.portfolioUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    </Button>
-                  </div>
-                ) : null}
-
-                {!updatedApplication.resumeUrl && !updatedApplication.portfolioUrl && !candidatePortfolio && (
-                  <p className="text-center text-slate-500 dark:text-slate-400 py-4">
-                    Aucun document disponible
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Lettre de motivation */}
-            {updatedApplication.coverLetter && (
-              <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
-                <CardHeader>
-                  <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white">
-                    Lettre de motivation
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
-                    {updatedApplication.coverLetter}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+              {/* Lettre de motivation */}
+              {updatedApplication.coverLetter && (
+                <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
+                  <CardHeader>
+                    <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white">
+                      Lettre de motivation
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                      {updatedApplication.coverLetter}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+        <Dialog open={isConversationDialogOpen} onOpenChange={handleConversationDialogChange}>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+            {conversationDialog ? (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-white">
+                    Conversation – {conversationDialog.testName}
+                  </DialogTitle>
+                  <DialogDescription className="text-slate-600 dark:text-slate-400">
+                    Transcription complète de l&apos;entretien vocal.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-6">
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      Durée : {formatCallDuration(conversationDialog.callDuration)}
+                    </div>
+                    {conversationDialog.feedback?.overallScore !== undefined && (
+                      <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                        Score IA {conversationDialog.feedback.overallScore}/100
+                      </Badge>
+                    )}
+                    {conversationDialog.technologies.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Compétences clés</span>
+                        {conversationDialog.technologies.map((tech: string) => (
+                          <Badge
+                            key={tech}
+                            variant="outline"
+                            className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                          >
+                            {tech}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid gap-6 lg:grid-cols-3">
+                    <div className="lg:col-span-2">
+                      <div className="max-h-[60vh] overflow-y-auto pr-3 space-y-4">
+                        {conversationDialog.messages.length > 0 ? (
+                          conversationDialog.messages.map((message: { id: string; author: 'ai' | 'user'; content: string; timestamp?: Date }) => (
+                            <div
+                              key={message.id}
+                              className={cn(
+                                "flex gap-3",
+                                message.author === 'user' ? 'justify-end' : 'justify-start'
+                              )}
+                            >
+                              {message.author === 'ai' && (
+                                <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/30">
+                                  <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+                                </div>
+                              )}
+                              <div
+                                className={cn(
+                                  "max-w-[75%] rounded-2xl border p-4 text-sm leading-relaxed shadow-sm",
+                                  message.author === 'user'
+                                    ? 'bg-emerald-600 text-white border-emerald-500'
+                                    : 'bg-slate-50 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700'
+                                )}
+                              >
+                                <p>{message.content}</p>
+                                {message.timestamp && (
+                                  <span
+                                    className={cn(
+                                      "mt-2 block text-xs",
+                                      message.author === 'user'
+                                        ? 'text-emerald-100/80'
+                                        : 'text-slate-500 dark:text-slate-400'
+                                    )}
+                                  >
+                                    {message.timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                )}
+                              </div>
+                              {message.author === 'user' && (
+                                <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/30">
+                                  <User className="w-4 h-4 text-emerald-600 dark:text-emerald-300" />
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                            Aucune transcription disponible pour cette session.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="lg:col-span-1 space-y-4">
+                      {conversationDialog.feedback ? (
+                        <div className="space-y-3">
+                          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase">Synthèse IA</p>
+                            <p className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                              {conversationDialog.feedback.overallScore}/100
+                            </p>
+                          </div>
+                          {conversationDialog.feedback.criteriaScores && (
+                            <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                              <p className="font-semibold text-slate-900 dark:text-white">Critères</p>
+                              <ul className="space-y-1">
+                                <li>Adéquation : {conversationDialog.feedback.criteriaScores.jobFit}/25</li>
+                                <li>Technique : {conversationDialog.feedback.criteriaScores.technicalSkills}/25</li>
+                                <li>Communication : {conversationDialog.feedback.criteriaScores.communication}/20</li>
+                                <li>Expérience : {conversationDialog.feedback.criteriaScores.experience}/15</li>
+                                <li>Soft skills : {conversationDialog.feedback.criteriaScores.softSkills}/15</li>
+                              </ul>
+                            </div>
+                          )}
+                          {conversationDialog.feedback.strengths && conversationDialog.feedback.strengths.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-green-700 dark:text-green-300 uppercase mb-1">Points forts</p>
+                              <ul className="list-disc list-inside text-sm text-slate-700 dark:text-slate-300 space-y-1">
+                                {conversationDialog.feedback.strengths.map((item: string, idx: number) => (
+                                  <li key={idx}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {conversationDialog.feedback.weaknesses && conversationDialog.feedback.weaknesses.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase mb-1">Points à améliorer</p>
+                              <ul className="list-disc list-inside text-sm text-slate-700 dark:text-slate-300 space-y-1">
+                                {conversationDialog.feedback.weaknesses.map((item: string, idx: number) => (
+                                  <li key={idx}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {conversationDialog.feedback.recommendations && (
+                            <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                              <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Recommandations</p>
+                              <p className="text-sm text-slate-700 dark:text-slate-300">
+                                {conversationDialog.feedback.recommendations}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          Aucun feedback IA enregistré pour cette session.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="py-12 text-center text-slate-500 dark:text-slate-400">
+                Aucune conversation disponible.
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </>
     );
   };
 

@@ -4,7 +4,6 @@
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import AuthScreen from "@/components/auth/auth-screen";
 import DevLoader from "@/components/dev-loader";
-import SubscribeDialog from "@/components/subscribe-dialog";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getUserRoleAndDomains } from "@/actions/user.action";
@@ -42,7 +41,6 @@ export default function ClientRoot({ children }: { children: React.ReactNode }) 
   
   return (
     <>
-      <SubscribeDialog />
       {isAuthenticated ? (
         showRoleSelector ? (
           <RoleDomainSelector onComplete={handleComplete} />

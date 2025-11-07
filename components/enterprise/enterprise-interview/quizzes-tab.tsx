@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileText, Clock, Star, Plus, Search, Filter, Briefcase, ChevronRight, ChevronLeft, Settings, FileQuestion, Users, Target, Loader2, Check, Edit, Trash2, Table, Grid, Sparkles } from "lucide-react"
+import { FileText, Clock, Star, Plus, Search, Filter, Briefcase, ChevronRight, ChevronLeft, Settings, FileQuestion, Users, Target, Loader2, Check, Edit, Trash2, Table, Grid, Sparkles, X } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -31,6 +31,7 @@ interface Quiz {
   domain: Domain
   difficulty: 'JUNIOR' | 'MID' | 'SENIOR'
   technology: string[]
+  skills?: string[]
   duration: number
   totalPoints: number
   company: string
@@ -49,6 +50,7 @@ interface Question {
   options?: string[]
   correctAnswer?: string
   timeLimit?: number
+  competencies?: string[]
 }
 
 interface QuizSettings {
@@ -128,6 +130,40 @@ function QuizCreationStepper({ currentStep, onStepChange, isEdit = false }: { cu
   )
 }
 
+// Fonction utilitaire pour convertir les questions avant sauvegarde
+const convertQuestionsBack = (questions: any[]): any[] => {
+  return questions.map(q => {
+    const baseQuestion = {
+      id: q.id,
+      text: q.question, // "question" redevient "text"
+      type: q.type === 'scenario' ? 'open_ended' : (q.type === 'practical' ? 'technical' : q.type), // Reconvertir le type
+      points: q.points,
+      correctAnswer: q.correctAnswer,
+      options: q.options,
+      timeLimit: q.timeLimit
+    };
+
+    // Ajouter les champs spécifiques selon le type
+    if (q.type === 'coding') {
+      return {
+        ...baseQuestion,
+        codeSnippet: q.codeSnippet || ''
+      };
+    }
+
+    if (q.type === 'practical') {
+      return {
+        ...baseQuestion,
+        codeSnippet: q.codeSnippet || '',
+        title: q.title || '',
+        examples: q.examples || []
+      };
+    }
+
+    return baseQuestion;
+  })
+}
+
 // Composant Modal de création
 function CreateQuizModal({ 
   open, 
@@ -150,6 +186,7 @@ function CreateQuizModal({
     domain: 'DEVELOPMENT' as const,
     difficulty: 'JUNIOR' as const,
     technology: [] as string[],
+    skills: [] as string[],
     duration: 30,
     totalPoints: 100,
     company: '',
@@ -169,6 +206,42 @@ function CreateQuizModal({
   const [generationProgress, setGenerationProgress] = useState(0)
   const [generationStep, setGenerationStep] = useState<string>('')
   const [numberOfQuestions, setNumberOfQuestions] = useState(5)
+  const [technologyInput, setTechnologyInput] = useState("")
+  const [skillInput, setSkillInput] = useState("")
+
+  const addTechnologyTag = () => {
+    const value = technologyInput.trim()
+    if (!value) return
+    setNewQuiz((prev) => ({
+      ...prev,
+      technology: prev.technology.includes(value) ? prev.technology : [...prev.technology, value],
+    }))
+    setTechnologyInput("")
+  }
+
+  const removeTechnologyTag = (index: number) => {
+    setNewQuiz((prev) => ({
+      ...prev,
+      technology: prev.technology.filter((_, i) => i !== index),
+    }))
+  }
+
+  const addSkillTag = () => {
+    const value = skillInput.trim()
+    if (!value) return
+    setNewQuiz((prev) => ({
+      ...prev,
+      skills: prev.skills?.includes(value) ? prev.skills : [...(prev.skills || []), value],
+    }))
+    setSkillInput("")
+  }
+
+  const removeSkillTag = (index: number) => {
+    setNewQuiz((prev) => ({
+      ...prev,
+      skills: (prev.skills || []).filter((_, i) => i !== index),
+    }))
+  }
 
   // Fonction pour générer avec l'IA
   const handleAIGenerate = async () => {
@@ -226,39 +299,67 @@ function CreateQuizModal({
 
       // Convertir les questions au format attendu par InterviewBuilder
       // IMPORTANT: Pour QCM, convertir l'index de correctAnswer vers l'option elle-même
+      
+      // Déterminer si le domaine nécessite un éditeur de code
+      const isTechnicalDomain = (domain?: string): boolean => {
+        if (!domain) return true;
+        const technicalDomains = [
+          'DEVELOPMENT', 'WEB', 'MOBILE', 'DEVOPS', 'CYBERSECURITY', 
+          'MACHINE_LEARNING', 'DATA_SCIENCE', 'ARCHITECTURE'
+        ];
+        return technicalDomains.includes(domain);
+      };
+
+      const requiresCodeEditor = (newQuiz.type as string) === 'TECHNICAL' && isTechnicalDomain(newQuiz.domain);
+
       const formattedQuestions = result.data.questions.map((q: any, index: number) => {
         const baseQuestion = {
           id: q.id || `q${index + 1}`,
           question: q.text || q.question,
-          type: q.type === 'multiple_choice' ? 'multiple_choice' : q.type === 'coding' ? 'coding' : 'scenario',
           points: q.points || Math.floor(newQuiz.totalPoints / numberOfQuestions),
           explanation: q.explanation || ''
         }
 
         // Pour QCM : convertir l'index en option correspondante
-        if (q.type === 'multiple_choice' && q.options && Array.isArray(q.options)) {
+        if ((newQuiz.type as string) === 'QCM' && q.options && Array.isArray(q.options)) {
           const correctAnswerIndex = typeof q.correctAnswer === 'number' ? q.correctAnswer : parseInt(q.correctAnswer) || 0
           const correctOption = q.options[correctAnswerIndex] || q.options[0] || ''
           return { 
-            ...baseQuestion, 
+            ...baseQuestion,
+            type: 'multiple_choice' as const,
             options: q.options,
             correctAnswer: correctOption // Utiliser l'option elle-même comme correctAnswer
           }
         }
 
-        // Pour TECHNICAL : ajouter le codeSnippet
-        if (q.type === 'coding' && q.codeSnippet) {
-          return { 
-            ...baseQuestion, 
-            codeSnippet: q.codeSnippet,
-            correctAnswer: q.correctAnswer || ''
+        // Pour TECHNICAL : adapter selon le domaine
+        const quizTypeStr = newQuiz.type as string;
+        if (quizTypeStr === 'TECHNICAL') {
+          if (requiresCodeEditor) {
+            return { 
+              ...baseQuestion,
+              type: 'coding' as const,
+              codeSnippet: q.codeSnippet || '',
+              correctAnswer: q.correctAnswer || ''
+            }
+          } else {
+            return {
+              ...baseQuestion,
+              type: 'practical' as const,
+              title: q.title || '',
+              codeSnippet: q.codeSnippet || '',
+              examples: q.examples || [],
+              correctAnswer: q.correctAnswer || ''
+            }
           }
         }
 
         // Pour MOCK_INTERVIEW et SOFT_SKILLS
         return {
           ...baseQuestion,
-          correctAnswer: q.correctAnswer || ''
+          type: 'scenario' as const,
+          correctAnswer: q.correctAnswer || '',
+          competencies: Array.isArray(q.competencies) ? q.competencies : []
         }
       })
 
@@ -305,7 +406,13 @@ function CreateQuizModal({
         return
       }
 
-      await onCreateQuiz(newQuiz)
+      // Convertir les questions avant la sauvegarde
+      const quizDataToSave = {
+        ...newQuiz,
+        questions: convertQuestionsBack(newQuiz.questions)
+      }
+
+      await onCreateQuiz(quizDataToSave)
       onOpenChange(false)
       setCreationStep(1)
       setNewQuiz({
@@ -315,6 +422,7 @@ function CreateQuizModal({
         domain: 'DEVELOPMENT',
         difficulty: 'JUNIOR',
         technology: [],
+        skills: [],
         duration: 30,
         totalPoints: 100,
         company: '',
@@ -430,6 +538,90 @@ function CreateQuizModal({
                     <SelectItem value="SENIOR">Senior</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Technologies ciblées</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    placeholder="Ajouter une technologie (ex: React, Figma...)"
+                    value={technologyInput}
+                    onChange={(e) => setTechnologyInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addTechnologyTag();
+                      }
+                    }}
+                  />
+                  <Button type="button" onClick={addTechnologyTag}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Ajouter
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {newQuiz.technology.length > 0 ? (
+                    newQuiz.technology.map((tech, index) => (
+                      <Badge key={`${tech}-${index}`} variant="secondary" className="flex items-center gap-2">
+                        <span>{tech}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeTechnologyTag(index)}
+                          className="rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 h-5 w-5 flex items-center justify-center"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Ajoutez les technologies, outils ou frameworks sur lesquels portera le test.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Compétences à évaluer</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    placeholder="Ajouter une compétence (ex: Communication, Architecture...)"
+                    value={skillInput}
+                    onChange={(e) => setSkillInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addSkillTag();
+                      }
+                    }}
+                  />
+                  <Button type="button" onClick={addSkillTag}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Ajouter
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {newQuiz.skills && newQuiz.skills.length > 0 ? (
+                    newQuiz.skills.map((skill, index) => (
+                      <Badge key={`${skill}-${index}`} variant="outline" className="flex items-center gap-2">
+                        <span>{skill}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeSkillTag(index)}
+                          className="rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 h-5 w-5 flex items-center justify-center"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Ajoutez les compétences comportementales ou techniques à explorer (ex: Leadership, Résolution de problème).
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -577,6 +769,7 @@ function CreateQuizModal({
             <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:via-green-950/10 dark:to-blue-950/10 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
               <InterviewBuilder
                 quizType={newQuiz.type}
+                domain={newQuiz.domain}
                 questions={newQuiz.questions || []}
                 onQuestionsChange={(questions) => setNewQuiz(prev => ({ ...prev, questions }))}
                 totalPoints={newQuiz.totalPoints}
@@ -835,6 +1028,7 @@ function EditQuizModal({
     domain: 'DEVELOPMENT' as const,
     difficulty: 'JUNIOR' as const,
     technology: [] as string[],
+    skills: [] as string[],
     duration: 30,
     totalPoints: 100,
     company: '',
@@ -848,82 +1042,40 @@ function EditQuizModal({
     },
     jobPostingId: ''
   })
+  const [technologyInput, setTechnologyInput] = useState("")
+  const [skillInput, setSkillInput] = useState("")
 
-  // CORRECTION : Initialiser correctement les données
-  useEffect(() => {
-    if (quiz && open) {
-      // S'assurer que les questions sont bien disponibles
-      const quizQuestions = quiz.questions || []
-      
-      // Convertir les questions du format Quiz vers le format InterviewQuestionsEditor
-      const convertedQuestions = quizQuestions.map((q: any) => ({
-        id: q.id || `q-${Date.now()}-${Math.random()}`,
-        type: convertQuestionType(q.type || 'multiple_choice'), // Convertir le type
-        points: q.points || 10,
-        question: q.text || q.question || '', // "text" devient "question"
-        correctAnswer: q.correctAnswer || '',
-        explanation: q.explanation || '',
-        options: q.options || [],
-        ...(q.type === 'coding' && { codeSnippet: q.codeSnippet || '' })
-      }))
-
-      // Parser les settings correctement
-      let parsedSettings = {
-        shuffleQuestions: false,
-        showResults: true,
-        allowRetry: false,
-        timeLimit: 0,
-        passingScore: 70
-      }
-      
-      if (quiz.settings) {
-        try {
-          parsedSettings = typeof quiz.settings === 'string' 
-            ? JSON.parse(quiz.settings) 
-            : quiz.settings
-        } catch (e) {
-          console.error("Erreur parsing settings:", e)
-        }
-      }
-
-      setEditedQuiz({
-        title: quiz.title || '',
-        description: quiz.description || '',
-        type: quiz.type as any,
-        domain: quiz.domain as any,
-        difficulty: quiz.difficulty as any,
-        technology: quiz.technology || [],
-        duration: quiz.duration || 30,
-        totalPoints: quiz.totalPoints || 100,
-        company: quiz.company || '',
-        questions: convertedQuestions, // Utiliser les questions converties
-        settings: parsedSettings,
-        jobPostingId: quiz.jobPostingId || ''
-      })
-    }
-  }, [quiz?.id, open]) // Utiliser quiz.id au lieu de quiz pour éviter les re-renders inutiles
-
-  // CORRECTION : Fonction pour convertir les types de questions
-  const convertQuestionType = (type: string): 'multiple_choice' | 'coding' | 'scenario' => {
-    switch (type) {
-      case 'multiple_choice': return 'multiple_choice'
-      case 'coding': return 'coding'
-      case 'open_ended': return 'scenario'
-      case 'system_design': return 'scenario'
-      default: return 'multiple_choice'
-    }
+  const addTechnologyTag = () => {
+    const value = technologyInput.trim()
+    if (!value) return
+    setEditedQuiz((prev) => ({
+      ...prev,
+      technology: prev.technology.includes(value) ? prev.technology : [...prev.technology, value],
+    }))
+    setTechnologyInput("")
   }
 
-  // CORRECTION : Fonction pour reconvertir les questions avant sauvegarde
-  const convertQuestionsBack = (questions: any[]): any[] => {
-    return questions.map(q => ({
-      id: q.id,
-      text: q.question, // "question" redevient "text"
-      type: q.type === 'scenario' ? 'open_ended' : q.type, // Reconvertir le type
-      points: q.points,
-      correctAnswer: q.correctAnswer,
-      options: q.options,
-      timeLimit: q.timeLimit
+  const removeTechnologyTag = (index: number) => {
+    setEditedQuiz((prev) => ({
+      ...prev,
+      technology: prev.technology.filter((_, i) => i !== index),
+    }))
+  }
+
+  const addSkillTag = () => {
+    const value = skillInput.trim()
+    if (!value) return
+    setEditedQuiz((prev) => ({
+      ...prev,
+      skills: prev.skills?.includes(value) ? prev.skills : [...(prev.skills || []), value],
+    }))
+    setSkillInput("")
+  }
+
+  const removeSkillTag = (index: number) => {
+    setEditedQuiz((prev) => ({
+      ...prev,
+      skills: (prev.skills || []).filter((_, i) => i !== index),
     }))
   }
 
@@ -1050,6 +1202,90 @@ function EditQuizModal({
                     <SelectItem value="SENIOR">Senior</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Technologies ciblées</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    placeholder="Ajouter une technologie (ex: React, Figma...)"
+                    value={technologyInput}
+                    onChange={(e) => setTechnologyInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addTechnologyTag();
+                      }
+                    }}
+                  />
+                  <Button type="button" onClick={addTechnologyTag}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Ajouter
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {editedQuiz.technology.length > 0 ? (
+                    editedQuiz.technology.map((tech, index) => (
+                      <Badge key={`${tech}-${index}`} variant="secondary" className="flex items-center gap-2">
+                        <span>{tech}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeTechnologyTag(index)}
+                          className="rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 h-5 w-5 flex items-center justify-center"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Ajoutez les technologies, outils ou frameworks sur lesquels portera le test.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Compétences à évaluer</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    placeholder="Ajouter une compétence (ex: Communication, Architecture...)"
+                    value={skillInput}
+                    onChange={(e) => setSkillInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addSkillTag();
+                      }
+                    }}
+                  />
+                  <Button type="button" onClick={addSkillTag}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Ajouter
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {editedQuiz.skills && editedQuiz.skills.length > 0 ? (
+                    editedQuiz.skills.map((skill, index) => (
+                      <Badge key={`${skill}-${index}`} variant="outline" className="flex items-center gap-2">
+                        <span>{skill}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeSkillTag(index)}
+                          className="rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 h-5 w-5 flex items-center justify-center"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Ajoutez les compétences comportementales ou techniques à explorer (ex: Leadership, Résolution de problème).
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1310,6 +1546,37 @@ function EditQuizModal({
     }
   }
 
+  useEffect(() => {
+    if (quiz?.id) {
+      const convertedQuestions = convertQuestionsBack(quiz.questions)
+      const parsedSettings = {
+        shuffleQuestions: quiz.settings.shuffleQuestions,
+        showResults: quiz.settings.showResults,
+        allowRetry: quiz.settings.allowRetry,
+        timeLimit: quiz.settings.timeLimit,
+        passingScore: quiz.settings.passingScore
+      }
+
+      setEditedQuiz({
+        title: quiz.title || '',
+        description: quiz.description || '',
+        type: quiz.type as any,
+        domain: quiz.domain as any,
+        difficulty: quiz.difficulty as any,
+        technology: quiz.technology || [],
+        skills: Array.isArray(quiz.skills) ? quiz.skills : [],
+        duration: quiz.duration || 30,
+        totalPoints: quiz.totalPoints || 100,
+        company: quiz.company || '',
+        questions: convertedQuestions, // Utiliser les questions converties
+        settings: parsedSettings,
+        jobPostingId: quiz.jobPostingId || ''
+      })
+      setTechnologyInput("")
+      setSkillInput("")
+    }
+  }, [quiz?.id, open]) // Utiliser quiz.id au lieu de quiz pour éviter les re-renders inutiles
+
   if (!quiz) return null
 
   return (
@@ -1466,6 +1733,7 @@ export function QuizzesTab({
       domain: apiQuiz.domain as Domain,
       difficulty: apiQuiz.difficulty as 'JUNIOR' | 'MID' | 'SENIOR',
       technology: apiQuiz.technology || [],
+      skills: Array.isArray(apiQuiz.skills) ? apiQuiz.skills : [],
       duration: apiQuiz.duration || 30,
       totalPoints: apiQuiz.totalPoints || 100,
       company: apiQuiz.company || '',
@@ -1486,10 +1754,12 @@ export function QuizzesTab({
     const safeTitle = quiz.title || ""
     const safeDescription = quiz.description || ""
     const safeTechnology = quiz.technology || []
+    const safeSkills = quiz.skills || []
     
     const matchesSearch = safeTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          safeDescription.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         safeTechnology.some(tech => tech?.toLowerCase().includes(searchTerm.toLowerCase()))
+                         safeTechnology.some(tech => tech?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         safeSkills.some(skill => skill?.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesType = selectedType === "all" || quiz.type === selectedType
     const matchesDomain = selectedDomain === "all" || quiz.domain === selectedDomain
     const matchesDifficulty = selectedDifficulty === "all" || quiz.difficulty === selectedDifficulty
@@ -1851,9 +2121,19 @@ export function QuizzesTab({
           {filteredQuizzes.map((quiz) => {
             const linkedPosition = availablePositions.find(p => p.id === quiz.jobPostingId)
             const safeTechnology = quiz.technology || []
+            const safeSkills = quiz.skills || []
+            const mockCompetencies = Array.isArray(quiz.questions)
+              ? Array.from(
+                  new Set(
+                    (quiz.questions as any[])
+                      .flatMap((question: any) => (question?.competencies || []))
+                      .filter(Boolean)
+                  )
+                ).slice(0, 8)
+              : []
             
             return (
-              <Card key={quiz.id} className="border border-slate-200/70 bg-white/70 backdrop-blur-lg dark:border-slate-700/70 dark:bg-slate-900/70 hover:shadow-xl transition-all duration-300 hover:border-green-300/50 dark:hover:border-green-600/50 group">
+              <Card key={quiz.id} className="border border-slate-200/70 bg-white/70 backdrop-blur-lg dark:border-slate-700/70 dark:bg-slate-900/70 hover:shadow-xl transition-all durée-300 hover:border-green-300/50 dark:hover:border-green-600/50 group">
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start mb-2">
                     <CardTitle className="text-lg line-clamp-2 text-slate-900 dark:text-white group-hover:text-green-700 dark:group-hover:text-green-400 transition-colors">
@@ -1883,18 +2163,84 @@ export function QuizzesTab({
                     </div>
                   </div>
                   
-                  <div className="flex flex-wrap gap-1">
-                    {safeTechnology.slice(0, 3).map((tech, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs bg-green-50 text-green-700 dark:bg-green-900/50 dark:text-green-300">
-                        {tech}
-                      </Badge>
-                    ))}
-                    {safeTechnology.length > 3 && (
-                      <Badge variant="secondary" className="text-xs">
-                        +{safeTechnology.length - 3}
-                      </Badge>
-                    )}
-                  </div>
+                  {quiz.type === 'MOCK_INTERVIEW' ? (
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                          Technologies clés
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {safeTechnology.length > 0 ? (
+                            safeTechnology.map((tech, index) => (
+                              <Badge
+                                key={`${quiz.id}-tech-${index}`}
+                                variant="outline"
+                                className="text-xs bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                              >
+                                {tech}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-500 dark:text-slate-400">Aucune technologie précisée</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          <Badge variant="secondary" className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800">Compétences</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {safeSkills.length > 0 ? (
+                            safeSkills.map((skill, index) => (
+                              <Badge
+                                key={`${quiz.id}-skill-${index}`}
+                                variant="secondary"
+                                className="text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                              >
+                                {skill}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-500 dark:text-slate-400">Ajoutez des compétences dans le builder</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {mockCompetencies.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            <Badge variant="secondary" className="bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-800">Thématiques</Badge>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {mockCompetencies.map((competency, index) => (
+                              <Badge
+                                key={`${quiz.id}-competency-${index}`}
+                                variant="outline"
+                                className="text-xs bg-white dark:bg-slate-800"
+                              >
+                                {competency}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {safeTechnology.slice(0, 3).map((tech, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs bg-green-50 text-green-700 dark:bg-green-900/50 dark:text-green-300">
+                          {tech}
+                        </Badge>
+                      ))}
+                      {safeTechnology.length > 3 && (
+                        <Badge variant="secondary" className="text-xs">
+                          +{safeTechnology.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
 
                   {/* Poste lié */}
                   <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">

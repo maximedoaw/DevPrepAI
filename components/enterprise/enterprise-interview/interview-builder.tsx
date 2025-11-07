@@ -15,28 +15,44 @@ import { oneDark } from "@codemirror/theme-one-dark"
 
 interface Question {
   id: string
-  type: 'multiple_choice' | 'coding' | 'scenario'
+  type: 'multiple_choice' | 'coding' | 'scenario' | 'practical'
   points: number
   question: string
+  title?: string // Titre optionnel pour les exercices pratiques
   explanation?: string
   correctAnswer: string
   options?: string[]
-  codeSnippet?: string
+  codeSnippet?: string // Optionnel pour les exercices pratiques
+  examples?: Array<{ input?: string; output?: string; [key: string]: any }> // Exemples pour les exercices pratiques
+  competencies?: string[]
 }
 
 interface InterviewBuilderProps {
   quizType: 'QCM' | 'TECHNICAL' | 'MOCK_INTERVIEW' | 'SOFT_SKILLS'
+  domain?: string // Domaine du quiz (pour adapter l'interface TECHNICAL)
   questions: Question[]
   onQuestionsChange: (questions: Question[]) => void
   totalPoints?: number // Total de points attendu pour le test
 }
 
-export function InterviewBuilder({ quizType, questions, onQuestionsChange, totalPoints }: InterviewBuilderProps) {
+export function InterviewBuilder({ quizType, domain, questions, onQuestionsChange, totalPoints }: InterviewBuilderProps) {
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null)
   
   // Calculer la somme des points
   const totalQuestionsPoints = questions.reduce((sum, q) => sum + (q.points || 0), 0)
   const pointsDifference = totalPoints ? totalPoints - totalQuestionsPoints : 0
+
+  // Déterminer si le domaine nécessite un éditeur de code
+  const isTechnicalDomain = (domain?: string): boolean => {
+    if (!domain) return true; // Par défaut, considérer comme technique
+    const technicalDomains = [
+      'DEVELOPMENT', 'WEB', 'MOBILE', 'DEVOPS', 'CYBERSECURITY', 
+      'MACHINE_LEARNING', 'DATA_SCIENCE', 'ARCHITECTURE'
+    ];
+    return technicalDomains.includes(domain);
+  };
+
+  const requiresCodeEditor = quizType === 'TECHNICAL' && isTechnicalDomain(domain);
 
   const getQuestionTypeConfig = () => {
     switch (quizType) {
@@ -48,11 +64,20 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
           description: 'Ajoutez des questions avec plusieurs choix de réponse'
         }
       case 'TECHNICAL':
-        return {
-          type: 'coding' as const,
-          title: 'Questions de Codage',
-          icon: Code,
-          description: 'Créez des exercices de programmation avec éditeur de code'
+        if (requiresCodeEditor) {
+          return {
+            type: 'coding' as const,
+            title: 'Exercices de Programmation',
+            icon: Code,
+            description: 'Créez des exercices de programmation avec éditeur de code'
+          }
+        } else {
+          return {
+            type: 'practical' as const,
+            title: 'Exercices Pratiques',
+            icon: FileText,
+            description: 'Créez des exercices pratiques ou des mini-projets adaptés au domaine'
+          }
         }
       case 'MOCK_INTERVIEW':
       case 'SOFT_SKILLS':
@@ -85,7 +110,12 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
       ...(config.type === 'multiple_choice' && { 
         options: ['Option A', 'Option B', 'Option C', 'Option D'] 
       }),
-      ...(config.type === 'coding' && { codeSnippet: '// Votre code ici\n' })
+      ...(config.type === 'coding' && { codeSnippet: '// Votre code ici\n' }),
+      ...(config.type === 'practical' && { 
+        title: '',
+        examples: [{ input: '', output: '' }]
+      }),
+      ...(config.type === 'scenario' && { competencies: [] }),
     }
     onQuestionsChange([...questions, newQuestion])
     setExpandedQuestion(newQuestion.id)
@@ -276,48 +306,242 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
     </div>
   )
 
-  const renderScenarioQuestion = (question: Question) => (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor={`question-${question.id}`}>Scénario *</Label>
-        <Textarea
-          id={`question-${question.id}`}
-          placeholder="Décrivez la situation professionnelle..."
-          value={question.question}
-          onChange={(e) => updateQuestion(question.id, { question: e.target.value })}
-          rows={3}
-          className="resize-none"
-          maxLength={500}
-        />
-      </div>
+  const renderPracticalQuestion = (question: Question) => {
+    const examples = question.examples || [{ input: '', output: '' }];
 
-      <div className="space-y-2">
-        <Label htmlFor={`correct-answer-${question.id}`}>Réponse attendue *</Label>
-        <Textarea
-          id={`correct-answer-${question.id}`}
-          placeholder="Décrivez la réponse idéale ou les points clés à aborder..."
-          value={question.correctAnswer}
-          onChange={(e) => updateQuestion(question.id, { correctAnswer: e.target.value })}
-          rows={4}
-          className="resize-none"
-          maxLength={1000}
-        />
-      </div>
+    const updateExample = (index: number, field: 'input' | 'output', value: string) => {
+      const newExamples = [...examples];
+      if (!newExamples[index]) {
+        newExamples[index] = { input: '', output: '' };
+      }
+      newExamples[index][field] = value;
+      updateQuestion(question.id, { examples: newExamples });
+    };
 
-      <div className="space-y-2">
-        <Label htmlFor={`explanation-${question.id}`}>Critères d'évaluation</Label>
-        <Textarea
-          id={`explanation-${question.id}`}
-          placeholder="Listez les compétences évaluées et les critères de notation..."
-          value={question.explanation || ''}
-          onChange={(e) => updateQuestion(question.id, { explanation: e.target.value })}
-          rows={3}
-          className="resize-none"
-          maxLength={500}
-        />
+    const addExample = () => {
+      updateQuestion(question.id, { examples: [...examples, { input: '', output: '' }] });
+    };
+
+    const removeExample = (index: number) => {
+      const newExamples = examples.filter((_, i) => i !== index);
+      updateQuestion(question.id, { examples: newExamples.length > 0 ? newExamples : [{ input: '', output: '' }] });
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor={`title-${question.id}`}>Titre de l'exercice (optionnel)</Label>
+          <Input
+            id={`title-${question.id}`}
+            placeholder="Ex: Créer une maquette de landing page"
+            value={question.title || ''}
+            onChange={(e) => updateQuestion(question.id, { title: e.target.value })}
+            maxLength={100}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor={`question-${question.id}`}>Énoncé de l'exercice / Projet *</Label>
+          <Textarea
+            id={`question-${question.id}`}
+            placeholder="Décrivez l'exercice pratique, le projet ou la tâche à réaliser..."
+            value={question.question}
+            onChange={(e) => updateQuestion(question.id, { question: e.target.value })}
+            rows={4}
+            className="resize-none"
+            maxLength={1000}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor={`code-snippet-${question.id}`}>Contexte / Template (optionnel)</Label>
+          <Textarea
+            id={`code-snippet-${question.id}`}
+            placeholder="Fournissez un contexte, un template, des données de départ, ou laissez vide si non applicable..."
+            value={question.codeSnippet || ''}
+            onChange={(e) => updateQuestion(question.id, { codeSnippet: e.target.value })}
+            rows={3}
+            className="resize-none font-mono text-sm"
+            maxLength={500}
+          />
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Peut contenir du code, des données, un template, ou tout autre contexte nécessaire
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>Exemples / Cas d'usage (optionnel)</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addExample}
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Ajouter
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {examples.map((example, index) => (
+              <div key={index} className="flex gap-2 items-start p-3 border rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                <div className="flex-1 space-y-2">
+                  <Input
+                    placeholder="Contexte / Input / Données d'entrée"
+                    value={example.input || ''}
+                    onChange={(e) => updateExample(index, 'input', e.target.value)}
+                    className="text-sm"
+                  />
+                  <Input
+                    placeholder="Résultat attendu / Output / Livrable"
+                    value={example.output || ''}
+                    onChange={(e) => updateExample(index, 'output', e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+                {examples.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeExample(index)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor={`correct-answer-${question.id}`}>Solution attendue / Critères d'évaluation *</Label>
+          <Textarea
+            id={`correct-answer-${question.id}`}
+            placeholder="Décrivez la solution attendue, les critères d'évaluation, ou le livrable attendu..."
+            value={question.correctAnswer}
+            onChange={(e) => updateQuestion(question.id, { correctAnswer: e.target.value })}
+            rows={4}
+            className="resize-none"
+            maxLength={1000}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor={`explanation-${question.id}`}>Explication / Critères de réussite</Label>
+          <Textarea
+            id={`explanation-${question.id}`}
+            placeholder="Expliquez la solution, les critères de réussite, ou les points clés à évaluer..."
+            value={question.explanation || ''}
+            onChange={(e) => updateQuestion(question.id, { explanation: e.target.value })}
+            rows={3}
+            className="resize-none"
+            maxLength={500}
+          />
+        </div>
       </div>
-    </div>
-  )
+    );
+  };
+
+  const renderScenarioQuestion = (question: Question) => {
+    const competencies = question.competencies || []
+
+    const updateCompetency = (index: number, value: string) => {
+      const updated = [...competencies]
+      updated[index] = value
+      updateQuestion(question.id, { competencies: updated })
+    }
+
+    const addCompetency = () => {
+      updateQuestion(question.id, { competencies: [...competencies, ''] })
+    }
+
+    const removeCompetency = (index: number) => {
+      const updated = competencies.filter((_, i) => i !== index)
+      updateQuestion(question.id, { competencies: updated })
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor={`question-${question.id}`}>Scénario *</Label>
+          <Textarea
+            id={`question-${question.id}`}
+            placeholder="Décrivez la situation professionnelle..."
+            value={question.question}
+            onChange={(e) => updateQuestion(question.id, { question: e.target.value })}
+            rows={3}
+            className="resize-none"
+            maxLength={500}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor={`correct-answer-${question.id}`}>Réponse attendue *</Label>
+          <Textarea
+            id={`correct-answer-${question.id}`}
+            placeholder="Décrivez la réponse idéale ou les points clés à aborder..."
+            value={question.correctAnswer}
+            onChange={(e) => updateQuestion(question.id, { correctAnswer: e.target.value })}
+            rows={4}
+            className="resize-none"
+            maxLength={1000}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor={`explanation-${question.id}`}>Critères d'évaluation</Label>
+          <Textarea
+            id={`explanation-${question.id}`}
+            placeholder="Listez les compétences évaluées et les critères de notation..."
+            value={question.explanation || ''}
+            onChange={(e) => updateQuestion(question.id, { explanation: e.target.value })}
+            rows={3}
+            className="resize-none"
+            maxLength={500}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm">Compétences ciblées</Label>
+            <Button type="button" variant="outline" size="sm" onClick={addCompetency}>
+              <Plus className="w-3 h-3 mr-1" />
+              Ajouter
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {competencies.length > 0 ? (
+              competencies.map((competency, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    placeholder="Ex: Leadership, Architecture logicielle"
+                    value={competency}
+                    onChange={(e) => updateCompetency(index, e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeCompetency(index)}
+                    className="text-red-500 hover:text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Ajoutez les compétences ou thématiques clés à explorer pendant l'entretien.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const renderQuestionContent = (question: Question) => {
     switch (question.type) {
@@ -325,6 +549,8 @@ export function InterviewBuilder({ quizType, questions, onQuestionsChange, total
         return renderMultipleChoiceQuestion(question)
       case 'coding':
         return renderCodingQuestion(question)
+      case 'practical':
+        return renderPracticalQuestion(question)
       case 'scenario':
         return renderScenarioQuestion(question)
       default:

@@ -27,6 +27,8 @@ export interface JobQuizSubmission {
   score: number
   analysis: string
   duration?: number
+  videoUrl?: string | null
+  imageUrls?: string[] | null
 }
 
 // Récupérer tous les jobs avec filtres
@@ -379,6 +381,16 @@ export async function createJobQuiz(data: {
 // Soumettre les réponses d'un quiz
 export async function submitJobQuiz(data: JobQuizSubmission) {
   try {
+    // Récupérer le jobQuiz pour obtenir jobPostingId
+    const jobQuiz = await prisma.jobQuiz.findUnique({
+      where: { id: data.jobQuizId },
+      select: { jobPostingId: true, title: true, totalPoints: true }
+    });
+
+    if (!jobQuiz) {
+      throw new Error("Quiz non trouvé");
+    }
+
     const result = await prisma.jobQuizResult.create({
       data: {
         userId: data.userId,
@@ -387,25 +399,18 @@ export async function submitJobQuiz(data: JobQuizSubmission) {
         answers: data.answers,
         analysis: data.analysis,
         duration: data.duration,
+        videoUrl: data.videoUrl || null,
+        imageUrls: data.imageUrls ? data.imageUrls : undefined,
         completedAt: new Date()
-      },
-      include: {
-        jobQuiz: {
-          select: {
-            title: true,
-            totalPoints: true,
-            jobPostingId: true
-          }
-        }
       }
     })
 
     // Revalider les pages concernées
-    revalidatePath(`/jobs/${result.jobQuiz.jobPostingId}`)
+    revalidatePath(`/jobs/${jobQuiz.jobPostingId}`)
     revalidatePath(`/quizzes/${data.jobQuizId}`)
     revalidatePath(`/profile/quizzes`)
 
-    return result
+    return { ...result, jobQuiz }
   } catch (error) {
     console.error("Error submitting job quiz:", error)
     throw new Error("Erreur lors de la soumission du quiz")

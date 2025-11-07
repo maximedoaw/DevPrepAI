@@ -1,16 +1,19 @@
-// app/jobs/[jobId]/tests/page.tsx - VERSION AMÉLIORÉE
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
-import { MonacoEditor } from "@/components/ui/monaco-editor";
 import { useTheme } from "next-themes";
+import { Widget } from '@uploadcare/react-widget';
+import { Download, Video, Upload } from "lucide-react";
 import { 
   Clock, 
   CheckCircle2, 
@@ -37,6 +40,7 @@ import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { checkIfApplied } from "@/actions/application.action";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import AIVocalInterview from "@/components/interviews/ai-vocal-interview";
 
 export default function TestsPage() {
   const { user } = useKindeBrowserClient();
@@ -84,6 +88,8 @@ export default function TestsPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<any[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
 
   // Démarrer un test
   const startTest = (quiz: any) => {
@@ -145,54 +151,192 @@ export default function TestsPage() {
   };
 
   // Soumettre le test avec analyse améliorée
-  const submitTest = async (score: number, answers: any[] = []) => {
+  const submitTest = async (
+    score: number,
+    answersData: any = [],
+    videoUrl: string | null = null,
+    imageUrls: string[] | null = null
+  ) => {
     if (!currentQuiz) return;
 
     try {
-      // Générer une analyse détaillée basée sur le score et les réponses
+      const normalizedAnswers = Array.isArray(answersData)
+        ? answersData
+        : answersData && typeof answersData === "object"
+        ? [answersData]
+        : [];
+
+      let finalScore = score;
+      const recordedDuration =
+        answersData && typeof answersData === "object" && typeof (answersData as any).callDuration === "number"
+          ? Math.max(0, Math.floor((answersData as any).callDuration))
+          : undefined;
+      const fallbackDuration = Math.max(0, currentQuiz.duration * 60 - timeLeft);
       let analysis = "";
-      
+
       if (currentQuiz.type === QuizType.QCM) {
-        const totalQuestions = answers.length;
-        const correctCount = answers.filter(a => a?.isCorrect).length;
+        const totalQuestions = normalizedAnswers.length;
+        const correctCount = normalizedAnswers.filter((a) => a?.isCorrect).length;
         const incorrectCount = totalQuestions - correctCount;
-        
-        analysis = score >= 90 
-          ? `Excellent travail ! Vous avez obtenu ${correctCount}/${totalQuestions} réponses correctes. Vous démontrez une maîtrise exceptionnelle des concepts évalués.`
-          : score >= 70
-          ? `Bon travail ! Vous avez obtenu ${correctCount}/${totalQuestions} réponses correctes. Vous maîtrisez bien la majorité des concepts.`
-          : score >= 50
-          ? `Résultat moyen. Vous avez obtenu ${correctCount}/${totalQuestions} réponses correctes. ${incorrectCount > 0 ? `${incorrectCount} réponse(s) incorrecte(s). ` : ''}Des révisions supplémentaires sont recommandées.`
-          : `Des progrès sont nécessaires. Vous avez obtenu ${correctCount}/${totalQuestions} réponses correctes. ${incorrectCount > 0 ? `${incorrectCount} réponse(s) incorrecte(s). ` : ''}Continuez à vous exercer pour améliorer vos compétences.`;
+
+        analysis =
+          score >= 90
+            ? `Excellent travail ! Vous avez obtenu ${correctCount}/${totalQuestions} réponses correctes. Vous démontrez une maîtrise exceptionnelle des concepts évalués.`
+            : score >= 70
+            ? `Bon travail ! Vous avez obtenu ${correctCount}/${totalQuestions} réponses correctes. Vous maîtrisez bien la majorité des concepts.`
+            : score >= 50
+            ? `Résultat moyen. Vous avez obtenu ${correctCount}/${totalQuestions} réponses correctes. ${
+                incorrectCount > 0 ? `${incorrectCount} réponse(s) incorrecte(s). ` : ""
+              }Des révisions supplémentaires sont recommandées.`
+            : `Des progrès sont nécessaires. Vous avez obtenu ${correctCount}/${totalQuestions} réponses correctes. ${
+                incorrectCount > 0 ? `${incorrectCount} réponse(s) incorrecte(s). ` : ""
+              }Continuez à vous exercer pour améliorer vos compétences.`;
       } else if (currentQuiz.type === QuizType.TECHNICAL) {
-        const evaluation = answers[0]?.evaluation;
-        analysis = evaluation?.evaluation || (
-          score >= 80
-            ? "Code fonctionnel et bien structuré. Vous démontrez une bonne compréhension des concepts de programmation."
-            : score >= 60
-            ? "Code présentant quelques points à améliorer. La logique est globalement correcte mais peut être optimisée."
-            : "Code nécessitant des améliorations significatives. Revisitez les concepts de base et la logique algorithmique."
-        );
-        
-        if (evaluation?.strengths?.length > 0) {
-          analysis += `\n\nPoints forts: ${evaluation.strengths.join(', ')}`;
+        const isTechnicalDomain = (domain?: string): boolean => {
+          if (!domain) return false;
+          const technicalDomains = [
+            "DEVELOPMENT",
+            "WEB",
+            "MOBILE",
+            "DEVOPS",
+            "CYBERSECURITY",
+            "MACHINE_LEARNING",
+            "DATA_SCIENCE",
+            "ARCHITECTURE",
+          ];
+          return technicalDomains.includes(domain);
+        };
+
+        const requiresCodeEditor = isTechnicalDomain(currentQuiz.domain);
+
+        if (!requiresCodeEditor && normalizedAnswers.some((a) => a.answer && a.type === "technical_text")) {
+          try {
+            const textAnswers = normalizedAnswers
+              .filter((a) => a.answer && a.type === "technical_text")
+              .map((a) => ({
+                questionId: a.questionId,
+                questionText: a.questionText,
+                answer: a.answer,
+                points: a.points,
+              }));
+
+            if (textAnswers.length > 0) {
+              toast.info("Évaluation IA en cours...");
+
+              const evalResponse = await fetch("/api/gemini", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  type: "evaluate-technical-text",
+                  textAnswers: textAnswers,
+                  domain: currentQuiz.domain,
+                }),
+              });
+
+              if (evalResponse.ok) {
+                const evalResult = await evalResponse.json();
+                if (evalResult.success && evalResult.data) {
+                  finalScore = evalResult.data.overallScore || score;
+                  analysis = evalResult.data.evaluation || analysis;
+
+                  if (evalResult.data.strengths && evalResult.data.strengths.length > 0) {
+                    analysis += `\n\nPoints forts: ${evalResult.data.strengths.join(", ")}`;
+                  }
+                  if (evalResult.data.weaknesses && evalResult.data.weaknesses.length > 0) {
+                    analysis += `\n\nPoints à améliorer: ${evalResult.data.weaknesses.join(", ")}`;
+                  }
+                  if (evalResult.data.suggestions) {
+                    analysis += `\n\nSuggestions: ${evalResult.data.suggestions}`;
+                  }
+
+                  normalizedAnswers.forEach((ans, idx) => {
+                    if (ans.type === "technical_text" && evalResult.data.questionScores) {
+                      const questionEval = evalResult.data.questionScores.find(
+                        (qs: any) => qs.questionId === ans.questionId || qs.questionId === idx
+                      );
+                      if (questionEval) {
+                        normalizedAnswers[idx].evaluation = questionEval;
+                      }
+                    }
+                  });
+
+                  toast.success("Évaluation IA terminée");
+                }
+              } else {
+                console.error("Erreur lors de l'évaluation IA");
+              }
+            }
+          } catch (error) {
+            console.error("Error evaluating technical text:", error);
+          }
         }
-        if (evaluation?.suggestions) {
-          analysis += `\n\nSuggestions: ${evaluation.suggestions}`;
+
+        if (!analysis) {
+          const evaluation = normalizedAnswers[0]?.evaluation;
+          const submissionType = videoUrl
+            ? "vidéo"
+            : imageUrls && imageUrls.length > 0
+            ? "catalogue d'images"
+            : normalizedAnswers.some((a) => a.answer)
+            ? "réponses textuelles"
+            : "code";
+          analysis =
+            evaluation?.evaluation ||
+            (finalScore >= 80
+              ? `Travail technique de qualité. Vous avez soumis ${submissionType} démontrant une bonne compréhension des concepts.`
+              : finalScore >= 60
+              ? `Travail présentant quelques points à améliorer. Votre ${submissionType} montre une compréhension globale mais peut être optimisé.`
+              : `Travail nécessitant des améliorations. Votre ${submissionType} sera évalué manuellement par le recruteur.`);
+
+          if (evaluation?.strengths?.length > 0) {
+            analysis += `\n\nPoints forts: ${evaluation.strengths.join(", ")}`;
+          }
+          if (evaluation?.suggestions) {
+            analysis += `\n\nSuggestions: ${evaluation.suggestions}`;
+          }
+        }
+      } else if (currentQuiz.type === QuizType.MOCK_INTERVIEW) {
+        const session = normalizedAnswers[0] || {};
+        const feedback = session.feedback || {};
+        if (typeof feedback.overallScore === "number") {
+          finalScore = feedback.overallScore;
+        }
+        if (feedback.evaluation) {
+          analysis = feedback.evaluation;
+        } else {
+          analysis = finalScore >= 70
+            ? "Excellent échange ! Vos réponses démontrent une forte adéquation avec le poste."
+            : finalScore >= 50
+            ? "Entretien correct mais des points peuvent être approfondis."
+            : "Nous recommandons de retravailler certaines réponses pour gagner en impact.";
+        }
+        if (feedback.strengths && feedback.strengths.length > 0) {
+          analysis += `\n\nPoints forts: ${feedback.strengths.join(", ")}`;
+        }
+        if (feedback.weaknesses && feedback.weaknesses.length > 0) {
+          analysis += `\n\nPoints à améliorer: ${feedback.weaknesses.join(", ")}`;
+        }
+        if (feedback.recommendations) {
+          analysis += `\n\nRecommandations: ${feedback.recommendations}`;
         }
       } else {
-        analysis = score >= 70 
-          ? "Excellent travail ! Vous avez démontré une maîtrise solide des concepts évalués."
-          : "Des progrès sont nécessaires dans certains domaines. Continuez à vous exercer.";
+        analysis =
+          score >= 70
+            ? "Excellent travail ! Vous avez démontré une maîtrise solide des concepts évalués."
+            : "Des progrès sont nécessaires dans certains domaines. Continuez à vous exercer.";
       }
 
       await submitJobQuizMutation.mutateAsync({
         jobQuizId: currentQuiz.id,
         userId: CURRENT_USER_ID,
-        answers: answers,
-        score: score,
+        answers: answersData,
+        score: finalScore,
         analysis: analysis,
-        duration: currentQuiz.duration * 60 - timeLeft
+        duration: recordedDuration ?? fallbackDuration,
+        videoUrl: videoUrl,
+        imageUrls: imageUrls,
       });
 
       toast.success("Test terminé avec succès !");
@@ -209,6 +353,7 @@ export default function TestsPage() {
   // Timer effect
   useEffect(() => {
     if (!isTestRunning || timeLeft <= 0) return;
+    if (currentQuiz?.type === QuizType.MOCK_INTERVIEW) return;
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -221,7 +366,7 @@ export default function TestsPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isTestRunning, timeLeft]);
+  }, [isTestRunning, timeLeft, currentQuiz?.type]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -464,114 +609,41 @@ export default function TestsPage() {
 
   // Autres composants de tests (MockInterview, SoftSkills, Technical)
   const MockInterviewTest = ({ quiz }: { quiz: any }) => {
-    const [recording, setRecording] = useState(false);
-    const [currentStep, setCurrentStep] = useState(0);
-
-    const interviewSteps = [
-      "Présentation personnelle",
-      "Expérience professionnelle", 
-      "Compétences techniques",
-      "Motivation pour le poste",
-      "Questions finales"
-    ];
-
-    const progress = ((currentStep + 1) / interviewSteps.length) * 100;
-
-    const startRecording = () => {
-      setRecording(true);
-      toast.info("Simulation d'entretien démarrée");
-    };
-
-    const nextStep = () => {
-      if (currentStep < interviewSteps.length - 1) {
-        setCurrentStep(prev => prev + 1);
-      } else {
-        submitTest(85, [{ type: "mock_interview", steps: interviewSteps.length }]);
-      }
-    };
-
-    const previousStep = () => {
-      if (currentStep > 0) {
-        setCurrentStep(prev => prev - 1);
-      }
-    };
+    const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
+    const formattedQuestions = questions.map((question: any, index: number) => ({
+      id: question.id || `mock-question-${index}`,
+      question: question.text || question.question || "",
+      expectedAnswer: question.correctAnswer || question.expectedAnswer || "",
+      evaluationCriteria: question.explanation || question.evaluationCriteria || "",
+    }));
 
     return (
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <div className="flex justify-between items-center text-sm font-medium">
-            <span className="text-emerald-700 dark:text-emerald-400">
-              Étape {currentStep + 1} sur {interviewSteps.length}
-            </span>
-            <span className="text-slate-600 dark:text-slate-400">
-              {Math.round(progress)}% complété
-            </span>
-          </div>
-          <Progress value={progress} className="h-2 bg-slate-200 dark:bg-slate-700" />
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-          <div className="mb-6">
-            <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-600 mb-4">
-              {interviewSteps[currentStep]}
-            </Badge>
-            
-            <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
-              <p className="font-medium mb-2 text-slate-900 dark:text-slate-100">Question :</p>
-              <p className="text-slate-700 dark:text-slate-300">
-                {currentStep === 0 && "Pouvez-vous vous présenter et nous parler de votre parcours ?"}
-                {currentStep === 1 && "Quelle est votre expérience la plus significative dans ce domaine ?"}
-                {currentStep === 2 && "Quelles sont vos compétences techniques les plus fortes ?"}
-                {currentStep === 3 && "Pourquoi souhaitez-vous rejoindre notre entreprise ?"}
-                {currentStep === 4 && "Avez-vous des questions pour nous ?"}
-              </p>
-            </div>
-          </div>
-
-          <div className="text-center py-4">
-            <Users className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
-            
-            {!recording ? (
-              <Button 
-                onClick={startRecording}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl transition-all"
-                size="lg"
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Commencer l'entretien
-              </Button>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400">
-                  <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
-                  <span className="font-medium">Enregistrement en cours...</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {recording && (
-          <div className="flex justify-between gap-3">
-            <Button
-              variant="outline"
-              onClick={previousStep}
-              disabled={currentStep === 0}
-              className="border-slate-300 dark:border-slate-600 disabled:opacity-50"
-            >
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Précédent
-            </Button>
-            <Button 
-              onClick={nextStep}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl transition-all"
-            >
-              {currentStep < interviewSteps.length - 1 ? "Question suivante" : "Terminer l'entretien"}
-              <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-        )}
-      </div>
+      <AIVocalInterview
+        interviewData={{
+          id: quiz.id,
+          title: quiz.title,
+          company: quiz.company || "",
+          domain: quiz.domain,
+          technologies: quiz.technology || [],
+          description: quiz.description || "",
+          duration: quiz.duration,
+          difficulty: quiz.difficulty,
+        }}
+        questions={formattedQuestions}
+        onComplete={(score, sessionData) => {
+          const payload = {
+            type: "mock_interview",
+            feedback: sessionData?.feedback || null,
+            transcription: sessionData?.transcription || [],
+            messages: sessionData?.messages || [],
+            callDuration: sessionData?.callDuration,
+            technologies: quiz.technology || [],
+            domain: quiz.domain,
+            questions: formattedQuestions,
+          };
+          submitTest(score ?? 0, payload);
+        }}
+      />
     );
   };
 
@@ -721,14 +793,23 @@ export default function TestsPage() {
   };
 
   const TechnicalTest = ({ quiz }: { quiz: any }) => {
-    const { theme } = useTheme();
-    const [code, setCode] = useState<Record<number, string>>({});
-    const [executionOutput, setExecutionOutput] = useState<Record<number, string>>({});
-    const [testResults, setTestResults] = useState<Record<number, any>>({});
-    const [isEvaluating, setIsEvaluating] = useState(false);
-    const [isRunning, setIsRunning] = useState(false);
-    const [evaluationProgress, setEvaluationProgress] = useState(0);
-    const [showConsole, setShowConsole] = useState<Record<number, boolean>>({});
+    const [videoUrl, setVideoUrl] = useState<string>("");
+    const [imageUrls, setImageUrls] = useState<string[]>([]);
+    const [submissionType, setSubmissionType] = useState<"video" | "images" | "text" | null>(null);
+    const [textAnswers, setTextAnswers] = useState<Record<number, string>>({});
+    const [currentAnswerDraft, setCurrentAnswerDraft] = useState<string>("");
+
+    // Déterminer si le domaine nécessite un éditeur de code (domaines techniques)
+    const isTechnicalDomain = (domain?: string): boolean => {
+      if (!domain) return false;
+      const technicalDomains = [
+        'DEVELOPMENT', 'WEB', 'MOBILE', 'DEVOPS', 'CYBERSECURITY',
+        'MACHINE_LEARNING', 'DATA_SCIENCE', 'ARCHITECTURE'
+      ];
+      return technicalDomains.includes(domain);
+    };
+
+    const requiresCodeEditor = isTechnicalDomain(quiz.domain);
 
     // Récupérer les questions du quiz
     const questions = quiz.questions && Array.isArray(quiz.questions) && quiz.questions.length > 0 
@@ -737,523 +818,613 @@ export default function TestsPage() {
     
     const currentQuestion = questions[currentQuestionIndex] || {};
     const questionProgress = ((currentQuestionIndex + 1) / questions.length) * 100;
-    
-    const problemStatement = currentQuestion.text || currentQuestion.question || 
-      "Écrivez une fonction qui inverse une chaîne de caractères.\n\nExemple :\nInput: 'hello'\nOutput: 'olleh'";
-    
-    const codeSnippet = currentQuestion.codeSnippet || "// Votre code ici\nfunction solution() {\n  // Implémentez votre solution\n  return null;\n}";
-    const correctAnswer = currentQuestion.correctAnswer || "";
-    const questionPoints = currentQuestion.points || Math.floor((currentQuiz?.totalPoints || 100) / questions.length);
+    const isLastQuestion = currentQuestionIndex === questions.length - 1;
 
-    // Initialiser le code avec le snippet fourni pour chaque question
-    useEffect(() => {
-      if (codeSnippet && !code[currentQuestionIndex]) {
-        setCode(prev => ({
-          ...prev,
-          [currentQuestionIndex]: codeSnippet
-        }));
-      }
-      // Réinitialiser l'output quand on change de question
-      setExecutionOutput(prev => ({
-        ...prev,
-        [currentQuestionIndex]: prev[currentQuestionIndex] || ""
-      }));
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentQuestionIndex, codeSnippet]);
+    // Fonction pour générer et télécharger le PDF
+    const generatePDF = () => {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
 
-    // Fonction pour exécuter le code JavaScript réellement
-    const executeCode = (userCode: string, questionIndex: number): string => {
-      let consoleOutput = "";
-      const originalConsoleLog = console.log;
-      const originalConsoleError = console.error;
-      const originalConsoleWarn = console.warn;
-      
-      // Capturer les sorties de console
-      const capturedLogs: string[] = [];
-      console.log = (...args: any[]) => {
-        capturedLogs.push(args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-        ).join(' '));
-        originalConsoleLog(...args);
+      // Adapter le titre selon le domaine
+      const domainLabels: Record<string, string> = {
+        'DEVELOPMENT': 'Développement',
+        'MACHINE_LEARNING': 'Machine Learning',
+        'DATA_SCIENCE': 'Data Science',
+        'FINANCE': 'Finance',
+        'BUSINESS': 'Business',
+        'ENGINEERING': 'Ingénierie',
+        'DESIGN': 'Design',
+        'DEVOPS': 'DevOps',
+        'CYBERSECURITY': 'Cybersécurité',
+        'MARKETING': 'Marketing',
+        'PRODUCT': 'Produit',
+        'ARCHITECTURE': 'Architecture',
+        'MOBILE': 'Mobile',
+        'WEB': 'Web',
+        'COMMUNICATION': 'Communication',
+        'MANAGEMENT': 'Management',
+        'EDUCATION': 'Éducation',
+        'HEALTH': 'Santé'
       };
       
-      console.error = (...args: any[]) => {
-        capturedLogs.push(`ERROR: ${args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-        ).join(' ')}`);
-        originalConsoleError(...args);
-      };
-      
-      console.warn = (...args: any[]) => {
-        capturedLogs.push(`WARN: ${args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-        ).join(' ')}`);
-        originalConsoleWarn(...args);
-      };
+      const domainLabel = domainLabels[quiz.domain || 'DEVELOPMENT'] || 'Technique';
 
-      try {
-        // Créer un contexte sécurisé pour l'exécution
-        const wrappedCode = `
-          (function() {
-            ${userCode}
-            // Si le code retourne une valeur, l'afficher
-            if (typeof solution !== 'undefined') {
-              try {
-                const result = solution();
-                if (result !== undefined) {
-                  console.log('Result:', result);
-                }
-              } catch(e) {
-                console.error('Runtime error:', e.message);
-              }
+      const pdfContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Test ${domainLabel} - ${quiz.title}</title>
+          <style>
+            @media print {
+              @page { margin: 2cm; }
+              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
             }
-          })();
-        `;
-        
-        // Exécuter le code
-        eval(wrappedCode);
-        
-        // Restaurer les fonctions console
-        console.log = originalConsoleLog;
-        console.error = originalConsoleError;
-        console.warn = originalConsoleWarn;
-        
-        // Formater la sortie en style bash
-        if (capturedLogs.length > 0) {
-          consoleOutput = `$ node solution.js\n${capturedLogs.map(log => `> ${log}`).join('\n')}\n$ `;
-        } else {
-          consoleOutput = `$ node solution.js\n> Code exécuté sans sortie\n$ `;
-        }
-        
-      } catch (error: any) {
-        // Restaurer les fonctions console
-        console.log = originalConsoleLog;
-        console.error = originalConsoleError;
-        console.warn = originalConsoleWarn;
-        
-        consoleOutput = `$ node solution.js\nERROR: ${error.message}\n${error.stack || ''}\n$ `;
-      }
-      
-      return consoleOutput;
-    };
-
-    // Évaluer le code avec l'IA Gemini de manière sémantique
-    const evaluateCodeSemantically = async (userCode: string, expectedSolution: string, problemDescription: string, questionIndex: number) => {
-      setIsEvaluating(true);
-      setEvaluationProgress(10);
-      
-      try {
-        // Simuler la progression d'évaluation
-        const progressInterval = setInterval(() => {
-          setEvaluationProgress(prev => {
-            if (prev >= 80) {
-              clearInterval(progressInterval);
-              return 80;
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+              line-height: 1.6;
+              color: #333;
             }
-            return prev + 15;
-          });
-        }, 300);
+            .header {
+              border-bottom: 3px solid #10b981;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              color: #10b981;
+              margin: 0;
+              font-size: 28px;
+            }
+            .header p {
+              color: #666;
+              margin: 5px 0;
+            }
+            .question {
+              margin-bottom: 40px;
+              padding: 20px;
+              background: #f9fafb;
+              border-left: 4px solid #10b981;
+              border-radius: 4px;
+            }
+            .question-number {
+              font-weight: bold;
+              color: #10b981;
+              font-size: 18px;
+              margin-bottom: 10px;
+            }
+            .question-title {
+              font-size: 20px;
+              font-weight: 600;
+              margin-bottom: 15px;
+              color: #1f2937;
+            }
+            .question-text {
+              color: #4b5563;
+              margin-bottom: 15px;
+              white-space: pre-wrap;
+            }
+            .question-points {
+              display: inline-block;
+              background: #10b981;
+              color: white;
+              padding: 4px 12px;
+              border-radius: 12px;
+              font-size: 12px;
+              font-weight: 600;
+              margin-bottom: 15px;
+            }
+            .code-snippet {
+              background: #1f2937;
+              color: #e5e7eb;
+              padding: 15px;
+              border-radius: 6px;
+              font-family: 'Courier New', monospace;
+              font-size: 14px;
+              overflow-x: auto;
+              margin: 15px 0;
+            }
+            .examples {
+              margin-top: 20px;
+              padding: 15px;
+              background: #eff6ff;
+              border-radius: 6px;
+            }
+            .examples h4 {
+              margin-top: 0;
+              color: #1e40af;
+            }
+            .example-item {
+              margin: 10px 0;
+              padding: 10px;
+              background: white;
+              border-radius: 4px;
+            }
+            .footer {
+              margin-top: 40px;
+              padding-top: 20px;
+              border-top: 2px solid #e5e7eb;
+              text-align: center;
+              color: #6b7280;
+              font-size: 12px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${quiz.title}</h1>
+            <p><strong>Domaine:</strong> ${domainLabel}</p>
+            <p><strong>Entreprise:</strong> ${quiz.company || 'Non spécifiée'}</p>
+            <p><strong>Durée:</strong> ${quiz.duration} minutes</p>
+            <p><strong>Difficulté:</strong> ${quiz.difficulty || 'Non spécifiée'}</p>
+            <p><strong>Technologies:</strong> ${(quiz.technology || []).join(', ') || 'Non spécifiées'}</p>
+            ${quiz.description ? `<p><strong>Description:</strong> ${quiz.description}</p>` : ''}
+          </div>
 
-        // Appeler l'API Gemini pour évaluer le code avec évaluation sémantique et best practices
-        const response = await fetch('/api/gemini', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            type: 'evaluate-code',
-            userCode: userCode,
-            expectedSolution: expectedSolution,
-            problemDescription: problemDescription,
-            codeSnippet: currentQuestion.codeSnippet || ''
-          })
-        });
+          ${questions.map((q: any, index: number) => `
+            <div class="question">
+              <div class="question-number">Question ${index + 1} / ${questions.length}</div>
+              <div class="question-points">${q.points || 0} point${(q.points || 0) > 1 ? 's' : ''}</div>
+              ${q.title ? `<div class="question-title">${q.title}</div>` : ''}
+              <div class="question-text">${(q.text || q.question || '').replace(/\n/g, '<br>')}</div>
+              ${q.codeSnippet && q.codeSnippet.trim() !== '' ? `<div class="code-snippet">${q.codeSnippet.replace(/\n/g, '<br>')}</div>` : ''}
+              ${q.examples && Array.isArray(q.examples) && q.examples.length > 0 ? `
+                <div class="examples">
+                  <h4>Exemples / Cas d'usage:</h4>
+                  ${q.examples.map((ex: any) => `
+                    <div class="example-item">
+                      ${ex.input ? `<strong>Contexte:</strong> ${ex.input}<br>` : ''}
+                      ${ex.output ? `<strong>Résultat attendu:</strong> ${ex.output}` : ''}
+                      ${!ex.input && !ex.output ? `<strong>Exemple:</strong> ${JSON.stringify(ex)}` : ''}
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+          `).join('')}
 
-        clearInterval(progressInterval);
-        setEvaluationProgress(90);
+          <div class="footer">
+            <p>Généré le ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p>PrepWise - Plateforme de préparation aux entretiens techniques</p>
+          </div>
+        </body>
+        </html>
+      `;
 
-        if (!response.ok) {
-          throw new Error('Erreur lors de l\'évaluation du code');
-        }
-
-        const result = await response.json();
-        setEvaluationProgress(95);
-
-        // Parser la réponse JSON
-        let evaluationResult;
-        try {
-          const jsonText = result.text?.trim() || JSON.stringify(result);
-          const jsonMatch = jsonText.match(/```json\s*([\s\S]*?)\s*```/) || jsonText.match(/```\s*([\s\S]*?)\s*```/);
-          const cleanJson = jsonMatch ? jsonMatch[1].trim() : jsonText;
-          evaluationResult = JSON.parse(cleanJson);
-        } catch (parseError) {
-          // Fallback si le parsing échoue
-          console.error("Erreur parsing réponse:", parseError);
-          evaluationResult = {
-            score: userCode.includes("function") && userCode.includes("return") ? 70 : 40,
-            isCorrect: false,
-            evaluation: "Évaluation automatique de base effectuée",
-            strengths: [],
-            weaknesses: ["Impossible d'analyser le code en profondeur"],
-            testResults: "Tests basiques seulement",
-            suggestions: "Vérifiez la syntaxe et la logique de votre code"
-          };
-        }
-
-        setEvaluationProgress(100);
-        
-        // Formater la sortie pour l'affichage avec best practices
-        const formattedOutput = `🔧 Évaluation sémantique du code en cours...
-✅ Analyse terminée
-
-📊 SCORE: ${evaluationResult.score}/100
-${evaluationResult.isCorrect ? '✅' : '❌'} ${evaluationResult.isCorrect ? 'Solution correcte' : 'Solution à améliorer'}
-${evaluationResult.solvesProblem !== undefined ? (evaluationResult.solvesProblem ? '✅ Problème résolu' : '⚠️ Problème partiellement résolu') : ''}
-${evaluationResult.workDone !== undefined ? (evaluationResult.workDone ? '✅ Travail effectué' : '⚠️ Travail incomplet') : ''}
-
-📝 ÉVALUATION:
-${evaluationResult.evaluation}
-
-💪 POINTS FORTS:
-${evaluationResult.strengths?.map((s: string) => `  • ${s}`).join('\n') || '  Aucun point fort identifié'}
-
-⚠️ POINTS À AMÉLIORER:
-${evaluationResult.weaknesses?.map((w: string) => `  • ${w}`).join('\n') || '  Aucun point faible majeur'}
-
-🎯 BEST PRACTICES:
-${evaluationResult.bestPractices?.followed?.length > 0 ? `  ✅ Suivies:\n${evaluationResult.bestPractices.followed.map((bp: string) => `    • ${bp}`).join('\n')}` : '  Aucune bonne pratique suivie identifiée'}
-${evaluationResult.bestPractices?.missing?.length > 0 ? `\n  ⚠️ Manquantes:\n${evaluationResult.bestPractices.missing.map((bp: string) => `    • ${bp}`).join('\n')}` : ''}
-${evaluationResult.bestPractices?.review ? `\n  📋 Review:\n  ${evaluationResult.bestPractices.review}` : ''}
-
-🧪 RÉSULTATS DES TESTS:
-${evaluationResult.testResults || 'Tests non disponibles'}
-
-💡 SUGGESTIONS:
-${evaluationResult.suggestions || 'Continuez à pratiquer pour améliorer votre code'}
-
-${evaluationResult.workQuality ? `\n📈 QUALITÉ DU TRAVAIL:\n${evaluationResult.workQuality}` : ''}`;
-
-        setTestResults(prev => ({
-          ...prev,
-          [questionIndex]: evaluationResult
-        }));
-        
-        setIsEvaluating(false);
-        setEvaluationProgress(0);
-
-        return evaluationResult;
-      } catch (error: any) {
-        console.error("Erreur évaluation code:", error);
-        setIsEvaluating(false);
-        setEvaluationProgress(0);
-        return {
-          score: 50,
-          isCorrect: false,
-          evaluation: "Évaluation automatique de base"
-        };
-      }
+      printWindow.document.write(pdfContent);
+      printWindow.document.close();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
     };
 
-    const runCode = () => {
-      const currentCode = code[currentQuestionIndex] || "";
-      if (!currentCode.trim()) {
-        toast.warning("Veuillez écrire du code avant de le tester");
-        return;
-      }
-      
-      setIsRunning(true);
-      setShowConsole(prev => ({ ...prev, [currentQuestionIndex]: true }));
-      
-      // Exécuter le code réellement
-      const output = executeCode(currentCode, currentQuestionIndex);
-      
-      setExecutionOutput(prev => ({
-        ...prev,
-        [currentQuestionIndex]: output
-      }));
-      
-      setIsRunning(false);
-    };
-
+    // Navigation entre les questions
     const handleNextQuestion = () => {
+      if (!requiresCodeEditor) {
+        setTextAnswers(prev => ({ ...prev, [currentQuestionIndex]: currentAnswerDraft }));
+      }
       if (currentQuestionIndex < questions.length - 1) {
         setCurrentQuestionIndex(prev => prev + 1);
+        // Scroll vers le haut de la page
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     };
 
     const handlePreviousQuestion = () => {
+      if (!requiresCodeEditor) {
+        setTextAnswers(prev => ({ ...prev, [currentQuestionIndex]: currentAnswerDraft }));
+      }
       if (currentQuestionIndex > 0) {
         setCurrentQuestionIndex(prev => prev - 1);
+        // Scroll vers le haut de la page
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     };
 
-    const submitCode = async () => {
-      // Vérifier que toutes les questions ont du code
-      const unansweredQuestions: number[] = [];
-      for (let i = 0; i < questions.length; i++) {
-        const qCode = code[i] || "";
-        if (!qCode.trim()) {
-          unansweredQuestions.push(i + 1);
+    // Gestion de l'upload vidéo avec Uploadcare
+    const handleVideoUpload = () => {
+      setSubmissionType("video");
+      setIsVideoDialogOpen(true);
+    };
+
+    const handleVideoUploadComplete = (info: any) => {
+      if (info && info.cdnUrl) {
+        setVideoUrl(info.cdnUrl);
+        setSubmissionType("video");
+        toast.success("Vidéo téléversée avec succès");
+      }
+      setIsVideoDialogOpen(false);
+    };
+
+    // Gestion de l'upload d'images avec Uploadcare
+    const handleImagesUpload = () => {
+      setSubmissionType("images");
+      setIsImageDialogOpen(true);
+    };
+
+    const handleImagesUploadComplete = (info: any) => {
+      if (info && info.cdnUrl) {
+        setImageUrls(prev => {
+          const next = [...prev, info.cdnUrl];
+          toast.success(`Image ${next.length} téléversée avec succès`);
+          return next;
+        });
+        setSubmissionType("images");
+      }
+      setIsImageDialogOpen(false);
+    };
+
+    const removeImage = (index: number) => {
+      setImageUrls(prev => {
+        const next = prev.filter((_, i) => i !== index);
+        if (next.length === 0 && !videoUrl) {
+          setSubmissionType(null);
+        }
+        return next;
+      });
+    };
+
+    const combinedAnswersToValidate = requiresCodeEditor
+      ? textAnswers
+      : { ...textAnswers, [currentQuestionIndex]: currentAnswerDraft };
+    const hasTextAnswer = Object.values(combinedAnswersToValidate).some(answer => answer && answer.trim().length > 0);
+
+    const handleSubmit = async () => {
+      // Pour les domaines non-techniques, le texte est obligatoire, vidéo/image optionnel
+      // Pour les domaines techniques, vidéo/image est obligatoire
+      if (requiresCodeEditor) {
+        if (!videoUrl && imageUrls.length === 0) {
+          toast.warning("Veuillez téléverser une vidéo ou des images comme preuve de votre travail");
+          return;
+        }
+      } else {
+        // Vérifier qu'au moins une réponse textuelle est fournie
+        if (!hasTextAnswer && !videoUrl && imageUrls.length === 0) {
+          toast.warning("Veuillez fournir vos réponses dans le champ texte ou téléverser une vidéo/images");
+          return;
         }
       }
-      
-      if (unansweredQuestions.length > 0) {
-        toast.warning(`Veuillez compléter toutes les questions. Questions manquantes: ${unansweredQuestions.join(', ')}`);
-        return;
-      }
 
-      setIsEvaluating(true);
-      setEvaluationProgress(0);
-      
-      // Évaluer toutes les questions avant de soumettre
-      const allAnswers: any[] = [];
-      let totalScore = 0;
-      
-      for (let i = 0; i < questions.length; i++) {
-        const qCode = code[i] || "";
-        const q = questions[i];
-        
-        setEvaluationProgress(Math.round((i / questions.length) * 100));
-        
-        const evaluation = await evaluateCodeSemantically(
-          qCode, 
-          q.correctAnswer || "", 
-          q.text || q.question || "", 
-          i
-        );
-        
-        const qPoints = q.points || Math.floor((currentQuiz?.totalPoints || 100) / questions.length);
-        const qScore = evaluation?.score || (qCode.includes("function") && qCode.includes("return") ? 60 : 40);
-        
-        allAnswers.push({
-          code: qCode,
-          output: executionOutput[i] || "",
-          type: "technical_code",
-          evaluation: evaluation,
-          questionId: q.id || i,
-          points: qPoints,
-          score: qScore
-        });
-        
-        totalScore += (qScore * qPoints) / 100;
-      }
-      
-      setEvaluationProgress(100);
-      
-      // Calculer le score final basé sur les points
-      const totalPossiblePoints = questions.reduce((sum: number, q: any) => sum + (q.points || Math.floor((currentQuiz?.totalPoints || 100) / questions.length)), 0);
-      const finalScore = totalPossiblePoints > 0 ? Math.round((totalScore / totalPossiblePoints) * 100) : 0;
-      
-      setIsEvaluating(false);
-      
-      // Soumettre avec les détails de toutes les évaluations
-      submitTest(finalScore, allAnswers);
+      // Créer les réponses avec la vidéo, les images ou le texte
+      const allAnswers = questions.map((q: any, index: number) => ({
+        questionId: q.id || index,
+        questionText: q.text || q.question || q.title,
+        type: videoUrl ? "technical_video" : imageUrls.length > 0 ? "technical_images" : "technical_text",
+        answer: combinedAnswersToValidate[index] || null, // Réponse textuelle
+        videoUrl: videoUrl || null,
+        imageUrls: imageUrls.length > 0 ? imageUrls : null,
+        points: q.points || Math.floor((currentQuiz?.totalPoints || 100) / questions.length)
+      }));
+
+      // Soumettre avec un score par défaut (sera évalué par l'IA)
+      // Passer videoUrl et imageUrls séparément pour le schema
+      submitTest(0, allAnswers, videoUrl || null, imageUrls.length > 0 ? imageUrls : null);
     };
 
-    const currentCode = code[currentQuestionIndex] || codeSnippet;
-    const currentExecutionOutput = executionOutput[currentQuestionIndex] || "";
-    const isConsoleVisible = showConsole[currentQuestionIndex] || false;
-    const isDarkMode = theme === "dark";
+    useEffect(() => {
+      if (!requiresCodeEditor) {
+        const savedAnswer = textAnswers[currentQuestionIndex] || "";
+        setCurrentAnswerDraft(savedAnswer);
+      } else {
+        setCurrentAnswerDraft("");
+      }
+    }, [currentQuestionIndex, requiresCodeEditor, quiz.id]);
 
-    // Vérifier si toutes les questions sont complétées
-    const allQuestionsAnswered = questions.every((_q: any, idx: number) => {
-      const qCode = code[idx] || "";
-      return qCode.trim().length > 0;
-    });
+    const handleTextAnswerChange = (value: string) => {
+      setCurrentAnswerDraft(value);
+      setTextAnswers(prev => ({ ...prev, [currentQuestionIndex]: value }));
+    };
+
+    useEffect(() => {
+      setTextAnswers({});
+      setCurrentAnswerDraft("");
+      setVideoUrl("");
+      setImageUrls([]);
+      setSubmissionType(null);
+      setIsVideoDialogOpen(false);
+      setIsImageDialogOpen(false);
+    }, [quiz?.id]);
 
     return (
-      <div className="fixed inset-0 flex flex-col bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-emerald-50 to-slate-100">
-        {/* Header minimaliste LeetCode style */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handlePreviousQuestion}
-                disabled={currentQuestionIndex === 0}
-                className="h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-700"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 min-w-[100px] text-center">
-                {currentQuestionIndex + 1} / {questions.length}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleNextQuestion}
-                disabled={currentQuestionIndex === questions.length - 1}
-                className="h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-700"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="h-6 w-px bg-slate-300 dark:bg-slate-600"></div>
-            <Badge variant="outline" className="text-xs font-medium border-slate-300 dark:border-slate-600">
-              {questionPoints} pts
-            </Badge>
-            <Badge 
-              variant="outline" 
-              className={cn(
-                "text-xs font-medium capitalize",
-                quiz.difficulty === "EASY" || quiz.difficulty === "JUNIOR" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-300 dark:border-emerald-600" :
-                quiz.difficulty === "MEDIUM" || quiz.difficulty === "MID" ? "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-300 dark:border-orange-600" :
-                "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-300 dark:border-red-600"
-              )}
-            >
-              {quiz.difficulty?.toLowerCase() || "medium"}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button 
-              onClick={runCode} 
-              variant="outline" 
-              size="sm"
-              className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 font-medium"
-              disabled={isRunning || !currentCode.trim()}
-            >
-              {isRunning ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Exécution...
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Run
-                </>
-              )}
-            </Button>
-            <Button 
-              onClick={submitCode} 
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm"
-              size="sm"
-              disabled={isEvaluating || !allQuestionsAnswered}
-            >
-              {isEvaluating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Soumission...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Submit
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Layout LeetCode style - 2 colonnes plein écran */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Colonne gauche - Énoncé avec typographie LeetCode */}
-          <div className="w-1/2 border-r border-slate-200 dark:border-slate-700 overflow-y-auto bg-white dark:bg-slate-900">
-            <div className="p-8 max-w-3xl">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">
-                {currentQuestion.title || `Question ${currentQuestionIndex + 1}`}
-              </h2>
-              
-              <div className="prose prose-slate dark:prose-invert max-w-none">
-                <div className="text-[15px] leading-7 text-slate-700 dark:text-slate-300 font-normal whitespace-pre-wrap">
-                  {problemStatement}
-                </div>
+      <div className="min-h-screen overflow-y-auto bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-emerald-50 to-slate-100 p-4 sm:p-6">
+        <div className="max-w-4xl mx-auto space-y-6 pb-20">
+          {/* Header */}
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg p-6 sticky top-0 z-10 backdrop-blur-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                  {quiz.title}
+                </h1>
+                <p className="text-slate-600 dark:text-slate-400">
+                  {quiz.description || `${questions.length} question(s) technique(s)`}
+                </p>
               </div>
+            <div className="flex items-center gap-2">
+                <Badge variant="outline" className="capitalize">
+                  {quiz.difficulty?.toLowerCase() || "medium"}
+                </Badge>
+                <Badge variant="outline">
+                  {quiz.duration} min
+                </Badge>
+              </div>
+            </div>
+            <Progress value={questionProgress} className="h-2" />
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+              Question {currentQuestionIndex + 1} sur {questions.length}
+            </p>
+          </div>
 
-              {/* Exemples si disponibles */}
-              {currentQuestion.examples && (
-                <div className="mt-8 space-y-4">
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Exemples :</h3>
-                  {Array.isArray(currentQuestion.examples) && currentQuestion.examples.map((example: any, idx: number) => (
-                    <div key={idx} className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
-                      <div className="font-mono text-sm">
-                        <div className="text-slate-600 dark:text-slate-400 mb-2">Input: {example.input}</div>
-                        <div className="text-slate-900 dark:text-white">Output: {example.output}</div>
-                      </div>
+          {/* Question actuelle */}
+          <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl">
+                  Question {currentQuestionIndex + 1}
+                </CardTitle>
+                <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                  {currentQuestion.points || 0} point{currentQuestion.points !== 1 ? 's' : ''}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {currentQuestion.title && (
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                  {currentQuestion.title}
+                </h3>
+              )}
+              <div className="prose dark:prose-invert max-w-none">
+                <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                  {currentQuestion.text || currentQuestion.question}
+                </p>
+              </div>
+              {/* Afficher codeSnippet seulement s'il existe et n'est pas vide */}
+              {currentQuestion.codeSnippet && currentQuestion.codeSnippet.trim() !== '' && (
+                <div className="bg-slate-900 dark:bg-slate-950 p-4 rounded-lg border border-slate-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Code className="h-4 w-4 text-emerald-400" />
+                    <span className="text-xs text-emerald-400 font-medium">Contexte / Template fourni</span>
+                  </div>
+                  <pre className="text-emerald-400 font-mono text-sm overflow-x-auto">
+                    <code>{currentQuestion.codeSnippet}</code>
+                  </pre>
+                </div>
+              )}
+              {currentQuestion.examples && Array.isArray(currentQuestion.examples) && currentQuestion.examples.length > 0 && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Exemples / Cas d'usage:</h4>
+                  {currentQuestion.examples.map((example: any, exIdx: number) => (
+                    <div key={exIdx} className="mb-2 text-sm">
+                      {example.input && (
+                        <>
+                          <span className="font-medium text-blue-800 dark:text-blue-200">Contexte:</span> {example.input}<br />
+                        </>
+                      )}
+                      {example.output && (
+                        <>
+                          <span className="font-medium text-blue-800 dark:text-blue-200">Résultat attendu:</span> {example.output}
+                        </>
+                      )}
+                      {!example.input && !example.output && (
+                        <span className="text-blue-700 dark:text-blue-300">{JSON.stringify(example)}</span>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
+
+              {/* Zone de réponse textuelle pour domaines non-techniques - affichée sous chaque question */}
+              {!requiresCodeEditor && (
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Votre réponse
+                  </Label>
+                  <Textarea
+                    value={currentAnswerDraft}
+                    onChange={(e) => handleTextAnswerChange(e.target.value)}
+                    placeholder={`Rédigez votre réponse pour cette question...`}
+                    className="min-h-[150px] resize-y bg-white dark:bg-slate-900"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Vous pouvez également téléverser une vidéo ou des images en complément à la fin du test (optionnel).
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Navigation entre questions */}
+          <div className="flex justify-between items-center gap-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+              <Button
+              variant="outline"
+                onClick={handlePreviousQuestion}
+                disabled={currentQuestionIndex === 0}
+              className="flex items-center gap-2"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              Précédent
+              </Button>
+            <div className="text-sm text-slate-600 dark:text-slate-400">
+                {currentQuestionIndex + 1} / {questions.length}
             </div>
+            {!isLastQuestion ? (
+              <Button
+                onClick={handleNextQuestion}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2"
+              >
+                Suivant
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            ) : (
+            <Button 
+                onClick={generatePDF}
+              variant="outline" 
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Télécharger PDF
+              </Button>
+            )}
           </div>
 
-          {/* Colonne droite - Éditeur avec console */}
-          <div className="w-1/2 flex flex-col bg-slate-50 dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800">
-            {/* Éditeur de code scrollable avec Monaco */}
-            <div className="flex-1 relative min-h-0">
-              <div className="absolute inset-0">
-                <MonacoEditor
-                  value={currentCode}
-                  language="javascript"
-                  theme={isDarkMode ? "dark" : "light"}
-                  height="100%"
-                  onChange={(value) => setCode(prev => ({
-                    ...prev,
-                    [currentQuestionIndex]: value
-                  }))}
-                  fontSize={14}
-                  lineNumbers="on"
-                  minimap={true}
-                  placeholder="// Votre code ici..."
-                />
-              </div>
-            </div>
-            
-            {/* Console bash visible */}
-            <div className={cn(
-              "border-t border-slate-300 dark:border-slate-700 bg-slate-900 dark:bg-black transition-all duration-300",
-              isConsoleVisible ? "h-64" : "h-0 overflow-hidden"
-            )}>
-              <div className="h-full flex flex-col">
-                {/* Header console */}
-                <div className="flex items-center justify-between px-4 py-2 bg-slate-800 dark:bg-slate-950 border-b border-slate-700">
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                      <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                      <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                    </div>
-                    <span className="text-xs font-mono text-slate-400 ml-2">bash</span>
+          {/* Section de soumission - seulement sur la dernière question */}
+          {isLastQuestion && (
+            <div className="space-y-6">
+              {/* Choix du type de soumission - Layout fixe pour éviter le tremblement */}
+              <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    {requiresCodeEditor ? "Soumettre votre travail" : "Preuves supplémentaires (optionnel)"}
+                  </CardTitle>
+                  <CardDescription>
+                    {requiresCodeEditor ? (
+                      quiz.domain === 'DESIGN' || quiz.domain === 'MARKETING' || quiz.domain === 'COMMUNICATION' 
+                        ? "Téléversez une vidéo ou un catalogue d'images présentant votre travail/projet"
+                        : quiz.domain === 'DATA_SCIENCE' || quiz.domain === 'MACHINE_LEARNING' || quiz.domain === 'FINANCE' || quiz.domain === 'BUSINESS'
+                        ? "Téléversez une vidéo ou un catalogue d'images présentant vos analyses, résultats ou tableaux de bord"
+                        : quiz.domain === 'ENGINEERING' || quiz.domain === 'ARCHITECTURE'
+                        ? "Téléversez une vidéo ou un catalogue d'images présentant vos calculs, schémas ou documentation"
+                        : "Téléversez une vidéo ou un catalogue d'images comme preuve de votre travail"
+                    ) : (
+                      "Vous pouvez téléverser une vidéo ou un catalogue d'images en complément de vos réponses textuelles (optionnel)"
+                    )}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Button
+                      onClick={handleVideoUpload}
+                      variant={submissionType === "video" ? "default" : "outline"}
+                      className={cn(
+                        "h-auto py-4 flex flex-col items-center gap-2 transition-all",
+                        submissionType === "video" && "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      )}
+                    >
+                      <Video className="h-6 w-6" />
+                      <span>Vidéo</span>
+                    </Button>
+                    <Button
+                      onClick={handleImagesUpload}
+                      variant={submissionType === "images" ? "default" : "outline"}
+                      className={cn(
+                        "h-auto py-4 flex flex-col items-center gap-2 transition-all",
+                        submissionType === "images" && "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      )}
+                    >
+                      <FileText className="h-6 w-6" />
+                      <span>Catalogue d'images</span>
+                    </Button>
                   </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Après sélection, vos fichiers seront listés ci-dessous pour vérification avant envoi.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Container fixe pour éviter le layout shift */}
+              <div className="min-h-[200px]">
+                {/* Aperçu vidéo */}
+                {videoUrl && (
+                  <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 mb-6">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                          <Video className="h-5 w-5" />
+                          Vidéo téléversée
+                        </CardTitle>
+                        <Button
+                          onClick={() => {
+                            setVideoUrl("");
+                            setSubmissionType(null);
+                          }}
+                          variant="ghost"
+                          size="sm"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                        <video
+                          src={videoUrl}
+                          controls
+                          className="w-full rounded-lg max-h-96"
+                        >
+                          Votre navigateur ne supporte pas la lecture de vidéos.
+                        </video>
+                    </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Aperçu images */}
+                {imageUrls.length > 0 && (
+                  <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 mb-6">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                          <FileText className="h-5 w-5" />
+                          Images téléversées ({imageUrls.length})
+                        </CardTitle>
+                        <Button
+                          onClick={handleImagesUpload}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          Ajouter
+                        </Button>
+              </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        {imageUrls.map((url, index) => (
+                          <div key={index} className="relative group">
+                            <img
+                              src={url}
+                              alt={`Preuve ${index + 1}`}
+                              className="w-full h-32 object-cover rounded-lg border border-slate-200 dark:border-slate-700"
+                            />
                   <Button
-                    variant="ghost"
+                              onClick={() => removeImage(index)}
+                              variant="destructive"
                     size="sm"
-                    onClick={() => setShowConsole(prev => ({ ...prev, [currentQuestionIndex]: false }))}
-                    className="h-6 px-2 text-xs text-slate-400 hover:text-slate-200"
+                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <X className="h-3 w-3" />
                   </Button>
                 </div>
-                
-                {/* Console output */}
-                <div className="flex-1 overflow-y-auto p-4">
-                  <pre className="text-emerald-400 font-mono text-sm leading-relaxed whitespace-pre-wrap">
-                    {currentExecutionOutput || "$ node solution.js\n$ "}
-                  </pre>
-                  {isRunning && (
-                    <span className="inline-block w-2 h-4 bg-emerald-400 ml-1 animate-pulse"></span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
         </div>
 
-        {/* Indicateur de progression d'évaluation */}
-        {isEvaluating && (
-          <div className="px-6 py-3 bg-blue-50 dark:bg-blue-900/20 border-t border-blue-200 dark:border-blue-800">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-blue-900 dark:text-blue-300">
-                Évaluation en cours...
-              </span>
-              <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                {evaluationProgress}%
-              </span>
+              {/* Bouton de soumission - Sticky en bas */}
+              <div className="sticky bottom-0 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg -mx-4 sm:-mx-6">
+                <div className="flex justify-end gap-3">
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={
+                      requiresCodeEditor 
+                        ? (!videoUrl && imageUrls.length === 0)
+                        : (!hasTextAnswer && !videoUrl && imageUrls.length === 0)
+                    }
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    size="lg"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Soumettre le test
+                  </Button>
             </div>
-            <Progress value={evaluationProgress} className="h-1.5" />
+              </div>
           </div>
         )}
+        </div>
       </div>
     );
   };
@@ -1293,10 +1464,10 @@ ${evaluationResult.workQuality ? `\n📈 QUALITÉ DU TRAVAIL:\n${evaluationResul
     // Layout spécial pour TECHNICAL (plein écran LeetCode style)
     if (currentQuiz.type === QuizType.TECHNICAL) {
       return (
-        <div className="fixed inset-0 bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-emerald-50 to-slate-100 z-50">
+        <div className="fixed inset-0 bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-emerald-50 to-slate-100 z-50 overflow-hidden">
           <div className="h-full flex flex-col">
             {/* Header avec navigation */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm flex-shrink-0">
               <div className="flex items-center gap-4">
                 <Button 
                   variant="ghost" 
@@ -1328,13 +1499,17 @@ ${evaluationResult.workQuality ? `\n📈 QUALITÉ DU TRAVAIL:\n${evaluationResul
               </div>
             </div>
             
-            {/* Contenu du test */}
-            <div className="flex-1 overflow-hidden">
+            {/* Contenu du test - scrollable */}
+            <div className="flex-1 overflow-y-auto">
               {getTestComponent()}
             </div>
           </div>
         </div>
       );
+    }
+
+    if (currentQuiz.type === QuizType.MOCK_INTERVIEW) {
+      return getTestComponent();
     }
 
     // Layout normal pour les autres types de tests

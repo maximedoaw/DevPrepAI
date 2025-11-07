@@ -10,12 +10,16 @@ import { quizSaveAnswer } from "@/actions/interview.action"
 import { validateInterviewAnswers, calculateTotalScore } from "@/lib/interview-validation"
 import { formatTimeDetailed, getTimeDisplayProps } from "@/lib/time-utils"
 import AIVocalInterview from "@/components/interviews/vocal-interview"
-import { CodeEditor } from "@/components/interviews/code-editor"
+import { MonacoEditor } from "@/components/ui/monaco-editor"
+import { executeCodeWithPiston, formatExecutionOutput, detectLanguage } from "@/lib/piston-runtime"
+import { useTheme } from "next-themes"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, Clock, ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowLeft, Clock, ChevronLeft, ChevronRight, Play, Loader2, X } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 interface Question {
   id: string
@@ -75,9 +79,13 @@ export function InterviewContent({
   isSaving,
   saveError,
 }: InterviewContentProps) {
+  const { theme } = useTheme()
   const [saving, setSaving] = useState(false)
   const [saveErr, setSaveErr] = useState<Error | null>(null)
   const hasSavedRef = useRef(false)
+  const [executionOutput, setExecutionOutput] = useState<string>("")
+  const [isExecutingCode, setIsExecutingCode] = useState(false)
+  const [showConsole, setShowConsole] = useState(false)
 
   // Fonction pour déterminer le domaine de l'interview
   const getInterviewDomain = (interview: Interview): string => {
@@ -206,6 +214,13 @@ export function InterviewContent({
 
   // Interface spécifique pour MOCK_INTERVIEW (vocal)
   if (interview.type === "MOCK_INTERVIEW") {
+    const mockQuestions = (interview.questions || []).map((question: any, index: number) => ({
+      id: question.id || `mock-question-${index}`,
+      question: question.text || question.question || "",
+      expectedAnswer: question.correctAnswer || question.expectedAnswer || "",
+      evaluationCriteria: question.explanation || question.evaluationCriteria || "",
+    }))
+
     return (
       <div className="min-h-screen bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100">
         <div className="max-w-7xl mx-auto px-6 py-8">
@@ -220,6 +235,7 @@ export function InterviewContent({
               duration: interview.duration,
               difficulty: interview.difficulty
             }}
+            questions={mockQuestions}
             onComplete={(score: number, answers: Record<string, any>) => {
               // Sauvegarder les résultats de l'interview vocal
               const payload = {
@@ -406,16 +422,90 @@ export function InterviewContent({
               </div>
             </div>
 
-            {/* Colonne droite - Éditeur */}
-            <div className="w-1/2 flex flex-col bg-slate-900">
-              <div className="flex-1 relative">
-                <CodeEditor
-                  value={answers[currentQuestion.id] || currentQuestion.codeTemplate || ''}
-                  onChange={(value) => onAnswerChange(currentQuestion.id, value)}
-                  language={interview.technology?.[0]?.toLowerCase() || 'javascript'}
-                  theme="dark"
-                />
+            {/* Colonne droite - Éditeur avec Monaco et Console */}
+            <div className="w-1/2 flex flex-col bg-slate-50 dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800">
+              {/* Éditeur Monaco */}
+              <div className="flex-1 relative min-h-0">
+                <div className="absolute inset-0">
+                  <MonacoEditor
+                    value={answers[currentQuestion.id] || currentQuestion.codeTemplate || ''}
+                    onChange={(value) => onAnswerChange(currentQuestion.id, value)}
+                    language={detectLanguage(answers[currentQuestion.id] || currentQuestion.codeTemplate || '', interview.technology?.[0]?.toLowerCase() || 'javascript') as any}
+                    theme="dark"
+                    height="100%"
+                    fontSize={14}
+                    lineNumbers="on"
+                    minimap={true}
+                  />
+                </div>
               </div>
+              
+              {/* Header avec bouton Run */}
+              <div className="px-4 py-2 border-t border-slate-300 dark:border-slate-700 bg-slate-800 dark:bg-slate-950 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                  </div>
+                  <span className="text-xs font-mono text-slate-400 ml-2">terminal</span>
+                </div>
+                <Button
+                  onClick={async () => {
+                    const currentCode = answers[currentQuestion.id] || currentQuestion.codeTemplate || ''
+                    if (!currentCode.trim()) {
+                      toast.warning("Veuillez écrire du code avant de le tester")
+                      return
+                    }
+                    
+                    setIsExecutingCode(true)
+                    setShowConsole(true)
+                    
+                    try {
+                      const detectedLang = detectLanguage(currentCode, interview.technology?.[0]?.toLowerCase() || 'javascript')
+                      const result = await executeCodeWithPiston(currentCode, detectedLang)
+                      const formatted = formatExecutionOutput(result)
+                      setExecutionOutput(formatted)
+                    } catch (error: any) {
+                      console.error("Erreur exécution Piston:", error)
+                      setExecutionOutput(`$ ERROR\nErreur lors de l'exécution: ${error.message}\n$ `)
+                      toast.error("Erreur lors de l'exécution du code")
+                    } finally {
+                      setIsExecutingCode(false)
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-600 hover:bg-slate-700 text-slate-200"
+                  disabled={isExecutingCode || !answers[currentQuestion.id]?.trim()}
+                >
+                  {isExecutingCode ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Exécution...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Run
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              {/* Console */}
+              {showConsole && (
+                <div className="h-64 border-t border-slate-700 bg-slate-900 dark:bg-black overflow-hidden flex flex-col">
+                  <div className="flex-1 overflow-y-auto p-4">
+                    <pre className="text-emerald-400 font-mono text-sm leading-relaxed whitespace-pre-wrap">
+                      {executionOutput || "$ "}
+                    </pre>
+                    {isExecutingCode && (
+                      <span className="inline-block w-2 h-4 bg-emerald-400 ml-1 animate-pulse"></span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : currentQuestion.type === "coding" ? (
@@ -468,12 +558,94 @@ export function InterviewContent({
               </div>
               <div className="p-4 sm:p-6">
                 <div className="h-64 sm:h-80 lg:h-96">
-                  <CodeEditor
+                  <MonacoEditor
                     value={answers[currentQuestion.id] || currentQuestion.codeTemplate || ''}
                     onChange={(value) => onAnswerChange(currentQuestion.id, value)}
-                    language={interview.technology?.[0]?.toLowerCase() || 'javascript'}
+                    language={detectLanguage(answers[currentQuestion.id] || currentQuestion.codeTemplate || '', interview.technology?.[0]?.toLowerCase() || 'javascript') as any}
+                    theme={theme === 'dark' ? 'dark' : 'light'}
+                    height="100%"
+                    fontSize={14}
+                    lineNumbers="on"
+                    minimap={true}
                   />
                 </div>
+              </div>
+              
+              {/* Bouton Run et Console */}
+              <div className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-3">
+                <Button
+                  onClick={async () => {
+                    const currentCode = answers[currentQuestion.id] || currentQuestion.codeTemplate || ''
+                    if (!currentCode.trim()) {
+                      toast.warning("Veuillez écrire du code avant de le tester")
+                      return
+                    }
+                    
+                    setIsExecutingCode(true)
+                    setShowConsole(true)
+                    
+                    try {
+                      const detectedLang = detectLanguage(currentCode, interview.technology?.[0]?.toLowerCase() || 'javascript')
+                      const result = await executeCodeWithPiston(currentCode, detectedLang)
+                      const formatted = formatExecutionOutput(result)
+                      setExecutionOutput(formatted)
+                    } catch (error: any) {
+                      console.error("Erreur exécution Piston:", error)
+                      setExecutionOutput(`$ ERROR\nErreur lors de l'exécution: ${error.message}\n$ `)
+                      toast.error("Erreur lors de l'exécution du code")
+                    } finally {
+                      setIsExecutingCode(false)
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  disabled={isExecutingCode || !answers[currentQuestion.id]?.trim()}
+                >
+                  {isExecutingCode ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Exécution...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Exécuter le code
+                    </>
+                  )}
+                </Button>
+                
+                {/* Console */}
+                {showConsole && (
+                  <div className="border-t border-slate-300 dark:border-slate-700 bg-slate-900 dark:bg-black rounded-lg overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-2 bg-slate-800 dark:bg-slate-950 border-b border-slate-700">
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1.5">
+                          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                          <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                        </div>
+                        <span className="text-xs font-mono text-slate-400 ml-2">console</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowConsole(false)}
+                        className="h-6 px-2 text-xs text-slate-400 hover:text-slate-200"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="p-4 max-h-48 overflow-y-auto">
+                      <pre className="text-emerald-400 font-mono text-sm leading-relaxed whitespace-pre-wrap">
+                        {executionOutput || "$ "}
+                      </pre>
+                      {isExecutingCode && (
+                        <span className="inline-block w-2 h-4 bg-emerald-400 ml-1 animate-pulse"></span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
