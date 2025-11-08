@@ -3,6 +3,19 @@
 import prisma from "@/db/prisma"
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server"
 
+const getBaseUrl = () => {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+  return "http://localhost:3000"
+}
+
 export interface VoiceInterviewData {
   technologies: string[]
   context: string
@@ -220,7 +233,9 @@ export async function analyzeAndSaveVoiceInterview(
     const prompt = `Tu es un expert en évaluation d'entretiens techniques pour développeurs.\nAnalyse la conversation suivante entre un candidat et un interviewer pour un poste de développeur.\nTon objectif est de :\n1.  Attribuer une note sur 100 à la performance globale du candidat.\n2.  Identifier les 3 points faibles majeurs du candidat.\n3.  Identifier les 3 points forts majeurs du candidat.\n4.  Fournir une explication générale de la note.\n\nLe résultat doit être formaté comme un objet JSON strict pour faciliter l'extraction des données.\n\nVoici le transcript de la conversation :\n---\n${transcriptText}\n---\n\nFormat de sortie attendu (JSON):\n{\n  "note": INTEGER_VALUE,\n  "explication_note": "STRING_VALUE",\n  "points_faibles": [\n    "STRING_VALUE_1",\n    "STRING_VALUE_2",\n    "STRING_VALUE_3"\n  ],\n  "points_forts": [\n    "STRING_VALUE_1",\n    "STRING_VALUE_2",\n    "STRING_VALUE_3"\n  ]\n}`;
 
     // 3. Appeler l'API Gemini
-    const geminiRes = await fetch(`/api/gemini`, {
+    const baseUrl = getBaseUrl()
+
+    const geminiRes = await fetch(`${baseUrl}/api/gemini`, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json" 
@@ -266,7 +281,7 @@ export async function analyzeAndSaveVoiceInterview(
 
     // 5. Générer des exercices de renforcement pour chaque point faible
     const reinforcementPrompt = `Pour chaque point faible suivant, génère un exercice technique (QCM ou question ouverte) pour un développeur, en précisant le niveau (JUNIOR, MID ou SENIOR) selon la difficulté du point. Format de sortie: tableau JSON d'objets {\n  "titre": "...",\n  "type": "QCM" ou "open-ended",\n  "question": "...",\n  "options": ["...", "...", ...] (si QCM),\n  "bonne_reponse": "..." (si QCM),\n  "niveau": "JUNIOR"|"MID"|"SENIOR"\n}\n\nPoints faibles:\n${(feedback.points_faibles as string[]).map((p: string, i: number) => `${i+1}. ${p}`).join("\n")}`;
-    const reinforceRes = await fetch(`/api/gemini`, {
+    const reinforceRes = await fetch(`${baseUrl}/api/gemini`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt: reinforcementPrompt }),

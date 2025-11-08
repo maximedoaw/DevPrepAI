@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useConversation } from "@elevenlabs/react"
 import {
   Mic,
@@ -73,10 +73,12 @@ interface AIVocalInterviewProps {
 }
 
 export default function AIVocalInterview({ interviewData, questions = [], onComplete }: AIVocalInterviewProps) {
+  
   const [hasPermission, setHasPermission] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [callDuration, setCallDuration] = useState(0)
   const [audioLevel, setAudioLevel] = useState(0)
+  const [wavePhase, setWavePhase] = useState(0)
   const [messages, setMessages] = useState<Message[]>([])
   const [transcription, setTranscription] = useState<TranscriptSegment[]>([])
   const [currentInterviewId, setCurrentInterviewId] = useState<string | null>(null)
@@ -84,10 +86,33 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isCallActive, setIsCallActive] = useState(false)
   const [isSpeakerOn, setIsSpeakerOn] = useState(true)
+  const [isRecording, setIsRecording] = useState(false)
+  const [interviewStarted, setInterviewStarted] = useState(false)
+  const [elapsedTime, setElapsedTime] = useState(0)
+  const [isAISpeaking, setIsAISpeaking] = useState(false)
+  const [answeredCount, setAnsweredCount] = useState(0)
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
 
   const callTimerRef = useRef<NodeJS.Timeout | null>(null)
   const audioLevelRef = useRef<NodeJS.Timeout | null>(null)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const disconnectRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isEndingCallRef = useRef(false)
+  const reconnectAttemptsRef = useRef(0)
+  const isSessionStartingRef = useRef(false)
+  const pendingResumeRef = useRef(false)
+  const resumeConversationRef = useRef<() => void>(() => {})
+  const lastAuthorRef = useRef<"ai" | "user" | null>(null)
+
+  const jobContext = useMemo(() => {
+    const technologies = (interviewData.technologies || []).join(", ") || "Non spécifiées"
+    return `Poste: ${interviewData.title} - ${interviewData.company}\nDomaine: ${interviewData.domain || "Non spécifié"}\nTechnologies clés: ${technologies}\nDurée prévue: ${interviewData.duration || 30} minutes\nNiveau: ${interviewData.difficulty || "Intermédiaire"}\nDescription: ${interviewData.description || "Non fournie"}`
+  }, [interviewData])
+
+  const conversationContext = useMemo(() => {
+    const technologies = (interviewData.technologies || []).join(", ") || "Non spécifiées"
+    return `Focus entretien: ${interviewData.title} (niveau ${interviewData.difficulty || "Intermédiaire"})\nTechnologies principales: ${technologies}`
+  }, [interviewData])
 
   const questionContext = useMemo(() => {
     if (!questions.length) return "Aucune question fournie"
@@ -100,17 +125,17 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
       .join("\n\n")
   }, [questions])
 
-  const jobContext = useMemo(() => {
-    const technologies = (interviewData.technologies || []).join(", ") || "Non spécifiées"
-    return `Poste: ${interviewData.title} - ${interviewData.company}\nDomaine: ${interviewData.domain || "Non spécifié"}\nTechnologies clés: ${technologies}\nDurée prévue: ${interviewData.duration || 30} minutes\nNiveau: ${interviewData.difficulty || "Intermédiaire"}\nDescription: ${interviewData.description || "Non fournie"}`
-  }, [interviewData])
-
-  const answeredCount = useMemo(() => messages.filter((msg) => msg.author === "user").length, [messages])
-  const activeQuestionIndex = questions.length === 0 ? 0 : Math.min(answeredCount, questions.length - 1)
+  const activeQuestionIndex = questions.length === 0 ? 0 : Math.min(currentQuestionIndex, questions.length - 1)
   const progressValue = questions.length === 0 ? 0 : Math.min((answeredCount / questions.length) * 100, 100)
 
   const conversation = useConversation({
+    micMuted: isMuted,
     onConnect: () => {
+      clearDisconnectRetry()
+      reconnectAttemptsRef.current = 0
+      pendingResumeRef.current = false
+      setInterviewStarted(true)
+      setElapsedTime(0)
       setErrorMessage("")
       setIsCallActive(true)
       const intro: Message = {
@@ -120,35 +145,89 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
         timestamp: new Date(),
       }
       setMessages((prev) => (prev.length === 0 ? [intro] : prev))
+      lastAuthorRef.current = "ai"
+      sendAgentContext()
     },
     onDisconnect: () => {
       clearIntervalTimer()
       clearAudioInterval()
+      clearDisconnectRetry()
       setIsCallActive(false)
-      if (!isEndingCallRef.current && transcription.length > 0) {
+      setInterviewStarted(false)
+
+      if (isEndingCallRef.current) {
+        isEndingCallRef.current = false
         void finalizeInterview()
+        return
       }
-      isEndingCallRef.current = false
+
+      const allQuestionsAnswered = questions.length > 0 && answeredCount >= questions.length
+      if (allQuestionsAnswered) {
+        void finalizeInterview()
+        return
+      }
+
+      reconnectAttemptsRef.current += 1
+      if (reconnectAttemptsRef.current <= 3) {
+        setErrorMessage("Connexion perdue, tentative de reprise de l'entretien…")
+        if (!pendingResumeRef.current) {
+          pendingResumeRef.current = true
+          const retryDelay = 800 * reconnectAttemptsRef.current
+          disconnectRetryTimeoutRef.current = setTimeout(() => {
+            pendingResumeRef.current = false
+            resumeConversationRef.current()
+          }, retryDelay)
+        }
+      } else {
+        setErrorMessage("Connexion interrompue. Cliquez sur « Reprendre » pour continuer l'entretien.")
+      }
     },
     onMessage: (message: any) => {
       if (!message.message || !message.message.trim()) return
 
+      const author: "ai" | "user" = message.source === "ai" ? "ai" : "user"
+      const previousAuthor = lastAuthorRef.current
+
       const formatted: Message = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        author: message.source === "ai" ? "ai" : "user",
-          content: message.message,
-          timestamp: new Date(),
-        }
+        author,
+        content: message.message,
+        timestamp: new Date(),
+      }
       setMessages((prev) => [...prev.slice(-199), formatted])
 
       const segment: TranscriptSegment = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}-transcript`,
-          speaker: message.source === "ai" ? "ai" : "user",
-          text: message.message,
-          timestamp: new Date(),
-          confidence: 0.95,
-        }
+        speaker: author,
+        text: message.message,
+        timestamp: new Date(),
+        confidence: 0.95,
+      }
       setTranscription((prev) => [...prev.slice(-199), segment])
+      if (author === "user" && previousAuthor !== "user") {
+        setAnsweredCount((prev) => {
+          if (questions.length === 0) {
+            return prev
+          }
+
+          if (prev >= questions.length) {
+            return prev
+          }
+
+          const isAnswerForCurrent = prev === Math.min(currentQuestionIndex, questions.length - 1)
+          if (!isAnswerForCurrent) {
+            return prev
+          }
+
+          const next = prev + 1
+          if (next < questions.length) {
+            setCurrentQuestionIndex(next)
+          }
+          return next
+        })
+      }
+
+      lastAuthorRef.current = author
     },
     onError: (error: any) => {
       const message = typeof error === "string" ? error : error?.message
@@ -157,6 +236,10 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
   })
 
   const { status, isSpeaking } = conversation
+
+  useEffect(() => {
+    setIsAISpeaking(isSpeaking)
+  }, [isSpeaking])
 
   useEffect(() => {
     const requestMicPermission = async () => {
@@ -186,18 +269,41 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
   }, [status])
 
   useEffect(() => {
-    if (status === "connected" && !isMuted) {
+    if (interviewStarted) {
+      timerRef.current = setInterval(() => {
+        setElapsedTime((prev) => prev + 1)
+      }, 1000)
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
+  }, [interviewStarted])
+
+  useEffect(() => {
+    setIsRecording(status === "connected" && !isMuted)
+  }, [status, isMuted])
+
+  useEffect(() => {
+    if (isRecording) {
       audioLevelRef.current = setInterval(() => {
-        const base = isSpeaking ? 65 : 25
-        setAudioLevel(base + Math.random() * 25)
-      }, 180)
+        const base = isAISpeaking ? 48 : 20
+        setAudioLevel(base + Math.random() * 20)
+        setWavePhase((previous) => previous + 0.35)
+      }, 160)
     } else {
       setAudioLevel(0)
       clearAudioInterval()
     }
 
     return clearAudioInterval
-  }, [status, isMuted, isSpeaking])
+  }, [isRecording, isAISpeaking])
 
   const clearIntervalTimer = () => {
     if (callTimerRef.current) {
@@ -207,13 +313,49 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
   }
 
   const clearAudioInterval = () => {
-      if (audioLevelRef.current) {
-        clearInterval(audioLevelRef.current)
+    if (audioLevelRef.current) {
+      clearInterval(audioLevelRef.current)
       audioLevelRef.current = null
-      }
     }
+  }
 
-  const startCall = async () => {
+  const clearDisconnectRetry = () => {
+    if (disconnectRetryTimeoutRef.current) {
+      clearTimeout(disconnectRetryTimeoutRef.current)
+      disconnectRetryTimeoutRef.current = null
+    }
+  }
+
+  const currentQuestion = questions[activeQuestionIndex]
+
+  const agentContext = useMemo(() => {
+    const baseIntro = conversationContext
+    const progressInfo = questions.length
+      ? `Progression: ${answeredCount}/${questions.length}`
+      : `Réponses fournies: ${answeredCount}`
+    const current = questions.length ? questions[Math.min(activeQuestionIndex, questions.length - 1)] : null
+    const next =
+      questions.length > 0 && activeQuestionIndex + 1 < questions.length ? questions[activeQuestionIndex + 1] : null
+    const currentLine = current ? `Question actuelle: ${current.question}` : "Question actuelle: —"
+    const nextLine = next ? `Question suivante: ${next.question}` : "Question suivante: —"
+    return `${baseIntro}\n${progressInfo}\n${currentLine}\n${nextLine}`
+  }, [activeQuestionIndex, answeredCount, conversationContext, questions])
+
+  const sendAgentContext = useCallback(() => {
+    if (status !== "connected") return
+    try {
+      conversation.sendContextualUpdate(agentContext)
+    } catch (error) {
+      console.error("Error sending contextual update:", error)
+    }
+  }, [agentContext, conversation, status])
+
+  const startConversationSession = useCallback(
+    async (mode: "initial" | "resume" = "initial") => {
+      if (mode === "resume" && (status === "connecting" || status === "connected")) {
+        return
+      }
+
     if (!hasPermission) {
       setErrorMessage("Veuillez autoriser l'accès au microphone pour démarrer l'entretien")
       return
@@ -222,24 +364,38 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
       setErrorMessage("Agent ElevenLabs non configuré. Contactez l'administrateur.")
       return
     }
+    if (isSessionStartingRef.current) {
+      return
+    }
+
+    isSessionStartingRef.current = true
 
     try {
-      setErrorMessage("")
-      setMessages([])
-      setTranscription([])
-      setCallDuration(0)
+      if (mode === "initial") {
+        setErrorMessage("")
+        setMessages([])
+        setTranscription([])
+        setCallDuration(0)
+        setElapsedTime(0)
+        setAnsweredCount(0)
+        setCurrentQuestionIndex(0)
+        setInterviewStarted(false)
+        lastAuthorRef.current = null
+      } else {
+        setErrorMessage("Reconnexion en cours…")
+      }
 
       let voiceInterviewId = currentInterviewId
       if (!voiceInterviewId) {
         const created = await createVoiceInterview({
           technologies: interviewData.technologies || [],
-          context: `${jobContext}\n\n${questionContext}`,
+          context: `${jobContext}\n\n${conversationContext}\n\n${questionContext}`,
           duration: interviewData.duration || 30,
         })
 
         if (!created.success || !created.voiceInterview) {
           setErrorMessage(created.error || "Impossible de préparer l'entretien")
-        return
+          return
         }
         voiceInterviewId = created.voiceInterview.id
         setCurrentInterviewId(created.voiceInterview.id)
@@ -249,8 +405,9 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
         agentId: process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID!,
         dynamicVariables: {
           jobContext,
+          interviewFocus: conversationContext,
           interviewScript: questionContext,
-          conversationStyle: "Encourageant, professionnel, clair"
+          conversationStyle: "Encourageant, professionnel, clair",
         },
       })
 
@@ -259,8 +416,34 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
       }
     } catch (error) {
       console.error("Error starting vocal interview:", error)
-      setErrorMessage("Impossible de démarrer l'entretien. Réessayez dans quelques instants.")
+      setErrorMessage(mode === "initial" ? "Impossible de démarrer l'entretien. Réessayez dans quelques instants." : "Reconnexion impossible. Cliquez sur « Reprendre » pour réessayer.")
+    } finally {
+      isSessionStartingRef.current = false
     }
+    },
+    [
+      conversation,
+      currentInterviewId,
+      hasPermission,
+      interviewData.duration,
+      interviewData.technologies,
+      jobContext,
+      conversationContext,
+      questionContext,
+      status,
+    ]
+  )
+
+  useEffect(() => {
+    resumeConversationRef.current = () => {
+      void startConversationSession("resume")
+    }
+  }, [startConversationSession])
+
+  const startCall = () => {
+    reconnectAttemptsRef.current = 0
+    clearDisconnectRetry()
+    void startConversationSession("initial")
   }
 
   const endCall = async () => {
@@ -274,10 +457,27 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
     }
   }
 
+  useEffect(() => {
+    sendAgentContext()
+  }, [sendAgentContext])
+
+  useEffect(() => {
+    return () => {
+      clearDisconnectRetry()
+    }
+  }, [])
+
   const finalizeInterview = async () => {
     clearIntervalTimer()
     clearAudioInterval()
+    clearDisconnectRetry()
     setIsCallActive(false)
+    setInterviewStarted(false)
+    setIsRecording(false)
+    setAnsweredCount(0)
+    setCurrentQuestionIndex(0)
+    setElapsedTime(0)
+    lastAuthorRef.current = null
 
     if (!currentInterviewId || transcription.length === 0) {
       onComplete(0, {
@@ -332,21 +532,15 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
     }
   }
 
-  const toggleMute = async () => {
-    try {
-      await conversation.setVolume({ volume: isMuted ? 1 : 0 })
-      setIsMuted((prev) => !prev)
-    } catch (error) {
-      console.error("Error toggling mute:", error)
-      setErrorMessage("Impossible de basculer le micro.")
-    }
+  const toggleMute = () => {
+    setIsMuted((prev) => !prev)
   }
 
-  const toggleSpeaker = async () => {
+  const toggleSpeaker = () => {
     try {
-      await conversation.setVolume({ volume: isSpeakerOn ? 0 : 1 })
+      conversation.setVolume({ volume: isSpeakerOn ? 0 : 1 })
       setIsSpeakerOn((prev) => !prev)
-      } catch (error) {
+    } catch (error) {
       console.error("Error toggling speaker:", error)
       setErrorMessage("Impossible d'ajuster le volume.")
     }
@@ -435,7 +629,7 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
                       )}
                       <span className="flex items-center gap-1">
                         <Clock className="h-3.5 w-3.5" />
-                        {formatDuration(callDuration)}
+                        {formatDuration(elapsedTime)}
                       </span>
                       </div>
                       </div>
@@ -493,17 +687,23 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
                     <span>Niveau audio</span>
                     <span className="font-medium text-green-600 dark:text-green-400">{Math.round(audioLevel)}</span>
                   </div>
-                  <div className="mt-2 flex items-end gap-1">
-                    {Array.from({ length: 12 }).map((_, index) => (
-                      <span
-                        key={index}
-                        className="w-2 rounded-full bg-gradient-to-t from-green-500 via-emerald-400 to-teal-300 transition-all"
-                            style={{
-                          height: `${Math.max(8, audioLevel - index * 5)}px`,
-                          opacity: audioLevel > index * 8 ? 1 : 0.2,
-                            }}
-                          />
-                        ))}
+                  <div className="mt-2 flex items-end gap-1.5">
+                    {Array.from({ length: 14 }).map((_, index) => {
+                      const amplitude = Math.max(14, audioLevel * 0.45)
+                      const waveFactor = (Math.sin(wavePhase + index * 0.55) + 1) / 2
+                      const height = Math.max(8, amplitude * (0.45 + 0.55 * waveFactor))
+                      const opacity = 0.35 + 0.55 * waveFactor
+                      return (
+                        <span
+                          key={`wave-bar-${index}`}
+                          className="w-2 rounded-full bg-gradient-to-t from-emerald-400/60 via-emerald-300/70 to-teal-200/80 transition-[height,opacity] duration-150 ease-out"
+                          style={{
+                            height,
+                            opacity,
+                          }}
+                        />
+                      )
+                    })}
                   </div>
                 </div>
                       </div>
@@ -541,7 +741,7 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
 
                 <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
                   <p>{isCallActive ? "Entretien en cours" : "Prêt à démarrer"}</p>
-                  <p className="font-semibold text-green-600 dark:text-green-400">{formatDuration(callDuration)}</p>
+                  <p className="font-semibold text-green-600 dark:text-green-400">{formatDuration(elapsedTime)}</p>
                 </div>
                       </div>
 
@@ -617,6 +817,7 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
                   {questions.map((question, index) => {
                     const isCurrent = index === activeQuestionIndex
                     const isCompleted = index < answeredCount
+                    const shouldReveal = index <= activeQuestionIndex
                     return (
                       <div
                         key={question.id}
@@ -642,15 +843,16 @@ export default function AIVocalInterview({ interviewData, questions = [], onComp
                                   </Badge>
                           )}
                         </div>
-                        <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                        <p
+                          className={cn(
+                            "mt-2 text-sm leading-relaxed transition-all",
+                            shouldReveal
+                              ? "text-slate-700 dark:text-slate-300"
+                              : "text-slate-400/80 blur-[3px] dark:text-slate-500/80"
+                          )}
+                        >
                           {question.question}
                         </p>
-                        {question.expectedAnswer && (
-                          <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:border-emerald-600/30 dark:bg-emerald-900/30 dark:text-emerald-200">
-                            <strong>Réponse attendue :</strong>
-                            <p className="mt-1 leading-relaxed">{question.expectedAnswer}</p>
-                          </div>
-                        )}
                         {question.evaluationCriteria && (
                           <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                             <strong>Critères :</strong> {question.evaluationCriteria}

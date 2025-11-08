@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
 import { useRouter } from "next/navigation";
 import {
   BarChart,
@@ -116,7 +116,9 @@ interface TestResult {
     score: number;
     maxScore: number;
   }[];
-  aiFeedback?: string;
+  feedback?: any;
+  transcription?: any[];
+  messages?: any[];
   improvementTips?: string[];
   videoUrl?: string;
   imageUrls?: string[];
@@ -246,6 +248,220 @@ const createDefaultApplication = (): Application => ({
   lastUpdated: new Date().toISOString(),
   testResults: []
 });
+
+const MOCK_CRITERIA_DEFINITIONS: Record<string, { label: string; max: number }> = {
+  jobFit: { label: "Adéquation au poste", max: 25 },
+  technicalSkills: { label: "Compétences techniques", max: 25 },
+  communication: { label: "Communication", max: 20 },
+  experience: { label: "Expérience", max: 15 },
+  softSkills: { label: "Soft skills", max: 15 },
+};
+
+const parseQuizAnswers = (rawAnswers: any) => {
+  if (!rawAnswers) return null;
+
+  if (typeof rawAnswers === "string") {
+    try {
+      return JSON.parse(rawAnswers);
+    } catch (error) {
+      console.error("Error parsing quiz answers string:", error);
+      return null;
+    }
+  }
+
+  if (Array.isArray(rawAnswers)) {
+    return { transcription: rawAnswers, messages: rawAnswers };
+  }
+
+  if (typeof rawAnswers === "object") {
+    return rawAnswers;
+  }
+
+  return null;
+};
+
+const deriveMockInterviewData = (answerData: any, fallbackScore: number | null) => {
+  if (!answerData || typeof answerData !== "object") {
+    return {
+      transcription: [],
+      messages: [],
+      feedback: null,
+      score: fallbackScore ?? 0,
+      maxScore: 100,
+      skills: [] as { name: string; score: number; maxScore: number }[],
+    };
+  }
+
+  const transcription = Array.isArray(answerData.transcription) ? answerData.transcription : [];
+  const messages = Array.isArray(answerData.messages) ? answerData.messages : [];
+  const feedback = answerData.feedback || null;
+
+  let criteriaSkills: { name: string; score: number; maxScore: number }[] = [];
+  let computedScore = fallbackScore ?? 0;
+  let maxScore = 100;
+
+  if (feedback && feedback.criteriaScores) {
+    criteriaSkills = Object.entries(feedback.criteriaScores).map(([key, value]) => {
+      const def = MOCK_CRITERIA_DEFINITIONS[key] || { label: key, max: 20 };
+      return {
+        name: def.label,
+        score: typeof value === "number" ? value : 0,
+        maxScore: def.max,
+      };
+    });
+
+    const totalMax = criteriaSkills.reduce((sum, item) => sum + item.maxScore, 0);
+    maxScore = totalMax > 0 ? totalMax : 100;
+
+    const criteriaScoreSum = criteriaSkills.reduce((sum, item) => sum + item.score, 0);
+    computedScore = criteriaScoreSum > 0 ? criteriaScoreSum : fallbackScore ?? feedback.overallScore ?? feedback.score ?? 0;
+  } else if (feedback && (feedback.overallScore || feedback.score)) {
+    computedScore = feedback.overallScore ?? feedback.score ?? fallbackScore ?? 0;
+    criteriaSkills = [
+      {
+        name: "Score global",
+        score: computedScore,
+        maxScore: 100,
+      },
+    ];
+  } else if (typeof feedback === "number") {
+    computedScore = feedback;
+    criteriaSkills = [
+      {
+        name: "Score global",
+        score: computedScore,
+        maxScore: 100,
+      },
+    ];
+  }
+
+  return {
+    transcription,
+    messages,
+    feedback,
+    score: computedScore,
+    maxScore,
+    skills: criteriaSkills,
+  };
+};
+
+const parseImageUrls = (raw: any): string[] => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.filter((url) => typeof url === "string");
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((url) => typeof url === "string") : [];
+    } catch (error) {
+      return [];
+    }
+  }
+  return [];
+};
+
+const extractMediaFromAnswers = (answers: any) => {
+  if (!answers) {
+    return { videoUrl: "", imageUrls: [] as string[] };
+  }
+
+  let videoUrl = "";
+  let imageUrls: string[] = [];
+  const visited = new Set<any>();
+  const stack: any[] = [answers];
+
+  const visit = (value: any) => {
+    if (!value || typeof value !== "object" || visited.has(value)) return;
+    visited.add(value);
+
+    if (typeof value.videoUrl === "string" && !videoUrl) {
+      videoUrl = value.videoUrl;
+    }
+
+    if (Array.isArray(value.imageUrls) && imageUrls.length === 0) {
+      imageUrls = value.imageUrls.filter((url: any) => typeof url === "string");
+    }
+
+    Object.values(value).forEach((nested) => {
+      if (nested && typeof nested === "object") {
+        stack.push(nested);
+      }
+    });
+  };
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (Array.isArray(current)) {
+      current.forEach((item) => {
+        if (item && typeof item === "object") {
+          stack.push(item);
+        }
+      });
+    } else {
+      visit(current);
+    }
+  }
+
+  return { videoUrl, imageUrls };
+};
+
+const normalizeJobQuizResult = (qr: any) => {
+  const parsedAnswers = parseQuizAnswers(qr.answers);
+  const mediaFromAnswers = extractMediaFromAnswers(parsedAnswers);
+
+  let videoUrl = qr.videoUrl || mediaFromAnswers.videoUrl || "";
+  let imageUrls = parseImageUrls(qr.imageUrls);
+  if (imageUrls.length === 0) {
+    imageUrls = mediaFromAnswers.imageUrls;
+  }
+
+  let feedback = null;
+  let transcription: any[] = [];
+  let messages: any[] = [];
+  let score = typeof qr.score === "number" ? qr.score : null;
+  let maxScore = typeof qr.totalPoints === "number" && qr.totalPoints > 0 ? qr.totalPoints : 100;
+  let skills = Array.isArray(qr.skills) ? qr.skills : [];
+
+  if (qr.quizType === "MOCK_INTERVIEW") {
+    const derived = deriveMockInterviewData(parsedAnswers, score);
+    feedback = derived.feedback;
+    transcription = derived.transcription;
+    messages = derived.messages;
+    score = derived.score;
+    maxScore = derived.maxScore;
+    if (derived.skills.length > 0) {
+      skills = derived.skills;
+    }
+  } else {
+    if (parsedAnswers && typeof parsedAnswers === "object") {
+      if (Array.isArray(parsedAnswers.transcription)) {
+        transcription = parsedAnswers.transcription;
+      }
+      if (Array.isArray(parsedAnswers.messages)) {
+        messages = parsedAnswers.messages;
+      }
+    }
+    feedback = qr.aiFeedback || null;
+  }
+
+  const normalizedScore = typeof score === "number" ? score : 0;
+  const normalizedTotalPoints = typeof maxScore === "number" && maxScore > 0 ? maxScore : 100;
+
+  return {
+    ...qr,
+    score: normalizedScore,
+    totalPoints: normalizedTotalPoints,
+    skills,
+    feedback,
+    transcription,
+    messages,
+    videoUrl,
+    imageUrls,
+    answers: parsedAnswers ?? qr.answers,
+    rawAnswers: qr.answers,
+  };
+};
 
 const mapJobToJobOffer = (job: any): JobOffer => {
   if (!job) {
@@ -892,17 +1108,19 @@ export const ApplicationsTab = () => {
     staleTime: 60000,
   });
 
+  const normalizedJobQuizResults = useMemo(
+    () => (quizResultsData?.data || []).map((qr: any) => normalizeJobQuizResult(qr)),
+    [quizResultsData?.data]
+  );
+
   // Combiner les résultats de JobQuiz et Quiz (entrainements)
   const allQuizResults = useMemo(() => {
-    const jobResults = quizResultsData?.data || [];
     const trainingResults = trainingQuizResults || [];
-    
-    // Combiner les deux types de résultats avec un identifiant de type
     return [
-      ...jobResults.map((qr: any) => ({ ...qr, source: 'job', isJobQuiz: true })),
-      ...trainingResults.map((qr: any) => ({ ...qr, source: 'training', isJobQuiz: false }))
+      ...normalizedJobQuizResults.map((qr: any) => ({ ...qr, source: 'job', isJobQuiz: true })),
+      ...trainingResults.map((qr: any) => ({ ...qr, source: 'training', isJobQuiz: false })),
     ];
-  }, [quizResultsData?.data, trainingQuizResults]);
+  }, [normalizedJobQuizResults, trainingQuizResults]);
 
   const quizResults = allQuizResults;
 
@@ -1427,7 +1645,7 @@ export const ApplicationsTab = () => {
     if (jobSkills.length === 0) return null;
 
     // Utiliser SEULEMENT les JobQuizResults (tests techniques du poste) pour les progress bars
-    const jobResultsOnly = quizResultsData?.data || [];
+    const jobResultsOnly = normalizedJobQuizResults;
     
     // Calculer les stats basées sur les résultats de quiz (UNIQUEMENT les tests du poste)
     const skillStats: Record<string, { totalPoints: number; earnedPoints: number; maxPoints: number }> = {};
@@ -1643,7 +1861,7 @@ export const ApplicationsTab = () => {
     // Mettre à jour les testResults avec SEULEMENT les JobQuizResults (tests techniques du poste)
     // Les graphiques utilisent allQuizResults (entrainements + tests du job)
     // Mais la section des résultats individuels utilise seulement les tests du job
-    const jobQuizResultsOnly = quizResultsData?.data || [];
+    const jobQuizResultsOnly = normalizedJobQuizResults;
     
     const updatedApplication = useMemo(() => {
       if (!selectedApplication) return null;
@@ -1652,62 +1870,50 @@ export const ApplicationsTab = () => {
         return {
           ...selectedApplication,
           testResults: jobQuizResultsOnly.map((qr: any) => {
-            // Extraire l'URL de la vidéo et les images depuis le schema (champs directs) ou les réponses (fallback)
-            let videoUrl = qr.videoUrl || '';
-            let imageUrls: string[] = [];
-            
-            // Si imageUrls est dans le schema (JSON)
-            if (qr.imageUrls) {
-              try {
-                if (typeof qr.imageUrls === 'string') {
-                  imageUrls = JSON.parse(qr.imageUrls);
-                } else if (Array.isArray(qr.imageUrls)) {
-                  imageUrls = qr.imageUrls;
-                }
-              } catch (e) {
-                console.error("Error parsing imageUrls:", e);
-              }
-            }
-            
-            // Fallback : chercher dans les réponses si pas dans le schema
-            if (!videoUrl || imageUrls.length === 0) {
-              if (qr.answers && Array.isArray(qr.answers)) {
-                const videoAnswer = qr.answers.find((a: any) => a.videoUrl || a.type === 'technical_video');
-                if (!videoUrl) videoUrl = videoAnswer?.videoUrl || '';
-                const imagesAnswer = qr.answers.find((a: any) => a.imageUrls || a.type === 'technical_images');
-                if (imageUrls.length === 0) imageUrls = imagesAnswer?.imageUrls || [];
-              } else if (qr.answers && typeof qr.answers === 'object') {
-                const answersArray = Object.values(qr.answers) as any[];
-                const videoAnswer = answersArray.find((a: any) => a.videoUrl || a.type === 'technical_video');
-                if (!videoUrl) videoUrl = videoAnswer?.videoUrl || '';
-                const imagesAnswer = answersArray.find((a: any) => a.imageUrls || a.type === 'technical_images');
-                if (imageUrls.length === 0) imageUrls = imagesAnswer?.imageUrls || [];
-              }
-            }
-            
             return {
               id: qr.id,
               testName: qr.quizTitle,
               quizType: qr.quizType,
-              score: qr.score,
-              maxScore: qr.totalPoints,
+              score: typeof qr.score === "number" ? qr.score : 0,
+              maxScore: typeof qr.totalPoints === "number" && qr.totalPoints > 0 ? qr.totalPoints : 100,
               status: 'completed' as TestStatus,
               completedAt: qr.completedAt,
               duration: qr.duration || 0,
-              skills: qr.skills || [],
-              aiFeedback: qr.aiFeedback,
+              skills: Array.isArray(qr.skills) ? qr.skills : [],
+              feedback: qr.feedback || null,
+              transcription: Array.isArray(qr.transcription) ? qr.transcription : [],
+              messages: Array.isArray(qr.messages) ? qr.messages : [],
               improvementTips: qr.improvementTips || [],
-              videoUrl: videoUrl,
-              imageUrls: imageUrls,
-              answers: qr.answers,
-              technology: Array.isArray(qr.technology) ? qr.technology : Array.isArray((qr as any)?.quizTechnology) ? (qr as any).quizTechnology : [],
-              domain: qr.domain || (qr as any)?.quizDomain || null
+              videoUrl: typeof qr.videoUrl === "string" ? qr.videoUrl : "",
+              imageUrls: Array.isArray(qr.imageUrls) ? qr.imageUrls : parseImageUrls(qr.imageUrls),
+              answers: qr.answers ?? qr.rawAnswers ?? null,
+              technology: Array.isArray(qr.technology)
+                ? qr.technology
+                : Array.isArray((qr as any)?.quizTechnology)
+                ? (qr as any).quizTechnology
+                : [],
+              domain: qr.domain || (qr as any)?.quizDomain || null,
             };
           })
         };
       }
       return selectedApplication;
     }, [selectedApplication, jobQuizResultsOnly]);
+
+    useEffect(() => {
+      if (!jobQuizResultsOnly || jobQuizResultsOnly.length === 0) return;
+      setMockInterviewEvaluations((prev) => {
+        let hasChanges = false;
+        const next = { ...prev };
+        jobQuizResultsOnly.forEach((qr: any) => {
+          if (qr.quizType === "MOCK_INTERVIEW" && qr.feedback && !next[qr.id]) {
+            next[qr.id] = qr.feedback;
+            hasChanges = true;
+          }
+        });
+        return hasChanges ? next : prev;
+      });
+    }, [jobQuizResultsOnly]);
 
     // Initialiser le statut et le score de review avec les valeurs actuelles de l'application
     useEffect(() => {
@@ -1735,18 +1941,22 @@ export const ApplicationsTab = () => {
     }
 
     const openConversationDialog = (test: TestResult) => {
-      let rawAnswers: any = test.answers;
-      if (typeof rawAnswers === "string") {
-        try {
-          rawAnswers = JSON.parse(rawAnswers);
-        } catch (error) {
-          rawAnswers = {};
-        }
+      const sessionData =
+        (test.answers && typeof test.answers === "object" ? test.answers : parseQuizAnswers(test.answers)) || {};
+
+      let messageEntries: any[] = [];
+      if (Array.isArray(test.messages) && test.messages.length > 0) {
+        messageEntries = test.messages;
+      } else if (Array.isArray(sessionData.messages)) {
+        messageEntries = sessionData.messages;
       }
 
-      const sessionData = rawAnswers && typeof rawAnswers === "object" ? rawAnswers : {};
-      let messageEntries: any[] = Array.isArray(sessionData.messages) ? sessionData.messages : [];
-      const transcriptionEntries: any[] = Array.isArray(sessionData.transcription) ? sessionData.transcription : [];
+      const transcriptionEntries: any[] =
+        Array.isArray(test.transcription) && test.transcription.length > 0
+          ? test.transcription
+          : Array.isArray(sessionData.transcription)
+          ? sessionData.transcription
+          : [];
 
       if ((!messageEntries || messageEntries.length === 0) && Array.isArray(test.answers)) {
         messageEntries = test.answers as any[];
@@ -1787,11 +1997,11 @@ export const ApplicationsTab = () => {
           }
         });
       }
-      if (Array.isArray(sessionData.feedback?.skillsAnalysis?.matched)) {
-        sessionData.feedback.skillsAnalysis.matched.forEach((skill: string) => combinedTechnologies.add(skill));
+      if (Array.isArray(test.feedback?.skillsAnalysis?.matched)) {
+        test.feedback.skillsAnalysis.matched.forEach((skill: string) => combinedTechnologies.add(skill));
       }
-      if (Array.isArray(sessionData.feedback?.skillsAnalysis?.missing)) {
-        sessionData.feedback.skillsAnalysis.missing.forEach((skill: string) => combinedTechnologies.add(skill));
+      if (Array.isArray(test.feedback?.skillsAnalysis?.missing)) {
+        test.feedback.skillsAnalysis.missing.forEach((skill: string) => combinedTechnologies.add(skill));
       }
 
       const durationValue = typeof sessionData.callDuration === 'number'
@@ -1804,7 +2014,7 @@ export const ApplicationsTab = () => {
         testId: test.id,
         testName: test.testName,
         messages: normalizedMessages,
-        feedback: sessionData.feedback || mockInterviewEvaluations[test.id] || null,
+        feedback: test.feedback || sessionData.feedback || mockInterviewEvaluations[test.id] || null,
         callDuration: durationValue,
         technologies: Array.from(combinedTechnologies),
       });

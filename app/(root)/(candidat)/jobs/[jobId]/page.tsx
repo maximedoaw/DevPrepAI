@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +41,50 @@ import { checkIfApplied } from "@/actions/application.action";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import AIVocalInterview from "@/components/interviews/ai-vocal-interview";
+
+interface MockInterviewTestProps {
+  quiz: any
+  onComplete: (score: number, sessionData: Record<string, any>) => void
+}
+
+const MockInterviewTest = memo(function MockInterviewTest({ quiz, onComplete }: MockInterviewTestProps) {
+  const questions = useMemo(() => (Array.isArray(quiz.questions) ? quiz.questions : []), [quiz])
+
+  const formattedQuestions = useMemo(
+    () =>
+      questions.map((question: any, index: number) => ({
+        id: question.id || `mock-question-${index}`,
+        question: question.text || question.question || "",
+        expectedAnswer: question.correctAnswer || question.expectedAnswer || "",
+        evaluationCriteria: question.explanation || question.evaluationCriteria || "",
+      })),
+    [questions]
+  )
+
+  const interviewData = useMemo(
+    () => ({
+      id: quiz.id,
+      title: quiz.title,
+      company: quiz.company || "",
+      domain: quiz.domain,
+      technologies: quiz.technology || [],
+      description: quiz.description || "",
+      duration: quiz.duration,
+      difficulty: quiz.difficulty,
+    }),
+    [quiz]
+  )
+
+  const handleComplete = useCallback(
+    (score: number, sessionData: Record<string, any>) => {
+      onComplete(score, sessionData)
+    },
+    [onComplete]
+  )
+
+  return <AIVocalInterview interviewData={interviewData} questions={formattedQuestions} onComplete={handleComplete} />
+})
+MockInterviewTest.displayName = "MockInterviewTest"
 
 export default function TestsPage() {
   const { user } = useKindeBrowserClient();
@@ -90,6 +134,12 @@ export default function TestsPage() {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+
+  const timeLeftRef = useRef(timeLeft);
+
+  useEffect(() => {
+    timeLeftRef.current = timeLeft;
+  }, [timeLeft]);
 
   // Démarrer un test
   const startTest = (quiz: any) => {
@@ -151,7 +201,8 @@ export default function TestsPage() {
   };
 
   // Soumettre le test avec analyse améliorée
-  const submitTest = async (
+  const submitTest = useCallback(
+  async (
     score: number,
     answersData: any = [],
     videoUrl: string | null = null,
@@ -171,7 +222,7 @@ export default function TestsPage() {
         answersData && typeof answersData === "object" && typeof (answersData as any).callDuration === "number"
           ? Math.max(0, Math.floor((answersData as any).callDuration))
           : undefined;
-      const fallbackDuration = Math.max(0, currentQuiz.duration * 60 - timeLeft);
+      const fallbackDuration = Math.max(0, currentQuiz.duration * 60 - timeLeftRef.current);
       let analysis = "";
 
       if (currentQuiz.type === QuizType.QCM) {
@@ -348,7 +399,38 @@ export default function TestsPage() {
       toast.error("Erreur lors de la soumission du test");
       console.error("Submit test error:", error);
     }
-  };
+  },
+  [CURRENT_USER_ID, currentQuiz, refetchQuizzes, submitJobQuizMutation]
+  );
+
+  const handleMockInterviewComplete = useCallback(
+    (score: number, sessionData: Record<string, any>) => {
+      if (!currentQuiz) return;
+
+      const formattedQuestions = Array.isArray(currentQuiz.questions)
+        ? currentQuiz.questions.map((question: any, index: number) => ({
+            id: question.id || `mock-question-${index}`,
+            question: question.text || question.question || "",
+            expectedAnswer: question.correctAnswer || question.expectedAnswer || "",
+            evaluationCriteria: question.explanation || question.evaluationCriteria || "",
+          }))
+        : [];
+
+      const payload = {
+        type: "mock_interview",
+        feedback: sessionData?.feedback || null,
+        transcription: sessionData?.transcription || [],
+        messages: sessionData?.messages || [],
+        callDuration: sessionData?.callDuration,
+        technologies: currentQuiz.technology || [],
+        domain: currentQuiz.domain,
+        questions: formattedQuestions,
+      };
+
+      submitTest(score ?? 0, payload);
+    },
+    [currentQuiz, submitTest]
+  );
 
   // Timer effect
   useEffect(() => {
@@ -366,7 +448,7 @@ export default function TestsPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isTestRunning, timeLeft, currentQuiz?.type]);
+  }, [isTestRunning, timeLeft, currentQuiz?.type, submitTest]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -607,46 +689,7 @@ export default function TestsPage() {
     );
   };
 
-  // Autres composants de tests (MockInterview, SoftSkills, Technical)
-  const MockInterviewTest = ({ quiz }: { quiz: any }) => {
-    const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
-    const formattedQuestions = questions.map((question: any, index: number) => ({
-      id: question.id || `mock-question-${index}`,
-      question: question.text || question.question || "",
-      expectedAnswer: question.correctAnswer || question.expectedAnswer || "",
-      evaluationCriteria: question.explanation || question.evaluationCriteria || "",
-    }));
-
-    return (
-      <AIVocalInterview
-        interviewData={{
-          id: quiz.id,
-          title: quiz.title,
-          company: quiz.company || "",
-          domain: quiz.domain,
-          technologies: quiz.technology || [],
-          description: quiz.description || "",
-          duration: quiz.duration,
-          difficulty: quiz.difficulty,
-        }}
-        questions={formattedQuestions}
-        onComplete={(score, sessionData) => {
-          const payload = {
-            type: "mock_interview",
-            feedback: sessionData?.feedback || null,
-            transcription: sessionData?.transcription || [],
-            messages: sessionData?.messages || [],
-            callDuration: sessionData?.callDuration,
-            technologies: quiz.technology || [],
-            domain: quiz.domain,
-            questions: formattedQuestions,
-          };
-          submitTest(score ?? 0, payload);
-        }}
-      />
-    );
-  };
-
+  // Autres composants de tests (SoftSkills, Technical)
   const SoftSkillsTest = ({ quiz }: { quiz: any }) => {
     const defaultScenarios = [
       {
@@ -1436,7 +1479,7 @@ export default function TestsPage() {
         case QuizType.QCM:
           return <QCMTest quiz={currentQuiz} />;
         case QuizType.MOCK_INTERVIEW:
-          return <MockInterviewTest quiz={currentQuiz} />;
+          return <MockInterviewTest quiz={currentQuiz} onComplete={handleMockInterviewComplete} />;
         case QuizType.SOFT_SKILLS:
           return <SoftSkillsTest quiz={currentQuiz} />;
         case QuizType.TECHNICAL:
