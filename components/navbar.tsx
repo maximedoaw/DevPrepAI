@@ -23,7 +23,7 @@ function ModeToggle() {
       variant="outline" 
       size="icon" 
       onClick={toggleTheme}
-      className="relative"
+      className="relative border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950/50"
     >
       <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
       <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -38,9 +38,9 @@ export default function Navbar() {
   const [authLoading, setAuthLoading] = useState(false)
 
   return (
-    <header className="fixed top-0 z-50 w-full border-b backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
-        <Link href="/">
+    <header className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[95%] max-w-6xl rounded-2xl border border-green-200/50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl shadow-lg supports-[backdrop-filter]:bg-background/60 dark:border-green-800/50">
+      <div className="container flex h-16 items-center justify-between px-6">
+        <Link href="/" className="flex items-center">
           <Logo />
         </Link>
 
@@ -48,28 +48,28 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-6">
           {/* Navigation links - only show when not authenticated */}
           {!isAuthenticated && (
-            <nav className="flex gap-6">
-              <Link href="#features" className="text-sm font-medium hover:text-primary transition-colors">
+            <nav className="flex gap-8">
+              <Link href="#features" className="text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400 transition-colors">
                 Fonctionnalités
               </Link>
-              <Link href="#testimonials" className="text-sm font-medium hover:text-primary transition-colors">
+              <Link href="#testimonials" className="text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400 transition-colors">
                 Témoignages
               </Link>
-              <Link href="#pricing" className="text-sm font-medium hover:text-primary transition-colors">
+              <Link href="#pricing" className="text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400 transition-colors">
                 Tarifs
               </Link>
             </nav>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {/* Theme Toggle */}
             <ModeToggle />
             
             {/* Auth Buttons */}
             {isLoading ? (
               <>
-                <Skeleton className="h-9 w-20 rounded-md" />
-                <Skeleton className="h-9 w-24 rounded-md" />
+                <Skeleton className="h-9 w-20 rounded-xl" />
+                <Skeleton className="h-9 w-24 rounded-xl" />
               </>
             ) : isAuthenticated ? (
               <LogoutLink>
@@ -77,7 +77,7 @@ export default function Navbar() {
                   variant="outline"
                   onClick={() => setAuthLoading(true)}
                   disabled={authLoading}
-                  className="border-red-500 text-red-500 hover:bg-red-500/10"
+                  className="border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-xl"
                 >
                   {authLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -91,6 +91,7 @@ export default function Navbar() {
                     variant="outline"
                     onClick={() => setAuthLoading(true)}
                     disabled={authLoading}
+                    className="border-green-200 dark:border-green-800 text-slate-700 dark:text-slate-300 hover:bg-green-50 dark:hover:bg-green-950/50 rounded-xl"
                   >
                     {authLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -99,7 +100,7 @@ export default function Navbar() {
                 </LoginLink>
                 <RegisterLink>
                   <Button
-                    className="bg-gradient-to-r from-indigo-600 to-pink-600 text-white hover:from-indigo-700 hover:to-pink-700 transition-all"
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-green-500/25 rounded-xl"
                     onClick={() => setAuthLoading(true)}
                     disabled={authLoading}
                   >
@@ -120,6 +121,7 @@ export default function Navbar() {
             variant="ghost"
             size="icon"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="hover:bg-green-50 dark:hover:bg-green-950/50 rounded-xl"
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
@@ -127,28 +129,28 @@ export default function Navbar() {
 
         {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden absolute top-16 left-0 right-0 bg-background/95 backdrop-blur border-t shadow-lg">
-            <div className="container py-4 space-y-4">
+          <div className="md:hidden absolute top-16 left-4 right-4 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border border-green-200/50 dark:border-green-800/50 rounded-2xl shadow-xl">
+            <div className="container py-4 space-y-3">
               {/* Navigation links - only show when not authenticated */}
               {!isAuthenticated && (
                 <>
                   <Link 
                     href="#features" 
-                    className="block py-2 px-4 rounded-md hover:bg-accent transition-colors"
+                    className="block py-3 px-4 rounded-xl hover:bg-green-50 dark:hover:bg-green-950/50 transition-colors text-slate-700 dark:text-slate-300"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Fonctionnalités
                   </Link>
                   <Link 
                     href="#testimonials" 
-                    className="block py-2 px-4 rounded-md hover:bg-accent transition-colors"
+                    className="block py-3 px-4 rounded-xl hover:bg-green-50 dark:hover:bg-green-950/50 transition-colors text-slate-700 dark:text-slate-300"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Témoignages
                   </Link>
                   <Link 
                     href="#pricing" 
-                    className="block py-2 px-4 rounded-md hover:bg-accent transition-colors"
+                    className="block py-3 px-4 rounded-xl hover:bg-green-50 dark:hover:bg-green-950/50 transition-colors text-slate-700 dark:text-slate-300"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Tarifs
@@ -156,17 +158,17 @@ export default function Navbar() {
                 </>
               )}
 
-              <div className="pt-2 space-y-2">
+              <div className="pt-2 space-y-3">
                 {isLoading ? (
                   <>
-                    <Skeleton className="h-10 w-full rounded-md" />
-                    <Skeleton className="h-10 w-full rounded-md" />
+                    <Skeleton className="h-12 w-full rounded-xl" />
+                    <Skeleton className="h-12 w-full rounded-xl" />
                   </>
                 ) : isAuthenticated ? (
                   <LogoutLink>
                     <Button
                       variant="destructive"
-                      className="w-full"
+                      className="w-full rounded-xl"
                       onClick={() => {
                         setAuthLoading(true)
                         setMobileMenuOpen(false)
@@ -183,7 +185,7 @@ export default function Navbar() {
                     <LoginLink>
                       <Button
                         variant="outline"
-                        className="w-full"
+                        className="w-full border-green-200 dark:border-green-800 text-slate-700 dark:text-slate-300 hover:bg-green-50 dark:hover:bg-green-950/50 rounded-xl"
                         onClick={() => {
                           setAuthLoading(true)
                           setMobileMenuOpen(false)
@@ -197,7 +199,7 @@ export default function Navbar() {
                     </LoginLink>
                     <RegisterLink>
                       <Button
-                        className="w-full bg-gradient-to-r from-indigo-600 to-pink-600 text-white hover:from-indigo-700 hover:to-pink-700 transition-all"
+                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 transition-all rounded-xl"
                         onClick={() => {
                           setAuthLoading(true)
                           setMobileMenuOpen(false)
