@@ -1,27 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar
-} from "recharts";
 import {
   Card,
   CardContent,
@@ -61,7 +41,6 @@ import {
   Clock,
   Plus,
   TrendingUp,
-  FileCheck,
   Sparkles,
   TrendingUp as TrendingUpIcon,
   FileText as FileTextIcon,
@@ -81,7 +60,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useUserJobQueries, useApplicationQueries } from "@/hooks/use-job-queries";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getApplicationQuizResults, getQuizResultForReview, saveQuizResultReview } from "@/actions/jobInterview.action";
+import { getApplicationQuizResults, getQuizResultForReview, saveQuizResultReview, saveQuizResultAnalysis } from "@/actions/jobInterview.action";
 import { updateApplicationReview } from "@/actions/application.action";
 import { getUserQuizResults } from "@/actions/interview.action";
 import { getPortfolioById, getPortfolioByUserId } from "@/actions/portfolio.action";
@@ -117,6 +96,7 @@ interface TestResult {
     maxScore: number;
   }[];
   feedback?: any;
+  analysis?: any;
   transcription?: any[];
   messages?: any[];
   improvementTips?: string[];
@@ -257,16 +237,28 @@ const MOCK_CRITERIA_DEFINITIONS: Record<string, { label: string; max: number }> 
   softSkills: { label: "Soft skills", max: 15 },
 };
 
+const looksLikeJsonString = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  const first = trimmed[0];
+  return first === "{" || first === "[";
+};
+
+const safeParseJson = <T = any>(value: string): T | null => {
+  if (!looksLikeJsonString(value)) return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch (error) {
+    console.error("Error parsing JSON string:", error);
+    return null;
+  }
+};
+
 const parseQuizAnswers = (rawAnswers: any) => {
   if (!rawAnswers) return null;
 
   if (typeof rawAnswers === "string") {
-    try {
-      return JSON.parse(rawAnswers);
-    } catch (error) {
-      console.error("Error parsing quiz answers string:", error);
-      return null;
-    }
+    return safeParseJson(rawAnswers);
   }
 
   if (Array.isArray(rawAnswers)) {
@@ -280,12 +272,12 @@ const parseQuizAnswers = (rawAnswers: any) => {
   return null;
 };
 
-const deriveMockInterviewData = (answerData: any, fallbackScore: number | null) => {
+const deriveMockInterviewData = (answerData: any, fallbackScore: number | null, analysisData?: any) => {
   if (!answerData || typeof answerData !== "object") {
     return {
       transcription: [],
       messages: [],
-      feedback: null,
+      feedback: analysisData ?? null,
       score: fallbackScore ?? 0,
       maxScore: 100,
       skills: [] as { name: string; score: number; maxScore: number }[],
@@ -294,13 +286,30 @@ const deriveMockInterviewData = (answerData: any, fallbackScore: number | null) 
 
   const transcription = Array.isArray(answerData.transcription) ? answerData.transcription : [];
   const messages = Array.isArray(answerData.messages) ? answerData.messages : [];
-  const feedback = answerData.feedback || null;
-
+  const feedback = analysisData || answerData.feedback || null;
   let criteriaSkills: { name: string; score: number; maxScore: number }[] = [];
   let computedScore = fallbackScore ?? 0;
   let maxScore = 100;
 
-  if (feedback && feedback.criteriaScores) {
+  if (analysisData && analysisData.criteriaScores) {
+    criteriaSkills = Object.entries(analysisData.criteriaScores).map(([key, value]) => {
+      const def = MOCK_CRITERIA_DEFINITIONS[key] || { label: key, max: 20 };
+      return {
+        name: def.label,
+        score: typeof value === "number" ? value : 0,
+        maxScore: def.max,
+      };
+    });
+
+    const totalMax = criteriaSkills.reduce((sum, item) => sum + item.maxScore, 0);
+    maxScore = totalMax > 0 ? totalMax : 100;
+
+    const criteriaScoreSum = criteriaSkills.reduce((sum, item) => sum + item.score, 0);
+    computedScore =
+      criteriaScoreSum > 0
+        ? criteriaScoreSum
+        : fallbackScore ?? analysisData.overallScore ?? analysisData.score ?? 0;
+  } else if (feedback && feedback.criteriaScores) {
     criteriaSkills = Object.entries(feedback.criteriaScores).map(([key, value]) => {
       const def = MOCK_CRITERIA_DEFINITIONS[key] || { label: key, max: 20 };
       return {
@@ -314,9 +323,10 @@ const deriveMockInterviewData = (answerData: any, fallbackScore: number | null) 
     maxScore = totalMax > 0 ? totalMax : 100;
 
     const criteriaScoreSum = criteriaSkills.reduce((sum, item) => sum + item.score, 0);
-    computedScore = criteriaScoreSum > 0 ? criteriaScoreSum : fallbackScore ?? feedback.overallScore ?? feedback.score ?? 0;
-  } else if (feedback && (feedback.overallScore || feedback.score)) {
-    computedScore = feedback.overallScore ?? feedback.score ?? fallbackScore ?? 0;
+    computedScore =
+      criteriaScoreSum > 0 ? criteriaScoreSum : fallbackScore ?? feedback.overallScore ?? feedback.score ?? 0;
+  } else if (analysisData && (analysisData.overallScore || analysisData.score)) {
+    computedScore = analysisData.overallScore ?? analysisData.score ?? fallbackScore ?? 0;
     criteriaSkills = [
       {
         name: "Score global",
@@ -409,6 +419,12 @@ const extractMediaFromAnswers = (answers: any) => {
 const normalizeJobQuizResult = (qr: any) => {
   const parsedAnswers = parseQuizAnswers(qr.answers);
   const mediaFromAnswers = extractMediaFromAnswers(parsedAnswers);
+  const analysisData =
+    typeof qr.analysis === "string"
+      ? safeParseJson(qr.analysis)
+      : typeof qr.analysis === "object"
+      ? qr.analysis
+      : null;
 
   let videoUrl = qr.videoUrl || mediaFromAnswers.videoUrl || "";
   let imageUrls = parseImageUrls(qr.imageUrls);
@@ -416,7 +432,7 @@ const normalizeJobQuizResult = (qr: any) => {
     imageUrls = mediaFromAnswers.imageUrls;
   }
 
-  let feedback = null;
+  let feedback = analysisData || null;
   let transcription: any[] = [];
   let messages: any[] = [];
   let score = typeof qr.score === "number" ? qr.score : null;
@@ -424,7 +440,7 @@ const normalizeJobQuizResult = (qr: any) => {
   let skills = Array.isArray(qr.skills) ? qr.skills : [];
 
   if (qr.quizType === "MOCK_INTERVIEW") {
-    const derived = deriveMockInterviewData(parsedAnswers, score);
+    const derived = deriveMockInterviewData(parsedAnswers, score, analysisData);
     feedback = derived.feedback;
     transcription = derived.transcription;
     messages = derived.messages;
@@ -450,6 +466,9 @@ const normalizeJobQuizResult = (qr: any) => {
 
   return {
     ...qr,
+    source: "job",
+    isJobQuiz: true,
+    analysis: analysisData,
     score: normalizedScore,
     totalPoints: normalizedTotalPoints,
     skills,
@@ -461,6 +480,67 @@ const normalizeJobQuizResult = (qr: any) => {
     answers: parsedAnswers ?? qr.answers,
     rawAnswers: qr.answers,
   };
+};
+
+const normalizeSkillName = (value?: string | null) =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
+
+const buildSkillProgressFromFeedback = (jobSkills: string[] = [], feedback: any) => {
+  const matched: string[] = Array.isArray(feedback?.skillsAnalysis?.matched) ? feedback.skillsAnalysis.matched : [];
+  const missing: string[] = Array.isArray(feedback?.skillsAnalysis?.missing) ? feedback.skillsAnalysis.missing : [];
+  const exceeds: string[] = Array.isArray(feedback?.skillsAnalysis?.exceeds) ? feedback.skillsAnalysis.exceeds : [];
+
+  const added = new Set<string>();
+  const results: { name: string; score: number; maxScore: number }[] = [];
+
+  const addSkill = (name: string, score: number) => {
+    if (!name) return;
+    const key = normalizeSkillName(name);
+    if (added.has(key)) return;
+    results.push({
+      name,
+      score: Math.max(0, Math.min(score, 100)),
+      maxScore: 100,
+    });
+    added.add(key);
+  };
+
+  jobSkills.forEach((skill) => {
+    const key = normalizeSkillName(skill);
+    if (exceeds.some((value) => normalizeSkillName(value) === key)) {
+      addSkill(skill, 100);
+    } else if (matched.some((value) => normalizeSkillName(value) === key)) {
+      addSkill(skill, 85);
+    } else if (missing.some((value) => normalizeSkillName(value) === key)) {
+      addSkill(skill, 35);
+    } else {
+      addSkill(skill, 60);
+    }
+  });
+
+  exceeds.forEach((skill) => addSkill(skill, 95));
+  matched.forEach((skill) => addSkill(skill, 80));
+  missing.forEach((skill) => addSkill(skill, 25));
+
+  return results;
+};
+
+const buildTranscriptionPayload = (test: TestResult) => {
+  if (Array.isArray(test.transcription) && test.transcription.length > 0) {
+    return test.transcription;
+  }
+
+  if (Array.isArray(test.messages) && test.messages.length > 0) {
+    return test.messages
+      .filter((entry: any) => entry && typeof entry === "object" && typeof entry.content === "string")
+      .map((entry: any) => ({
+        speaker: entry.author === "user" ? "user" : "ai",
+        text: entry.content,
+        timestamp: entry.timestamp ?? undefined,
+      }));
+  }
+
+  return [];
 };
 
 const mapJobToJobOffer = (job: any): JobOffer => {
@@ -497,6 +577,99 @@ const createDefaultJobOffer = (): JobOffer => ({
   newApplications: 0,
   skills: []
 });
+
+const haveApplicationsChanged = (previous: Application[] = [], next: Application[] = []) => {
+  if (previous.length !== next.length) {
+    return true;
+  }
+
+  for (let index = 0; index < next.length; index += 1) {
+    const prevApp = previous[index];
+    const nextApp = next[index];
+    if (!prevApp || !nextApp) {
+      return true;
+    }
+
+    if (prevApp.id !== nextApp.id) return true;
+    if (prevApp.status !== nextApp.status) return true;
+    if ((prevApp.score ?? null) !== (nextApp.score ?? null)) return true;
+    if (prevApp.lastUpdated !== nextApp.lastUpdated) return true;
+
+    const prevCandidate = prevApp.candidate;
+    const nextCandidate = nextApp.candidate;
+    if (!prevCandidate || !nextCandidate) return true;
+    if (prevCandidate.id !== nextCandidate.id) return true;
+    if (prevCandidate.email !== nextCandidate.email) return true;
+
+    // Compare test results summary (length + ids)
+    const prevTests = prevApp.testResults || [];
+    const nextTests = nextApp.testResults || [];
+    if (prevTests.length !== nextTests.length) return true;
+    for (let tIdx = 0; tIdx < nextTests.length; tIdx += 1) {
+      const prevTest = prevTests[tIdx];
+      const nextTest = nextTests[tIdx];
+      if (!prevTest || !nextTest) return true;
+      if (prevTest.id !== nextTest.id) return true;
+      if ((prevTest.score ?? null) !== (nextTest.score ?? null)) return true;
+      if ((prevTest.status ?? null) !== (nextTest.status ?? null)) return true;
+    }
+  }
+
+  return false;
+};
+
+const haveQuizResultsChanged = (previous: any[] = [], next: any[] = []) => {
+  if (previous.length !== next.length) {
+    return true;
+  }
+
+  for (let index = 0; index < next.length; index += 1) {
+    const prevItem = previous[index];
+    const nextItem = next[index];
+    if (!prevItem || !nextItem) {
+      return true;
+    }
+    if (prevItem.id !== nextItem.id) return true;
+    if ((prevItem.score ?? null) !== (nextItem.score ?? null)) return true;
+    if ((prevItem.totalPoints ?? null) !== (nextItem.totalPoints ?? null)) return true;
+    if ((prevItem.completedAt ?? null) !== (nextItem.completedAt ?? null)) return true;
+  }
+
+  return false;
+};
+
+const buildQuizResultsSignature = (results: any[] = []) =>
+  results
+    .map((result) => `${result.id ?? "unknown"}:${result.score ?? 0}:${result.totalPoints ?? 0}:${result.completedAt ?? ""}`)
+    .join("|");
+
+const haveTestResultsChanged = (previous: TestResult[] = [], next: TestResult[] = []) => {
+  if (previous.length !== next.length) {
+    return true;
+  }
+
+  for (let index = 0; index < next.length; index += 1) {
+    const prevResult = previous[index];
+    const nextResult = next[index];
+    if (!prevResult || !nextResult) {
+      return true;
+    }
+    if (prevResult.id !== nextResult.id) return true;
+    if ((prevResult.score ?? null) !== (nextResult.score ?? null)) return true;
+    if ((prevResult.maxScore ?? null) !== (nextResult.maxScore ?? null)) return true;
+    if ((prevResult.status ?? null) !== (nextResult.status ?? null)) return true;
+  }
+
+  return false;
+};
+
+const buildTestResultsSignature = (results: TestResult[] = []) =>
+  results
+    .map(
+      (result) =>
+        `${result.id ?? "unknown"}:${result.score ?? 0}:${result.maxScore ?? 0}:${result.status ?? "unknown"}`
+    )
+    .join("|");
 
 // Composants Skeleton améliorés
 const JobCardSkeleton = () => (
@@ -1049,10 +1222,6 @@ export const ApplicationsTab = () => {
   // États pour l'évaluation sémantique des tests TECHNICAL
   const [semanticEvaluations, setSemanticEvaluations] = useState<Record<string, any>>({});
   const [loadingSemanticEvaluation, setLoadingSemanticEvaluation] = useState<Record<string, boolean>>({});
-  // États pour l'évaluation des MOCK_INTERVIEW
-  const [mockInterviewEvaluations, setMockInterviewEvaluations] = useState<Record<string, any>>({});
-  const [loadingMockInterviewEvaluation, setLoadingMockInterviewEvaluation] = useState<Record<string, boolean>>({});
-  
   // Récupérer les applications détaillées pour le job sélectionné avec realtime
   const { data: jobApplications, isLoading: loadingJobApplications, refetch: refetchJobApplications } = useJobApplications(selectedJob?.id || "");
   
@@ -1108,22 +1277,44 @@ export const ApplicationsTab = () => {
     staleTime: 60000,
   });
 
-  const normalizedJobQuizResults = useMemo(
-    () => (quizResultsData?.data || []).map((qr: any) => normalizeJobQuizResult(qr)),
-    [quizResultsData?.data]
-  );
+  const normalizedResultsRef = useRef<any[]>([]);
+  const normalizedJobQuizResults = useMemo(() => {
+    if (Array.isArray(quizResultsData?.data)) {
+      const normalized = quizResultsData.data.map((qr: any) => normalizeJobQuizResult(qr));
+      normalizedResultsRef.current = normalized;
+      return normalized;
+    }
+    return normalizedResultsRef.current;
+  }, [quizResultsData?.data]);
+
+  const normalizedTrainingResultsRef = useRef<any[]>([]);
+  const normalizedTrainingResults = useMemo(() => {
+    if (Array.isArray(trainingQuizResults)) {
+      const normalized = trainingQuizResults.map((result: any) => ({
+        ...result,
+        source: "training",
+        isJobQuiz: false,
+      }));
+      if (!haveQuizResultsChanged(normalizedTrainingResultsRef.current, normalized)) {
+        return normalizedTrainingResultsRef.current;
+      }
+      normalizedTrainingResultsRef.current = normalized;
+      return normalized;
+    }
+    return normalizedTrainingResultsRef.current;
+  }, [trainingQuizResults]);
+
+  const combinedQuizResultsRef = useRef<any[]>([]);
+  const quizResults = useMemo(() => {
+    const combined = [...normalizedJobQuizResults, ...normalizedTrainingResults];
+    if (!haveQuizResultsChanged(combinedQuizResultsRef.current, combined)) {
+      return combinedQuizResultsRef.current;
+    }
+    combinedQuizResultsRef.current = combined;
+    return combined;
+  }, [normalizedJobQuizResults, normalizedTrainingResults]);
 
   // Combiner les résultats de JobQuiz et Quiz (entrainements)
-  const allQuizResults = useMemo(() => {
-    const trainingResults = trainingQuizResults || [];
-    return [
-      ...normalizedJobQuizResults.map((qr: any) => ({ ...qr, source: 'job', isJobQuiz: true })),
-      ...trainingResults.map((qr: any) => ({ ...qr, source: 'training', isJobQuiz: false })),
-    ];
-  }, [normalizedJobQuizResults, trainingQuizResults]);
-
-  const quizResults = allQuizResults;
-
   // Transformer les jobs de l'utilisateur en format UI
   const jobOffers = useMemo(() => {
     if (!userJobs || !Array.isArray(userJobs)) return [];
@@ -1147,20 +1338,35 @@ export const ApplicationsTab = () => {
 
   // Mettre à jour les applications du job sélectionné quand les données arrivent
   useEffect(() => {
-    if (selectedJob && jobApplications && Array.isArray(jobApplications)) {
-      const updatedJob = {
-        ...selectedJob,
-        applications: jobApplications.map(app => {
-          const mappedApp = mapApplicationToUI(app);
-          // Les résultats de quiz seront récupérés séparément pour chaque application
-          return mappedApp;
-        }),
-        totalApplications: jobApplications.length, // Utiliser la longueur réelle du tableau
-        newApplications: calculateNewApplications(jobApplications)
-      };
-      setSelectedJob(updatedJob);
+    if (!Array.isArray(jobApplications) || !selectedJob?.id) {
+      return;
     }
-  }, [jobApplications, selectedJob?.id]); // Ajouter selectedJob?.id pour éviter les mises à jour inutiles
+
+    const mappedApplications = jobApplications.map(mapApplicationToUI);
+    const totalApplications = jobApplications.length;
+    const newApplications = calculateNewApplications(jobApplications);
+
+    setSelectedJob((previousJob) => {
+      if (!previousJob || previousJob.id !== selectedJob.id) {
+        return previousJob;
+      }
+
+      const applicationsChanged = haveApplicationsChanged(previousJob.applications, mappedApplications);
+      const countsChanged =
+        previousJob.totalApplications !== totalApplications || previousJob.newApplications !== newApplications;
+
+      if (!applicationsChanged && !countsChanged) {
+        return previousJob;
+      }
+
+      return {
+        ...previousJob,
+        applications: mappedApplications,
+        totalApplications,
+        newApplications,
+      };
+    });
+  }, [jobApplications, selectedJob?.id]);
 
   // Calculer les statistiques globales
   const stats = useMemo(() => {
@@ -1629,9 +1835,26 @@ export const ApplicationsTab = () => {
     );
   };
 
+  // États globaux pour les modales de conversation et feedback (préservent l'UX même en cas de re-render)
+  const [conversationDialog, setConversationDialog] = useState<{
+    testId: string;
+    testName: string;
+    messages: Array<{ id: string; author: 'ai' | 'user'; content: string; timestamp?: Date }>;
+    feedback?: any;
+    callDuration?: number;
+    technologies: string[];
+  } | null>(null);
+  const [isConversationDialogOpen, setIsConversationDialogOpen] = useState(false);
+  const [feedbackDialogTest, setFeedbackDialogTest] = useState<TestResult | null>(null);
+  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
+  const [feedbackDialogData, setFeedbackDialogData] = useState<any | null>(null);
+  const [isFeedbackDialogLoading, setIsFeedbackDialogLoading] = useState(false);
+  const feedbackCacheRef = useRef<Record<string, any>>({});
+
   // État pour la simulation d'évaluation IA des compétences
   const [isEvaluatingSkills, setIsEvaluatingSkills] = useState(false);
   const [evaluatedSkills, setEvaluatedSkills] = useState<Record<string, { score: number; maxScore: number; mastery: string }>>({});
+  const selectedJobSkillsKey = useMemo(() => (selectedJob?.skills ? selectedJob.skills.join("|") : ""), [selectedJob?.skills]);
 
   // Fonction pour simuler l'évaluation IA des compétences techniques du poste
   // IMPORTANT: Utilise SEULEMENT les résultats des tests techniques liés au poste (JobQuizResults)
@@ -1697,50 +1920,52 @@ export const ApplicationsTab = () => {
   }, [selectedJob, selectedApplication, quizResultsData?.data, loadingQuizResults, userJobs]);
 
   // Simuler le chargement de l'évaluation IA - Utiliser un ref pour éviter les re-déclenchements
-  const hasEvaluatedRef = useRef<Record<string, boolean>>({});
+  const hasEvaluatedRef = useRef<Record<string, string>>({});
   
+  const jobQuizSignature = useMemo(() => buildQuizResultsSignature(normalizedJobQuizResults), [normalizedJobQuizResults]);
+
   useEffect(() => {
     const evaluationKey = `${selectedApplication?.id}-${selectedJob?.id}`;
-    
-    // Ne faire l'évaluation qu'une seule fois par combinaison application/job
-    if (selectedApplication && selectedJob && !loadingQuizResults && !hasEvaluatedRef.current[evaluationKey]) {
-      setIsEvaluatingSkills(true);
-      hasEvaluatedRef.current[evaluationKey] = true;
-      
-      const timer = setTimeout(() => {
-        setIsEvaluatingSkills(false);
-        if (simulateSkillEvaluation) {
-          const skillsMap: Record<string, { score: number; maxScore: number; mastery: string }> = {};
-          simulateSkillEvaluation.forEach((skill: any) => {
-            skillsMap[skill.name] = {
-              score: skill.score,
-              maxScore: skill.maxScore,
-              mastery: skill.mastery
-            };
-          });
-          setEvaluatedSkills(skillsMap);
-        }
-      }, 2000); // Simulation de 2 secondes
-      
-      return () => clearTimeout(timer);
-    } else if (!selectedApplication || !selectedJob) {
-      // Réinitialiser le flag quand on change d'application/job
+
+    if (!selectedApplication || !selectedJob) {
       hasEvaluatedRef.current = {};
+      setIsEvaluatingSkills(false);
+      return;
     }
-  }, [selectedApplication?.id, selectedJob?.id, loadingQuizResults]); // Retirer simulateSkillEvaluation des dépendances
+
+    if (loadingQuizResults || !simulateSkillEvaluation || jobQuizSignature.length === 0) {
+      return;
+    }
+
+    const signature = `${evaluationKey}:${jobQuizSignature}`;
+    if (hasEvaluatedRef.current[evaluationKey] === signature) {
+      return;
+    }
+
+    hasEvaluatedRef.current[evaluationKey] = signature;
+    setIsEvaluatingSkills(true);
+
+    const timer = setTimeout(() => {
+      if (simulateSkillEvaluation) {
+        const skillsMap: Record<string, { score: number; maxScore: number; mastery: string }> = {};
+        simulateSkillEvaluation.forEach((skill: any) => {
+          skillsMap[skill.name] = {
+            score: skill.score,
+            maxScore: skill.maxScore,
+            mastery: skill.mastery,
+          };
+        });
+        setEvaluatedSkills(skillsMap);
+      }
+      setIsEvaluatingSkills(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [selectedApplication?.id, selectedJob?.id, loadingQuizResults, simulateSkillEvaluation, jobQuizSignature]);
 
   // Vue : Détails d'une candidature avec résultats
   const ResultsView = () => {
     const router = useRouter();
-    const [conversationDialog, setConversationDialog] = useState<{
-      testId: string;
-      testName: string;
-      messages: Array<{ id: string; author: 'ai' | 'user'; content: string; timestamp?: Date }>;
-      feedback?: any;
-      callDuration?: number;
-      technologies: string[];
-    } | null>(null);
-    const [isConversationDialogOpen, setIsConversationDialogOpen] = useState(false);
 
     const formatCallDuration = (seconds?: number) => {
       if (seconds === undefined || seconds === null || Number.isNaN(seconds)) {
@@ -1755,181 +1980,118 @@ export const ApplicationsTab = () => {
       return `${minutes}m ${remainingSeconds.toString().padStart(2, '0')}s`;
     };
     
-    // Calculer les statistiques des tests
-    const testStatistics = useMemo(() => {
-      if (!quizResults || quizResults.length === 0) {
-        return {
-          totalTests: 0,
-          averageScore: 0,
-          testsByType: [],
-          averageByType: [],
-          typeDistribution: [],
-          scoreEvolution: [],
-          skillsRadarData: []
-        };
-      }
-
-      // Grouper par type de test
-      const testsByTypeMap: Record<string, { count: number; scores: number[]; totalPoints: number[] }> = {};
-      
-      quizResults.forEach((qr: any) => {
-        const type = qr.quizType || 'UNKNOWN';
-        if (!testsByTypeMap[type]) {
-          testsByTypeMap[type] = { count: 0, scores: [], totalPoints: [] };
-        }
-        testsByTypeMap[type].count += 1;
-        testsByTypeMap[type].scores.push(qr.score);
-        testsByTypeMap[type].totalPoints.push(qr.totalPoints);
-      });
-
-      // Calculer les moyennes par type
-      const testsByType = Object.entries(testsByTypeMap).map(([type, data]) => ({
-        type,
-        count: data.count,
-        averageScore: data.scores.reduce((sum, score, idx) => sum + (score / data.totalPoints[idx]) * 100, 0) / data.count
-      }));
-
-      const averageByType = Object.entries(testsByTypeMap).map(([type, data]) => {
-        const avgScore = data.scores.reduce((sum, score, idx) => sum + (score / data.totalPoints[idx]) * 100, 0) / data.count;
-        return {
-          type: type === 'QCM' ? 'QCM' : type === 'TECHNICAL' ? 'Technique' : type === 'MOCK_INTERVIEW' ? 'Entretien' : type === 'SOFT_SKILLS' ? 'Soft Skills' : type,
-          moyenne: Math.round(avgScore * 10) / 10,
-          count: data.count
-        };
-      });
-
-      // Distribution par type (pour PieChart)
-      const typeDistribution = Object.entries(testsByTypeMap).map(([type, data]) => ({
-        name: type === 'QCM' ? 'QCM' : type === 'TECHNICAL' ? 'Technique' : type === 'MOCK_INTERVIEW' ? 'Entretien' : type === 'SOFT_SKILLS' ? 'Soft Skills' : type,
-        value: data.count,
-        type: type
-      }));
-
-      // Score global moyen
-      const totalScore = quizResults.reduce((sum: number, qr: any) => {
-        const percentage = qr.totalPoints > 0 ? (qr.score / qr.totalPoints) * 100 : 0;
-        return sum + percentage;
-      }, 0);
-      const averageScore = Math.round((totalScore / quizResults.length) * 10) / 10;
-
-      // Évolution des scores dans le temps (pour LineChart)
-      const scoreEvolution = quizResults
-        .map((qr: any, idx: number) => ({
-          name: `Test ${idx + 1}`,
-          score: Math.round((qr.score / qr.totalPoints) * 100),
-          date: qr.completedAt ? new Date(qr.completedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '',
-          testName: qr.quizTitle
-        }))
-        .reverse(); // Du plus ancien au plus récent
-
-      // Données pour RadarChart des compétences
-      const skillsMap: Record<string, { total: number; earned: number; count: number }> = {};
-      quizResults.forEach((qr: any) => {
-        if (qr.skills && Array.isArray(qr.skills)) {
-          qr.skills.forEach((skill: any) => {
-            const skillName = skill.name || skill.skill || 'Compétence';
-            if (!skillsMap[skillName]) {
-              skillsMap[skillName] = { total: 0, earned: 0, count: 0 };
-            }
-            skillsMap[skillName].total += skill.maxScore || 100;
-            skillsMap[skillName].earned += skill.score || 0;
-            skillsMap[skillName].count += 1;
-          });
-        }
-      });
-
-      const skillsRadarData = Object.entries(skillsMap)
-        .map(([name, data]) => ({
-          skill: name.length > 15 ? name.substring(0, 15) + '...' : name,
-          fullName: name,
-          score: Math.round((data.earned / data.total) * 100),
-          count: data.count
-        }))
-        .slice(0, 8); // Limiter à 8 compétences pour la lisibilité
-
-      return {
-        totalTests: quizResults.length,
-        averageScore,
-        testsByType,
-        averageByType,
-        typeDistribution,
-        scoreEvolution,
-        skillsRadarData
-      };
-    }, [quizResults]);
-
+    // Calculer les statistiques des tests en évitant les recalculs inutiles
     // Mettre à jour les testResults avec SEULEMENT les JobQuizResults (tests techniques du poste)
     // Les graphiques utilisent allQuizResults (entrainements + tests du job)
     // Mais la section des résultats individuels utilise seulement les tests du job
     const jobQuizResultsOnly = normalizedJobQuizResults;
-    
+    const applicationDisplayRef = useRef<Application | null>(null);
+    const lastApplicationIdRef = useRef<string | null>(null);
+    const autoReviewScoreRef = useRef<number | null>(null);
+
     const updatedApplication = useMemo(() => {
-      if (!selectedApplication) return null;
-      
-      if (jobQuizResultsOnly && jobQuizResultsOnly.length > 0) {
-        return {
-          ...selectedApplication,
-          testResults: jobQuizResultsOnly.map((qr: any) => {
-            return {
-              id: qr.id,
-              testName: qr.quizTitle,
-              quizType: qr.quizType,
-              score: typeof qr.score === "number" ? qr.score : 0,
-              maxScore: typeof qr.totalPoints === "number" && qr.totalPoints > 0 ? qr.totalPoints : 100,
-              status: 'completed' as TestStatus,
-              completedAt: qr.completedAt,
-              duration: qr.duration || 0,
-              skills: Array.isArray(qr.skills) ? qr.skills : [],
-              feedback: qr.feedback || null,
-              transcription: Array.isArray(qr.transcription) ? qr.transcription : [],
-              messages: Array.isArray(qr.messages) ? qr.messages : [],
-              improvementTips: qr.improvementTips || [],
-              videoUrl: typeof qr.videoUrl === "string" ? qr.videoUrl : "",
-              imageUrls: Array.isArray(qr.imageUrls) ? qr.imageUrls : parseImageUrls(qr.imageUrls),
-              answers: qr.answers ?? qr.rawAnswers ?? null,
-              technology: Array.isArray(qr.technology)
-                ? qr.technology
-                : Array.isArray((qr as any)?.quizTechnology)
-                ? (qr as any).quizTechnology
-                : [],
-              domain: qr.domain || (qr as any)?.quizDomain || null,
-            };
-          })
-        };
+      if (!selectedApplication) {
+        applicationDisplayRef.current = null;
+        return null;
       }
-      return selectedApplication;
+
+      const baseApplication = selectedApplication;
+
+      if (!jobQuizResultsOnly || jobQuizResultsOnly.length === 0) {
+        applicationDisplayRef.current = baseApplication;
+        return baseApplication;
+      }
+
+      const mappedTestResults: TestResult[] = jobQuizResultsOnly.map((qr: any) => ({
+        id: qr.id,
+        testName: qr.quizTitle,
+        quizType: qr.quizType,
+        score: typeof qr.score === "number" ? qr.score : 0,
+        maxScore: typeof qr.totalPoints === "number" && qr.totalPoints > 0 ? qr.totalPoints : 100,
+        status: "completed",
+        completedAt: qr.completedAt,
+        duration: qr.duration || 0,
+        skills: Array.isArray(qr.skills) ? qr.skills : [],
+        feedback: qr.feedback || null,
+        transcription: Array.isArray(qr.transcription) ? qr.transcription : [],
+        messages: Array.isArray(qr.messages) ? qr.messages : [],
+        improvementTips: qr.improvementTips || [],
+        videoUrl: typeof qr.videoUrl === "string" ? qr.videoUrl : "",
+        imageUrls: Array.isArray(qr.imageUrls) ? qr.imageUrls : parseImageUrls(qr.imageUrls),
+        answers: qr.answers ?? qr.rawAnswers ?? null,
+        technology: Array.isArray(qr.technology)
+          ? qr.technology
+          : Array.isArray((qr as any)?.quizTechnology)
+          ? (qr as any).quizTechnology
+          : [],
+        domain: qr.domain || (qr as any)?.quizDomain || null,
+      }));
+
+      const previous = applicationDisplayRef.current;
+      if (
+        previous &&
+        previous.id === baseApplication.id &&
+        previous.status === baseApplication.status &&
+        (previous.score ?? null) === (baseApplication.score ?? null) &&
+        !haveTestResultsChanged(previous.testResults, mappedTestResults)
+      ) {
+        return previous;
+      }
+
+      const nextApplication = {
+        ...baseApplication,
+        testResults: mappedTestResults,
+      };
+
+      applicationDisplayRef.current = nextApplication;
+      return nextApplication;
     }, [selectedApplication, jobQuizResultsOnly]);
 
-    useEffect(() => {
-      if (!jobQuizResultsOnly || jobQuizResultsOnly.length === 0) return;
-      setMockInterviewEvaluations((prev) => {
-        let hasChanges = false;
-        const next = { ...prev };
-        jobQuizResultsOnly.forEach((qr: any) => {
-          if (qr.quizType === "MOCK_INTERVIEW" && qr.feedback && !next[qr.id]) {
-            next[qr.id] = qr.feedback;
-            hasChanges = true;
-          }
-        });
-        return hasChanges ? next : prev;
-      });
-    }, [jobQuizResultsOnly]);
+    const testResultsSignature = useMemo(
+      () => buildTestResultsSignature(updatedApplication?.testResults || []),
+      [updatedApplication?.testResults]
+    );
 
-    // Initialiser le statut et le score de review avec les valeurs actuelles de l'application
     useEffect(() => {
-      if (updatedApplication) {
+      if (!updatedApplication) return;
+
+      const computedScore =
+        updatedApplication.score !== null && updatedApplication.score !== undefined
+          ? updatedApplication.score
+          : updatedApplication.testResults.length > 0
+          ? Math.round(
+              updatedApplication.testResults.reduce(
+                (sum: number, t: TestResult) => sum + (t.score / t.maxScore) * 100,
+                0
+              ) / updatedApplication.testResults.length
+            )
+          : null;
+
+      const isNewApplication = lastApplicationIdRef.current !== updatedApplication.id;
+
+      if (isNewApplication) {
+        lastApplicationIdRef.current = updatedApplication.id;
+        autoReviewScoreRef.current = computedScore;
         setApplicationReviewStatus(updatedApplication.status);
-        // Initialiser le score avec celui de l'application ou calculer depuis les tests
-        if (updatedApplication.score !== null && updatedApplication.score !== undefined) {
-          setApplicationReviewScore(updatedApplication.score);
-        } else if (updatedApplication.testResults.length > 0) {
-          const averageScore = Math.round(
-            updatedApplication.testResults.reduce((sum: number, t: TestResult) => sum + (t.score / t.maxScore) * 100, 0) / updatedApplication.testResults.length
-          );
-          setApplicationReviewScore(averageScore);
-        }
+        setApplicationReviewScore(computedScore);
+        return;
       }
-    }, [updatedApplication?.status, updatedApplication?.score]);
+
+      if (updatedApplication.status !== applicationReviewStatus) {
+        setApplicationReviewStatus(updatedApplication.status);
+      }
+
+      if (computedScore !== null) {
+        const userHasModifiedScore =
+          applicationReviewScore !== null && applicationReviewScore !== autoReviewScoreRef.current;
+        if (!userHasModifiedScore && applicationReviewScore !== computedScore) {
+          setApplicationReviewScore(computedScore);
+        }
+        autoReviewScoreRef.current = computedScore;
+      } else {
+        autoReviewScoreRef.current = null;
+      }
+    }, [updatedApplication, applicationReviewStatus, applicationReviewScore]);
 
     if (!updatedApplication) {
       return (
@@ -1940,7 +2102,7 @@ export const ApplicationsTab = () => {
       );
     }
 
-    const openConversationDialog = (test: TestResult) => {
+    const openConversationDialog = useCallback((test: TestResult) => {
       const sessionData =
         (test.answers && typeof test.answers === "object" ? test.answers : parseQuizAnswers(test.answers)) || {};
 
@@ -2014,19 +2176,201 @@ export const ApplicationsTab = () => {
         testId: test.id,
         testName: test.testName,
         messages: normalizedMessages,
-        feedback: test.feedback || sessionData.feedback || mockInterviewEvaluations[test.id] || null,
+        feedback: test.feedback || sessionData.feedback || null,
         callDuration: durationValue,
         technologies: Array.from(combinedTechnologies),
       });
       setIsConversationDialogOpen(true);
-    };
+    }, [selectedJobSkillsKey]);
 
-    const handleConversationDialogChange = (open: boolean) => {
+    const handleConversationDialogChange = useCallback((open: boolean) => {
       setIsConversationDialogOpen(open);
       if (!open) {
         setConversationDialog(null);
       }
-    };
+    }, []);
+
+    const openFeedbackDialog = useCallback(
+      async (test: TestResult) => {
+        if (!test) return;
+        setFeedbackDialogTest(test);
+        setIsFeedbackDialogOpen(true);
+
+        const cached = feedbackCacheRef.current[test.id];
+        if (cached) {
+          setFeedbackDialogData(cached);
+          setIsFeedbackDialogLoading(false);
+          return;
+        }
+
+        setFeedbackDialogData(null);
+        setIsFeedbackDialogLoading(true);
+
+        const parseAnalysisValue = (value: any) => {
+          if (!value) return null;
+          if (typeof value === "string") {
+            return safeParseJson(value);
+          }
+          if (typeof value === "object") {
+            return value;
+          }
+          return null;
+        };
+
+        try {
+          const reviewResult = await getQuizResultForReview(test.id);
+          const reviewData = reviewResult.success ? reviewResult.data : null;
+          const reviewDetails = reviewData as any;
+          const jobSkills = selectedJob?.skills || [];
+
+          const storedAnalysis =
+            parseAnalysisValue(reviewDetails?.analysis) ||
+            parseAnalysisValue((test as any)?.analysis);
+
+          const questionsPayload = Array.isArray(reviewDetails?.questions)
+            ? reviewDetails.questions.map((question: any) => ({
+                id: question.id,
+                text: question.text || question.question || "",
+              }))
+            : [];
+
+          const buildFinalDataFromAnalysis = (analysis: any, source: string) => ({
+            source,
+            feedback: analysis,
+            skills: buildSkillProgressFromFeedback(jobSkills, analysis),
+            score: analysis?.overallScore ?? reviewDetails?.score ?? test.score ?? null,
+            questions: questionsPayload,
+          });
+
+          let finalFeedbackData: any = storedAnalysis
+            ? buildFinalDataFromAnalysis(storedAnalysis, "stored")
+            : null;
+
+          if (!finalFeedbackData && test.quizType === "MOCK_INTERVIEW") {
+            const transcriptionPayload = buildTranscriptionPayload(test);
+            if (transcriptionPayload.length > 0) {
+              const jobRequirements = {
+                title: selectedJob?.title || "Poste non spécifié",
+                description: (selectedJob as any)?.description || "",
+                skills: jobSkills,
+                experienceLevel: selectedJob?.type || "",
+                domain: test.domain || jobSkills[0] || "",
+              };
+
+              try {
+                const response = await fetch("/api/gemini", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    type: "evaluate-mock-interview",
+                    transcription: transcriptionPayload,
+                    jobRequirements,
+                    questions: questionsPayload,
+                  }),
+                });
+
+                if (!response.ok) {
+                  const errorPayload = await response.json().catch(() => ({}));
+                  throw new Error(errorPayload?.error || "Réponse invalide de l'API Gemini");
+                }
+
+                const aiResult = await response.json();
+                if (aiResult.success && aiResult.data) {
+                  finalFeedbackData = buildFinalDataFromAnalysis(aiResult.data, "ai");
+
+                  await saveQuizResultAnalysis(test.id, aiResult.data, {
+                    score: aiResult.data?.overallScore ?? null,
+                  });
+                } else {
+                  throw new Error(aiResult?.error || "Impossible d'obtenir le feedback IA");
+                }
+              } catch (error: any) {
+                console.error("Error generating AI feedback:", error);
+                toast.error(error?.message || "Erreur lors de la génération du feedback IA");
+              }
+            }
+          }
+
+          if (!finalFeedbackData) {
+            if (reviewDetails?.feedback || reviewDetails?.analysis) {
+              finalFeedbackData = {
+                source: "review",
+                feedback: reviewDetails?.feedback || parseAnalysisValue(reviewDetails?.analysis),
+                skills: buildSkillProgressFromFeedback(
+                  jobSkills,
+                  reviewDetails?.feedback || parseAnalysisValue(reviewDetails?.analysis)
+                ),
+                score: reviewDetails?.score ?? test.score ?? null,
+                questions: questionsPayload,
+              };
+            } else {
+              finalFeedbackData = {
+                source: "test",
+                feedback: test.feedback || null,
+                skills: test.skills || [],
+                score: test.score ?? null,
+                questions: questionsPayload,
+              };
+            }
+          }
+
+          feedbackCacheRef.current[test.id] = finalFeedbackData;
+          setFeedbackDialogData(finalFeedbackData);
+        } catch (error) {
+          console.error("Error loading feedback details:", error);
+          toast.error("Impossible de charger le feedback de l'entretien");
+          setFeedbackDialogData(null);
+        } finally {
+          setIsFeedbackDialogLoading(false);
+        }
+      },
+      [selectedJob]
+    );
+
+    const handleFeedbackDialogChange = useCallback(
+      (open: boolean) => {
+        setIsFeedbackDialogOpen(open);
+        if (!open) {
+          setFeedbackDialogTest(null);
+          setFeedbackDialogData(null);
+          setIsFeedbackDialogLoading(false);
+        }
+      },
+      []
+    );
+
+    const effectiveFeedback = useMemo(() => {
+      if (feedbackDialogData) {
+        if (feedbackDialogData.feedback) return feedbackDialogData.feedback;
+        if (feedbackDialogData.analysis) return feedbackDialogData.analysis;
+      }
+      return feedbackDialogTest?.feedback ?? null;
+    }, [feedbackDialogData, feedbackDialogTest]);
+
+    const effectiveFeedbackScore = useMemo(() => {
+      if (typeof feedbackDialogData?.score === "number") {
+        return feedbackDialogData.score;
+      }
+      if (typeof effectiveFeedback?.overallScore === "number") {
+        return effectiveFeedback.overallScore;
+      }
+      return feedbackDialogTest?.score ?? 0;
+    }, [feedbackDialogData, effectiveFeedback, feedbackDialogTest]);
+
+    const effectiveSkillScores = useMemo(() => {
+      const candidates = [
+        feedbackDialogData?.skills,
+        feedbackDialogData?.feedback?.skills,
+        feedbackDialogData?.analysis?.skills,
+        feedbackDialogTest?.skills,
+      ].filter(
+        (list): list is Array<{ name: string; score: number; maxScore: number }> =>
+          Array.isArray(list) && list.length > 0
+      );
+      return candidates[0] || [];
+    }, [feedbackDialogData, feedbackDialogTest]);
 
     return (
       <>
@@ -2119,294 +2463,6 @@ export const ApplicationsTab = () => {
 
             {/* Colonne droite : Résultats des tests */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Section : Statistiques et Graphiques des Tests */}
-              {quizResults && quizResults.length > 0 && (
-                <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
-                  <CardHeader>
-                    <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                      Statistiques des Tests Techniques
-                    </CardTitle>
-                    <CardDescription className="text-slate-600 dark:text-slate-400">
-                      Vue d'ensemble des performances aux différents types de tests
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Statistiques résumées */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Total de tests</p>
-                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{testStatistics.totalTests}</p>
-                      </div>
-                      <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                        <p className="text-sm font-medium text-green-800 dark:text-green-300 mb-1">Moyenne globale</p>
-                        <p className="text-2xl font-bold text-green-900 dark:text-green-100">{testStatistics.averageScore}%</p>
-                      </div>
-                      <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                        <p className="text-sm font-medium text-purple-800 dark:text-purple-300 mb-1">Types de tests</p>
-                        <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{testStatistics.averageByType.length}</p>
-                      </div>
-                    </div>
-
-                    {/* Graphiques - Responsive */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Graphique en barres : Moyenne par type */}
-                      <Card className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm font-semibold text-slate-900 dark:text-white">
-                            Moyenne par type de test
-                          </CardTitle>
-                          <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
-                            Score moyen en % pour chaque catégorie
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          {testStatistics.averageByType.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={250}>
-                              <BarChart data={testStatistics.averageByType}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-700" />
-                                <XAxis 
-                                  dataKey="type" 
-                                  stroke="#64748b"
-                                  className="text-xs"
-                                  angle={-45}
-                                  textAnchor="end"
-                                  height={60}
-                                />
-                                <YAxis 
-                                  stroke="#64748b"
-                                  className="text-xs"
-                                  domain={[0, 100]}
-                                  label={{ value: 'Score (%)', angle: -90, position: 'insideLeft', className: 'text-xs fill-slate-600 dark:fill-slate-400' }}
-                                />
-                                <Tooltip
-                                  contentStyle={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                    border: '1px solid #e2e8f0',
-                                    borderRadius: '8px',
-                                    color: '#1e293b'
-                                  }}
-                                  formatter={(value: number) => [`${value}%`, 'Moyenne']}
-                                />
-                                <Bar 
-                                  dataKey="moyenne" 
-                                  fill="#3b82f6"
-                                  radius={[8, 8, 0, 0]}
-                                  label={{ position: 'top', formatter: (v: number) => `${v}%`, fill: '#64748b', fontSize: 12 }}
-                                >
-                                  {testStatistics.averageByType.map((entry: { type: string; moyenne: number; count: number }, index: number) => (
-                                    <Cell 
-                                      key={`cell-${index}`} 
-                                      fill={
-                                        entry.moyenne >= 80 ? '#10b981' :
-                                        entry.moyenne >= 60 ? '#3b82f6' :
-                                        entry.moyenne >= 40 ? '#f59e0b' : '#ef4444'
-                                      }
-                                    />
-                                  ))}
-                                </Bar>
-                              </BarChart>
-                            </ResponsiveContainer>
-                          ) : (
-                            <div className="h-[250px] flex items-center justify-center text-slate-500 dark:text-slate-400">
-                              <p className="text-sm">Aucune donnée disponible</p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {/* Graphique en camembert : Distribution par type */}
-                      <Card className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm font-semibold text-slate-900 dark:text-white">
-                            Répartition par type
-                          </CardTitle>
-                          <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
-                            Nombre de tests par catégorie
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          {testStatistics.typeDistribution.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={250}>
-                              <PieChart>
-                                <Pie
-                                  data={testStatistics.typeDistribution}
-                                  cx="50%"
-                                  cy="50%"
-                                  labelLine={false}
-                                  label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
-                                  outerRadius={80}
-                                  fill="#8884d8"
-                                  dataKey="value"
-                                  className="text-xs"
-                                >
-                                  {testStatistics.typeDistribution.map((entry: { name: string; value: number; type: string }, index: number) => {
-                                    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
-                                    return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-                                  })}
-                                </Pie>
-                                <Tooltip
-                                  contentStyle={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                    border: '1px solid #e2e8f0',
-                                    borderRadius: '8px'
-                                  }}
-                                />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          ) : (
-                            <div className="h-[250px] flex items-center justify-center text-slate-500 dark:text-slate-400">
-                              <p className="text-sm">Aucune donnée disponible</p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    {/* Graphique linéaire : Évolution des scores */}
-                    {testStatistics.scoreEvolution.length > 1 && (
-                      <Card className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm font-semibold text-slate-900 dark:text-white">
-                            Évolution des scores
-                          </CardTitle>
-                          <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
-                            Progression des performances au fil des tests
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <ResponsiveContainer width="100%" height={250}>
-                            <LineChart data={testStatistics.scoreEvolution}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-700" />
-                              <XAxis 
-                                dataKey="date" 
-                                stroke="#64748b"
-                                className="text-xs"
-                              />
-                              <YAxis 
-                                stroke="#64748b"
-                                className="text-xs"
-                                domain={[0, 100]}
-                                label={{ value: 'Score (%)', angle: -90, position: 'insideLeft', className: 'text-xs fill-slate-600 dark:fill-slate-400' }}
-                              />
-                              <Tooltip
-                                contentStyle={{
-                                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                  border: '1px solid #e2e8f0',
-                                  borderRadius: '8px'
-                                }}
-                                formatter={(value: number, name: string, props: any) => [
-                                  `${value}% - ${props.payload.testName}`,
-                                  'Score'
-                                ]}
-                              />
-                              <Legend />
-                              <Line 
-                                type="monotone" 
-                                dataKey="score" 
-                                stroke="#3b82f6" 
-                                strokeWidth={2}
-                                dot={{ fill: '#3b82f6', r: 4 }}
-                                activeDot={{ r: 6 }}
-                                name="Score (%)"
-                              />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    {/* Graphique Radar : Compétences techniques */}
-                    {testStatistics.skillsRadarData.length > 0 && (
-                      <Card className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm font-semibold text-slate-900 dark:text-white">
-                            Niveau de maîtrise des compétences
-                          </CardTitle>
-                          <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
-                            Évaluation sur 100 points
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <ResponsiveContainer width="100%" height={300}>
-                            <RadarChart data={testStatistics.skillsRadarData}>
-                              <PolarGrid stroke="#e2e8f0" className="dark:stroke-slate-700" />
-                              <PolarAngleAxis 
-                                dataKey="skill" 
-                                stroke="#64748b"
-                                className="text-xs"
-                                tick={{ fill: '#64748b', fontSize: 12 }}
-                              />
-                              <PolarRadiusAxis 
-                                angle={90} 
-                                domain={[0, 100]}
-                                stroke="#64748b"
-                                className="text-xs"
-                              />
-                              <Radar
-                                name="Score"
-                                dataKey="score"
-                                stroke="#3b82f6"
-                                fill="#3b82f6"
-                                fillOpacity={0.6}
-                              />
-                              <Tooltip
-                                contentStyle={{
-                                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                  border: '1px solid #e2e8f0',
-                                  borderRadius: '8px'
-                                }}
-                                formatter={(value: number, name: string, props: any) => [
-                                  `${value}% - ${props.payload.fullName}`,
-                                  'Maîtrise'
-                                ]}
-                              />
-                              <Legend />
-                            </RadarChart>
-                          </ResponsiveContainer>
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    {/* Détails par type */}
-                    <div className="space-y-3">
-                      <h4 className="text-base font-semibold text-slate-900 dark:text-white">
-                        Détails par type de test
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        {testStatistics.averageByType.map((item: { type: string; moyenne: number; count: number }, index: number) => (
-                          <div 
-                            key={index}
-                            className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                {item.type}
-                              </span>
-                              <Badge 
-                                variant="outline" 
-                                className={`text-xs ${
-                                  item.moyenne >= 80 ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
-                                  item.moyenne >= 60 ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
-                                  item.moyenne >= 40 ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
-                                  'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                                }`}
-                              >
-                                {item.moyenne}%
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                              <FileCheck className="w-3 h-3" />
-                              <span>{item.count} test{item.count > 1 ? 's' : ''}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
               {/* Section Review et Evaluation - Nouvelle section */}
               <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800">
                 <CardHeader className="pb-3">
@@ -2715,135 +2771,52 @@ export const ApplicationsTab = () => {
                                 onClick={() => openConversationDialog(test)}
                                 className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                               >
-                                <MessageSquare className="w-4 h-4 mr-2" />
+                                <MessageSquare className="mr-2 h-4 w-4" />
                                 Voir la conversation
                               </Button>
-                              {!mockInterviewEvaluations[test.id] && !loadingMockInterviewEvaluation[test.id] && (
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={async () => {
-                                    try {
-                                      setLoadingMockInterviewEvaluation(prev => ({ ...prev, [test.id]: true }));
-                                      
-                                      // Récupérer les détails du test pour obtenir la transcription
-                                      const result = await getQuizResultForReview(test.id);
-                                      if (result.success && result.data) {
-                                        const answers = result.data.answers as any;
-                                        const questions = result.data.questions as any[];
-                                        
-                                        // Extraire la transcription depuis answers
-                                        let transcription = answers;
-                                        if (Array.isArray(answers)) {
-                                          transcription = answers;
-                                        } else if (typeof answers === 'object' && answers.transcription) {
-                                          transcription = answers.transcription;
-                                        } else if (typeof answers === 'object' && answers.messages) {
-                                          transcription = answers.messages;
-                                        }
-                                        
-                                        // Récupérer les informations du poste depuis selectedJob
-                                        const combinedSkills = new Set<string>();
-                                        (selectedJob?.skills || []).forEach((skill: string) => skill && combinedSkills.add(skill));
-                                        if (Array.isArray(test.skills)) {
-                                          test.skills.forEach((skill: any) => skill?.name && combinedSkills.add(skill.name));
-                                        }
-                                        const requirementDomain = (result.data as any)?.domain || (test as any)?.domain || (selectedJob as any)?.domain || 'DEVELOPMENT';
-                                        const jobRequirements = selectedJob ? {
-                                          title: selectedJob.title,
-                                          description: selectedJob.companyName,
-                                          skills: Array.from(combinedSkills),
-                                          experienceLevel: 'MID',
-                                          domain: requirementDomain
-                                        } : {
-                                          title: 'Poste non spécifié',
-                                          description: '',
-                                          skills: Array.from(combinedSkills),
-                                          experienceLevel: 'MID',
-                                          domain: requirementDomain
-                                        };
-                                        
-                                        // Appeler l'API pour l'évaluation MOCK_INTERVIEW
-                                        const evalResponse = await fetch('/api/gemini', {
-                                          method: 'POST',
-                                          headers: {
-                                            'Content-Type': 'application/json',
-                                          },
-                                          body: JSON.stringify({
-                                            type: 'evaluate-mock-interview',
-                                            transcription: transcription,
-                                            jobRequirements: jobRequirements,
-                                            questions: questions || []
-                                          })
-                                        });
-                                        
-                                        if (evalResponse.ok) {
-                                          const evalResult = await evalResponse.json();
-                                          if (evalResult.success && evalResult.data) {
-                                            setMockInterviewEvaluations(prev => ({
-                                              ...prev,
-                                              [test.id]: evalResult.data
-                                            }));
-                                            toast.success("Évaluation de l'entretien terminée");
-                                          }
-                                        } else {
-                                          const errorData = await evalResponse.json();
-                                          toast.error(errorData.error || "Erreur lors de l'évaluation");
-                                        }
-                                      }
-                                    } catch (error) {
-                                      console.error("Error evaluating mock interview:", error);
-                                      toast.error("Erreur lors de l'évaluation de l'entretien");
-                                    } finally {
-                                      setLoadingMockInterviewEvaluation(prev => ({ ...prev, [test.id]: false }));
-                                    }
-                                  }}
-                                  className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                >
-                                  <Sparkles className="w-4 h-4 mr-2" />
-                                  Évaluer avec l'IA
+                                onClick={() => openFeedbackDialog(test)}
+                                className="border-slate-200 dark:border-slate-700"
+                              >
+                                <Sparkles className="mr-2 h-4 w-4 text-purple-500" />
+                                Ouvrir le feedback
                                 </Button>
-                              )}
                             </div>
                           </div>
-                          
-                          {loadingMockInterviewEvaluation[test.id] && (
-                            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                              <div className="flex items-center gap-3">
-                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                                <div>
-                                  <p className="text-sm font-medium text-blue-900 dark:text-blue-300">Évaluation en cours...</p>
-                                  <p className="text-xs text-blue-700 dark:text-blue-400">Comparaison des réponses aux exigences du poste</p>
+                          {(!test.feedback && !loadingQuizResults) ? null : !test.feedback ? (
+                            <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+                              <Skeleton className="h-5 w-48" />
+                              <Skeleton className="h-3 w-full" />
+                              <Skeleton className="h-3 w-3/4" />
+                              <Skeleton className="h-3 w-2/3" />
                                 </div>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {mockInterviewEvaluations[test.id] && (
-                            <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800 space-y-4">
+                          ) : (
+                            <div className="space-y-4 rounded-lg border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 dark:border-blue-800 dark:from-blue-900/20 dark:to-indigo-900/20">
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-blue-200 dark:border-blue-700">
                                   <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Score global</p>
                                   <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                                    {mockInterviewEvaluations[test.id].overallScore}/100
+                                    {test.feedback.overallScore ?? test.score}/100
                                   </p>
                                 </div>
                                 <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-blue-200 dark:border-blue-700">
                                   <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Adéquation au poste</p>
                                   <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
-                                    {mockInterviewEvaluations[test.id].jobMatch?.percentage || 0}%
+                                    {test.feedback.jobMatch?.percentage || 0}%
                                   </p>
                                 </div>
                                 <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-blue-200 dark:border-blue-700">
                                   <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Compétences</p>
                                   <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
-                                    {mockInterviewEvaluations[test.id].criteriaScores?.technicalSkills || 0}/25
+                                    {test.feedback.criteriaScores?.technicalSkills || 0}/25
                                   </p>
                                 </div>
                               </div>
                               
                               {/* Scores par critère */}
-                              {mockInterviewEvaluations[test.id].criteriaScores && (
+                              {test.feedback.criteriaScores && (
                                 <div className="space-y-3">
                                   <h5 className="font-semibold text-slate-900 dark:text-white text-sm">Scores par critère</h5>
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2851,11 +2824,11 @@ export const ApplicationsTab = () => {
                                       <div className="flex justify-between items-center mb-2">
                                         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Adéquation au poste</span>
                                         <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                                          {mockInterviewEvaluations[test.id].criteriaScores.jobFit}/25
+                                          {test.feedback.criteriaScores.jobFit}/25
                                         </span>
                                       </div>
                                       <Progress 
-                                        value={(mockInterviewEvaluations[test.id].criteriaScores.jobFit / 25) * 100} 
+                                        value={(test.feedback.criteriaScores.jobFit / 25) * 100} 
                                         className="h-2"
                                       />
                                     </div>
@@ -2863,11 +2836,11 @@ export const ApplicationsTab = () => {
                                       <div className="flex justify-between items-center mb-2">
                                         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Compétences techniques</span>
                                         <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                                          {mockInterviewEvaluations[test.id].criteriaScores.technicalSkills}/25
+                                          {test.feedback.criteriaScores.technicalSkills}/25
                                         </span>
                                       </div>
                                       <Progress 
-                                        value={(mockInterviewEvaluations[test.id].criteriaScores.technicalSkills / 25) * 100} 
+                                        value={(test.feedback.criteriaScores.technicalSkills / 25) * 100} 
                                         className="h-2"
                                       />
                                     </div>
@@ -2875,11 +2848,11 @@ export const ApplicationsTab = () => {
                                       <div className="flex justify-between items-center mb-2">
                                         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Communication</span>
                                         <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                                          {mockInterviewEvaluations[test.id].criteriaScores.communication}/20
+                                          {test.feedback.criteriaScores.communication}/20
                                         </span>
                                       </div>
                                       <Progress 
-                                        value={(mockInterviewEvaluations[test.id].criteriaScores.communication / 20) * 100} 
+                                        value={(test.feedback.criteriaScores.communication / 20) * 100} 
                                         className="h-2"
                                       />
                                     </div>
@@ -2887,11 +2860,11 @@ export const ApplicationsTab = () => {
                                       <div className="flex justify-between items-center mb-2">
                                         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Expérience</span>
                                         <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                                          {mockInterviewEvaluations[test.id].criteriaScores.experience}/15
+                                          {test.feedback.criteriaScores.experience}/15
                                         </span>
                                       </div>
                                       <Progress 
-                                        value={(mockInterviewEvaluations[test.id].criteriaScores.experience / 15) * 100} 
+                                        value={(test.feedback.criteriaScores.experience / 15) * 100} 
                                         className="h-2"
                                       />
                                     </div>
@@ -2899,11 +2872,11 @@ export const ApplicationsTab = () => {
                                       <div className="flex justify-between items-center mb-2">
                                         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Soft Skills</span>
                                         <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                                          {mockInterviewEvaluations[test.id].criteriaScores.softSkills}/15
+                                          {test.feedback.criteriaScores.softSkills}/15
                                         </span>
                                       </div>
                                       <Progress 
-                                        value={(mockInterviewEvaluations[test.id].criteriaScores.softSkills / 15) * 100} 
+                                        value={(test.feedback.criteriaScores.softSkills / 15) * 100} 
                                         className="h-2"
                                       />
                                     </div>
@@ -2915,66 +2888,66 @@ export const ApplicationsTab = () => {
                                 <div>
                                   <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Évaluation détaillée</h5>
                                   <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                                    {mockInterviewEvaluations[test.id].evaluation}
+                                    {test.feedback.evaluation}
                                   </p>
                                 </div>
                                 
-                                {mockInterviewEvaluations[test.id].jobMatch && (
+                                {test.feedback.jobMatch && (
                                   <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
                                     <p className="text-xs font-medium text-indigo-900 dark:text-indigo-300 mb-1">Adéquation au poste:</p>
                                     <p className="text-sm text-slate-700 dark:text-slate-300">
-                                      {mockInterviewEvaluations[test.id].jobMatch.analysis}
+                                      {test.feedback.jobMatch.analysis}
                                     </p>
                                     <div className="mt-2">
                                       <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
                                         <span>Correspondance</span>
-                                        <span>{mockInterviewEvaluations[test.id].jobMatch.percentage}%</span>
+                                        <span>{test.feedback.jobMatch.percentage}%</span>
                                       </div>
                                       <Progress 
-                                        value={mockInterviewEvaluations[test.id].jobMatch.percentage} 
+                                        value={test.feedback.jobMatch.percentage} 
                                         className="h-2"
                                       />
                                     </div>
                                   </div>
                                 )}
                                 
-                                {mockInterviewEvaluations[test.id].strengths && mockInterviewEvaluations[test.id].strengths.length > 0 && (
+                                {test.feedback.strengths && test.feedback.strengths.length > 0 && (
                                   <div>
                                     <h5 className="font-semibold text-green-700 dark:text-green-300 mb-2 flex items-center gap-2">
                                       <TrendingUp className="w-4 h-4" />
                                       Points forts
                                     </h5>
                                     <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                                      {mockInterviewEvaluations[test.id].strengths.map((strength: string, idx: number) => (
+                                      {test.feedback.strengths.map((strength: string, idx: number) => (
                                         <li key={idx}>{strength}</li>
                                       ))}
                                     </ul>
                                   </div>
                                 )}
                                 
-                                {mockInterviewEvaluations[test.id].weaknesses && mockInterviewEvaluations[test.id].weaknesses.length > 0 && (
+                                {test.feedback.weaknesses && test.feedback.weaknesses.length > 0 && (
                                   <div>
                                     <h5 className="font-semibold text-amber-700 dark:text-amber-300 mb-2 flex items-center gap-2">
                                       <AlertTriangle className="w-4 h-4" />
                                       Points à améliorer
                                     </h5>
                                     <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                                      {mockInterviewEvaluations[test.id].weaknesses.map((weakness: string, idx: number) => (
+                                      {test.feedback.weaknesses.map((weakness: string, idx: number) => (
                                         <li key={idx}>{weakness}</li>
                                       ))}
                                     </ul>
                                   </div>
                                 )}
                                 
-                                {mockInterviewEvaluations[test.id].skillsAnalysis && (
+                                {test.feedback.skillsAnalysis && (
                                   <div>
                                     <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Analyse des compétences</h5>
                                     <div className="space-y-2">
-                                      {mockInterviewEvaluations[test.id].skillsAnalysis.matched && mockInterviewEvaluations[test.id].skillsAnalysis.matched.length > 0 && (
+                                      {test.feedback.skillsAnalysis.matched && test.feedback.skillsAnalysis.matched.length > 0 && (
                                         <div>
                                           <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">✅ Compétences correspondantes:</p>
                                           <div className="flex flex-wrap gap-2">
-                                            {mockInterviewEvaluations[test.id].skillsAnalysis.matched.map((skill: string, idx: number) => (
+                                            {test.feedback.skillsAnalysis.matched.map((skill: string, idx: number) => (
                                               <Badge key={idx} variant="outline" className="bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800">
                                                 {skill}
                                               </Badge>
@@ -2982,11 +2955,11 @@ export const ApplicationsTab = () => {
                                           </div>
                                         </div>
                                       )}
-                                      {mockInterviewEvaluations[test.id].skillsAnalysis.missing && mockInterviewEvaluations[test.id].skillsAnalysis.missing.length > 0 && (
+                                      {test.feedback.skillsAnalysis.missing && test.feedback.skillsAnalysis.missing.length > 0 && (
                                         <div>
                                           <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">⚠️ Compétences manquantes:</p>
                                           <div className="flex flex-wrap gap-2">
-                                            {mockInterviewEvaluations[test.id].skillsAnalysis.missing.map((skill: string, idx: number) => (
+                                            {test.feedback.skillsAnalysis.missing.map((skill: string, idx: number) => (
                                               <Badge key={idx} variant="outline" className="bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800">
                                                 {skill}
                                               </Badge>
@@ -2994,11 +2967,11 @@ export const ApplicationsTab = () => {
                                           </div>
                                         </div>
                                       )}
-                                      {mockInterviewEvaluations[test.id].skillsAnalysis.exceeds && mockInterviewEvaluations[test.id].skillsAnalysis.exceeds.length > 0 && (
+                                      {test.feedback.skillsAnalysis.exceeds && test.feedback.skillsAnalysis.exceeds.length > 0 && (
                                         <div>
                                           <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">⭐ Compétences supérieures:</p>
                                           <div className="flex flex-wrap gap-2">
-                                            {mockInterviewEvaluations[test.id].skillsAnalysis.exceeds.map((skill: string, idx: number) => (
+                                            {test.feedback.skillsAnalysis.exceeds.map((skill: string, idx: number) => (
                                               <Badge key={idx} variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800">
                                                 {skill}
                                               </Badge>
@@ -3010,11 +2983,11 @@ export const ApplicationsTab = () => {
                                   </div>
                                 )}
                                 
-                                {mockInterviewEvaluations[test.id].recommendations && (
+                                {test.feedback.recommendations && (
                                   <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                                     <p className="text-xs font-medium text-slate-900 dark:text-white mb-1">Recommandations:</p>
                                     <p className="text-sm text-slate-700 dark:text-slate-300">
-                                      {mockInterviewEvaluations[test.id].recommendations}
+                                      {test.feedback.recommendations}
                                     </p>
                                   </div>
                                 )}
@@ -3749,113 +3722,55 @@ export const ApplicationsTab = () => {
                     )}
                   </div>
 
-                  <div className="grid gap-6 lg:grid-cols-3">
-                    <div className="lg:col-span-2">
-                      <div className="max-h-[60vh] overflow-y-auto pr-3 space-y-4">
-                        {conversationDialog.messages.length > 0 ? (
-                          conversationDialog.messages.map((message: { id: string; author: 'ai' | 'user'; content: string; timestamp?: Date }) => (
+                  <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-inner dark:border-slate-700 dark:bg-slate-900/70">
+                    <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-1">
+                      {conversationDialog.messages.length > 0 ? (
+                        conversationDialog.messages.map((message: { id: string; author: 'ai' | 'user'; content: string; timestamp?: Date }) => (
+                          <div
+                            key={message.id}
+                            className={cn(
+                              "flex gap-3",
+                              message.author === 'user' ? 'justify-end' : 'justify-start'
+                            )}
+                          >
+                            {message.author === 'ai' && (
+                              <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/30">
+                                <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+                              </div>
+                            )}
                             <div
-                              key={message.id}
                               className={cn(
-                                "flex gap-3",
-                                message.author === 'user' ? 'justify-end' : 'justify-start'
+                                "max-w-[75%] rounded-2xl border p-4 text-sm leading-relaxed shadow-sm transition",
+                                message.author === 'user'
+                                  ? 'bg-emerald-600 text-white border-emerald-500'
+                                  : 'bg-slate-50 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700'
                               )}
                             >
-                              {message.author === 'ai' && (
-                                <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/30">
-                                  <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-300" />
-                                </div>
+                              <p>{message.content}</p>
+                              {message.timestamp && (
+                                <span
+                                  className={cn(
+                                    "mt-2 block text-xs",
+                                    message.author === 'user'
+                                      ? 'text-emerald-100/80'
+                                      : 'text-slate-500 dark:text-slate-400'
+                                  )}
+                                >
+                                  {message.timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
                               )}
-                              <div
-                                className={cn(
-                                  "max-w-[75%] rounded-2xl border p-4 text-sm leading-relaxed shadow-sm",
-                                  message.author === 'user'
-                                    ? 'bg-emerald-600 text-white border-emerald-500'
-                                    : 'bg-slate-50 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700'
-                                )}
-                              >
-                                <p>{message.content}</p>
-                                {message.timestamp && (
-                                  <span
-                                    className={cn(
-                                      "mt-2 block text-xs",
-                                      message.author === 'user'
-                                        ? 'text-emerald-100/80'
-                                        : 'text-slate-500 dark:text-slate-400'
-                                    )}
-                                  >
-                                    {message.timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                )}
+                            </div>
+                            {message.author === 'user' && (
+                              <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/30">
+                                <User className="w-4 h-4 text-emerald-600 dark:text-emerald-300" />
                               </div>
-                              {message.author === 'user' && (
-                                <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/30">
-                                  <User className="w-4 h-4 text-emerald-600 dark:text-emerald-300" />
-                                </div>
-                              )}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
-                            Aucune transcription disponible pour cette session.
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="lg:col-span-1 space-y-4">
-                      {conversationDialog.feedback ? (
-                        <div className="space-y-3">
-                          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                            <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase">Synthèse IA</p>
-                            <p className="text-lg font-bold text-blue-900 dark:text-blue-100">
-                              {conversationDialog.feedback.overallScore}/100
-                            </p>
-                          </div>
-                          {conversationDialog.feedback.criteriaScores && (
-                            <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
-                              <p className="font-semibold text-slate-900 dark:text-white">Critères</p>
-                              <ul className="space-y-1">
-                                <li>Adéquation : {conversationDialog.feedback.criteriaScores.jobFit}/25</li>
-                                <li>Technique : {conversationDialog.feedback.criteriaScores.technicalSkills}/25</li>
-                                <li>Communication : {conversationDialog.feedback.criteriaScores.communication}/20</li>
-                                <li>Expérience : {conversationDialog.feedback.criteriaScores.experience}/15</li>
-                                <li>Soft skills : {conversationDialog.feedback.criteriaScores.softSkills}/15</li>
-                              </ul>
-                            </div>
-                          )}
-                          {conversationDialog.feedback.strengths && conversationDialog.feedback.strengths.length > 0 && (
-                            <div>
-                              <p className="text-xs font-semibold text-green-700 dark:text-green-300 uppercase mb-1">Points forts</p>
-                              <ul className="list-disc list-inside text-sm text-slate-700 dark:text-slate-300 space-y-1">
-                                {conversationDialog.feedback.strengths.map((item: string, idx: number) => (
-                                  <li key={idx}>{item}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          {conversationDialog.feedback.weaknesses && conversationDialog.feedback.weaknesses.length > 0 && (
-                            <div>
-                              <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase mb-1">Points à améliorer</p>
-                              <ul className="list-disc list-inside text-sm text-slate-700 dark:text-slate-300 space-y-1">
-                                {conversationDialog.feedback.weaknesses.map((item: string, idx: number) => (
-                                  <li key={idx}>{item}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          {conversationDialog.feedback.recommendations && (
-                            <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                              <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Recommandations</p>
-                              <p className="text-sm text-slate-700 dark:text-slate-300">
-                                {conversationDialog.feedback.recommendations}
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                        ))
                       ) : (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                          Aucun feedback IA enregistré pour cette session.
-                        </p>
+                        <div className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                          Aucune transcription disponible pour cette session.
+                        </div>
                       )}
                     </div>
                   </div>
@@ -3866,6 +3781,158 @@ export const ApplicationsTab = () => {
                 Aucune conversation disponible.
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+        <Dialog open={isFeedbackDialogOpen} onOpenChange={handleFeedbackDialogChange}>
+          <DialogContent className="max-w-3xl max-h-[90vh] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 flex flex-col">
+            <DialogHeader className="shrink-0 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-white">
+                {feedbackDialogTest?.testName ? `Feedback IA – ${feedbackDialogTest.testName}` : "Feedback IA"}
+              </DialogTitle>
+              <DialogDescription className="text-slate-600 dark:text-slate-400">
+                Synthèse détaillée de l'entretien simulé.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto pr-2">
+              {isFeedbackDialogLoading ? (
+                <div className="space-y-4 py-10">
+                  <Skeleton className="h-5 w-48 mx-auto" />
+                  <Skeleton className="h-3 w-3/4 mx-auto" />
+                  <Skeleton className="h-3 w-2/3 mx-auto" />
+                  <Skeleton className="h-32 w-full rounded-xl" />
+                </div>
+              ) : effectiveFeedback ? (
+                <div className="space-y-6 py-4">
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/30">
+                      <p className="text-xs font-medium uppercase text-blue-700 dark:text-blue-300">Score global</p>
+                      <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                        {Math.round(effectiveFeedbackScore)}/100
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-900/30">
+                      <p className="text-xs font-medium uppercase text-emerald-700 dark:text-emerald-300">Adéquation au poste</p>
+                      <p className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">
+                        {effectiveFeedback.jobMatch?.percentage ?? 0}%
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/30">
+                      <p className="text-xs font-medium uppercase text-amber-700 dark:text-amber-300">Communication</p>
+                      <p className="text-lg font-semibold text-amber-900 dark:text-amber-100">
+                        {effectiveFeedback.criteriaScores?.communication ?? 0}/20
+                      </p>
+                    </div>
+                  </div>
+
+                  {effectiveFeedback.criteriaScores && (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {Object.entries(effectiveFeedback.criteriaScores).map(([key, rawValue]) => {
+                        const def = MOCK_CRITERIA_DEFINITIONS[key] || { label: key, max: 20 }
+                        const numericValue =
+                          typeof rawValue === "number" ? rawValue : Number(rawValue ?? 0)
+                        const ratio = def.max > 0 ? (numericValue / def.max) * 100 : 0
+                        return (
+                          <div
+                            key={key}
+                            className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/60"
+                          >
+                            <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-700 dark:text-slate-300">
+                              <span>{def.label}</span>
+                              <span className="font-semibold text-blue-600 dark:text-blue-300">
+                                {numericValue}/{def.max}
+                              </span>
+                            </div>
+                            <Progress value={ratio} className="h-2 bg-slate-100 dark:bg-slate-700" />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {effectiveSkillScores.length > 0 && (
+                    <div className="space-y-3">
+                      <h5 className="text-sm font-semibold text-slate-900 dark:text-white">
+                        Compétences techniques évaluées
+                      </h5>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {effectiveSkillScores.map((skill, index) => {
+                          const score = typeof skill.score === "number" ? skill.score : 0;
+                          const maxScore = typeof skill.maxScore === "number" && skill.maxScore > 0 ? skill.maxScore : 100;
+                          const ratio = Math.min(100, Math.max(0, (score / maxScore) * 100));
+                          return (
+                            <div
+                              key={`${skill.name}-${index}`}
+                              className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/60"
+                            >
+                              <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-700 dark:text-slate-300">
+                                <span>{skill.name}</span>
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-300">
+                                  {Math.round(ratio)}%
+                                </span>
+                              </div>
+                              <Progress value={ratio} className="h-2 bg-slate-100 dark:bg-slate-700" />
+                              <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                {score}/{maxScore}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {effectiveFeedback.evaluation && (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 leading-relaxed dark:border-slate-700 dark:bg-slate-900/40">
+                      <h5 className="mb-2 text-sm font-semibold text-slate-900 dark:text-white">Évaluation globale</h5>
+                      <p className="text-sm text-slate-700 dark:text-slate-300">
+                        {effectiveFeedback.evaluation}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {effectiveFeedback.strengths && effectiveFeedback.strengths.length > 0 && (
+                      <div className="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
+                        <h6 className="mb-2 flex items-center gap-2 text-sm font-semibold text-green-700 dark:text-green-300">
+                          <TrendingUp className="h-4 w-4" />
+                          Points forts
+                        </h6>
+                        <ul className="space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                          {effectiveFeedback.strengths.map((strength: string, idx: number) => (
+                            <li key={idx}>• {strength}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {effectiveFeedback.weaknesses && effectiveFeedback.weaknesses.length > 0 && (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
+                        <h6 className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
+                          <AlertTriangle className="h-4 w-4" />
+                          Points à améliorer
+                        </h6>
+                        <ul className="space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                          {effectiveFeedback.weaknesses.map((weakness: string, idx: number) => (
+                            <li key={idx}>• {weakness}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  {effectiveFeedback.recommendations && (
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+                      <p className="font-semibold text-slate-900 dark:text-white">Recommandations</p>
+                      <p className="mt-1">{effectiveFeedback.recommendations}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2 py-12 text-center text-slate-600 dark:text-slate-400">
+                  <Sparkles className="mx-auto h-6 w-6 text-slate-400" />
+                  <p className="text-sm">Aucun feedback disponible pour cet entretien.</p>
+                </div>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </>

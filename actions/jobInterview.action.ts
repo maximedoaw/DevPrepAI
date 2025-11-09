@@ -623,6 +623,160 @@ export async function getJobQuizStats(jobQuizId: string) {
   }
 }
 
+const getBaseUrl = () => {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+  return "http://localhost:3000"
+}
+
+const looksLikeJson = (value: string) => {
+  const trimmed = value.trim()
+  if (!trimmed) return false
+  const first = trimmed[0]
+  return first === "{" || first === "["
+}
+
+const parseJsonField = <T = any>(value: any): T | null => {
+  if (!value) return null
+  if (typeof value === "string") {
+    if (!looksLikeJson(value)) {
+      return null
+    }
+    try {
+      return JSON.parse(value) as T
+    } catch (error) {
+      console.error("Error parsing JSON field:", error)
+      return null
+    }
+  }
+  if (typeof value === "object") {
+    return value as T
+  }
+  return null
+}
+
+const extractInterviewTranscription = (answers: any) => {
+  if (!answers) {
+    return {
+      transcription: [],
+      messages: [],
+    }
+  }
+
+  if (Array.isArray(answers.transcription)) {
+    return {
+      transcription: answers.transcription,
+      messages: Array.isArray(answers.messages) ? answers.messages : answers.transcription,
+    }
+  }
+
+  if (Array.isArray(answers)) {
+    return {
+      transcription: answers,
+      messages: answers,
+    }
+  }
+
+  if (Array.isArray(answers.messages)) {
+    return {
+      transcription: answers.messages,
+      messages: answers.messages,
+    }
+  }
+
+  return {
+    transcription: [],
+    messages: [],
+  }
+}
+
+const buildMockInterviewRequirements = (jobQuiz: any) => {
+  const jobPosting = jobQuiz.jobPosting
+  return {
+    title: jobPosting?.title || jobQuiz.title || "Poste non spécifié",
+    description: jobPosting?.description || "",
+    skills: jobPosting?.skills || jobQuiz.technology || [],
+    experienceLevel: jobQuiz.difficulty || jobPosting?.type || "",
+    domain: jobPosting?.domains?.[0] || jobQuiz.domain || "DEVELOPMENT",
+  }
+}
+
+const parseQuizQuestions = (questions: any) => {
+  if (!questions) return []
+  if (Array.isArray(questions)) return questions
+  if (typeof questions === "string") {
+    try {
+      return JSON.parse(questions)
+    } catch (error) {
+      console.error("Error parsing quiz questions:", error)
+      return []
+    }
+  }
+  return []
+}
+
+async function generateMockInterviewAnalysis(result: any, jobQuiz: any, parsedQuestions: any[]) {
+  if (result.analysis) {
+    try {
+      return typeof result.analysis === "string" ? JSON.parse(result.analysis) : result.analysis
+    } catch (error) {
+      console.error("Error parsing stored analysis:", error)
+      return null
+    }
+  }
+
+  const parsedAnswers = parseJsonField(result.answers)
+  const { transcription } = extractInterviewTranscription(parsedAnswers)
+
+  if (!transcription || transcription.length === 0) {
+    return null
+  }
+
+  try {
+    const baseUrl = getBaseUrl()
+    const response = await fetch(`${baseUrl}/api/gemini`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "evaluate-mock-interview",
+        transcription,
+        jobRequirements: buildMockInterviewRequirements(jobQuiz),
+        questions: parsedQuestions,
+      }),
+    })
+
+    const payload = await response.json()
+    if (!response.ok || !payload.success || !payload.data) {
+      console.error("Failed to evaluate mock interview:", payload.error || response.statusText)
+      return null
+    }
+
+    const analysisData = payload.data
+
+    await prisma.jobQuizResult.update({
+      where: { id: result.id },
+      data: {
+        analysis: JSON.stringify(analysisData),
+        score: analysisData.overallScore ?? result.score,
+      },
+    })
+
+    return analysisData
+  } catch (error) {
+    console.error("Error generating mock interview analysis:", error)
+    return null
+  }
+}
+
 /**
  * Récupérer les résultats de quiz d'une application avec skill analysis
  */
@@ -669,7 +823,19 @@ export async function getApplicationQuizResults(applicationId: string, jobId: st
             title: true,
             type: true,
             totalPoints: true,
-            technology: true
+            technology: true,
+            difficulty: true,
+            domain: true,
+            questions: true,
+            jobPosting: {
+              select: {
+                title: true,
+                description: true,
+                skills: true,
+                type: true,
+                domains: true
+              }
+            }
           }
         },
         skillAnalysis: {
@@ -690,12 +856,24 @@ export async function getApplicationQuizResults(applicationId: string, jobId: st
       }
     })
 
-    // Formater les résultats avec les compétences
-    const formattedResults = quizResults.map(result => {
+    // Formater les résultats avec les compétences et générer les feedbacks si nécessaire
+    const formattedResults = []
+
+    for (const result of quizResults) {
       const skillAnalysis = result.skillAnalysis[0]
       const skills = skillAnalysis?.skills ? (typeof skillAnalysis.skills === 'string' ? JSON.parse(skillAnalysis.skills) : skillAnalysis.skills) : []
-      
-      return {
+
+      const parsedAnswers = parseJsonField(result.answers)
+      const parsedQuestions = parseQuizQuestions(result.jobQuiz.questions)
+
+      let analysisData = null
+      if (result.jobQuiz.type === "MOCK_INTERVIEW") {
+        analysisData = await generateMockInterviewAnalysis(result, result.jobQuiz, parsedQuestions)
+      } else if (result.analysis) {
+        analysisData = parseJsonField(result.analysis)
+      }
+
+      formattedResults.push({
         id: result.id,
         quizId: result.jobQuizId,
         quizTitle: result.jobQuiz.title,
@@ -713,9 +891,11 @@ export async function getApplicationQuizResults(applicationId: string, jobId: st
           percentage: skill.maxScore ? (skill.score / skill.maxScore) * 100 : (skill.score || 0)
         })),
         aiFeedback: skillAnalysis?.aiFeedback,
-        improvementTips: skillAnalysis?.improvementTips || []
-      }
-    })
+        improvementTips: skillAnalysis?.improvementTips || [],
+        analysis: analysisData ? JSON.stringify(analysisData) : result.analysis,
+        answers: parsedAnswers ?? result.answers
+      })
+    }
 
     return {
       success: true,
@@ -912,6 +1092,36 @@ export async function saveQuizResultReview(quizResultId: string, data: {
     return {
       success: false,
       message: error instanceof Error ? error.message : "Erreur lors de la sauvegarde"
+    };
+  }
+}
+
+export async function saveQuizResultAnalysis(quizResultId: string, analysis: any, options?: { score?: number | null }) {
+  try {
+    const payload = typeof analysis === "string" ? analysis : JSON.stringify(analysis);
+
+    const updatedResult = await prisma.jobQuizResult.update({
+      where: { id: quizResultId },
+      data: {
+        analysis: payload,
+        ...(options?.score !== undefined && options.score !== null
+          ? { score: options.score }
+          : {}),
+      },
+    });
+
+    revalidatePath("/enterprise/enterprise-interviews");
+    revalidatePath("/");
+
+    return {
+      success: true,
+      data: updatedResult,
+    };
+  } catch (error) {
+    console.error("Erreur lors de l'enregistrement de l'analyse du quiz:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Erreur lors de l'enregistrement de l'analyse",
     };
   }
 }

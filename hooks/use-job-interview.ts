@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMemo } from "react"
 import { 
   createJobQuiz, 
   updateJobQuiz, 
@@ -34,13 +35,17 @@ export const jobInterviewKeys = {
  * Utilise le cache de TanStack Query pour des performances optimales
  */
 export function useJobQuizzesByJobPosting(jobPostingId: string) {
-  return useQuery({
+  const query = useQuery({
     queryKey: jobInterviewKeys.list({ jobPostingId, type: 'job-posting' }),
     queryFn: () => getJobQuizzesByJobPosting(jobPostingId),
     enabled: !!jobPostingId, // Ne s'exécute que si jobPostingId est défini
     staleTime: 1000 * 60 * 5, // Les données sont considérées comme fraîches pendant 5 minutes
     gcTime: 1000 * 60 * 30, // Garde les données en cache pendant 30 minutes
+    notifyOnChangeProps: "tracked",
   })
+
+  const stableData = useMemo(() => query.data, [query.data])
+  return { ...query, data: stableData }
 }
 
 /**
@@ -53,6 +58,7 @@ export function useJobQuiz(id: string) {
     queryFn: () => getJobQuizById(id),
     enabled: !!id, // Ne s'exécute que si l'ID est défini
     staleTime: 1000 * 60 * 10, // Données fraîches pendant 10 minutes pour les détails
+    notifyOnChangeProps: "tracked",
   })
 }
 
@@ -66,6 +72,7 @@ export function useUserJobQuizzes(userId: string) {
     queryFn: () => getJobQuizzesByUser(userId),
     enabled: !!userId,
     staleTime: 1000 * 60 * 2, // Rafraîchissement plus fréquent pour les listes utilisateur
+    notifyOnChangeProps: "tracked",
   })
 }
 
@@ -79,6 +86,7 @@ export function useJobQuizResults(jobQuizId: string) {
     queryFn: () => getJobQuizResults(jobQuizId),
     enabled: !!jobQuizId,
     staleTime: 1000 * 60 * 2, // Résultats mis à jour fréquemment
+    notifyOnChangeProps: "tracked",
   })
 }
 
@@ -91,6 +99,7 @@ export function useUserJobQuizResults(userId: string, jobQuizId: string) {
     queryKey: jobInterviewKeys.userResults(userId, jobQuizId),
     queryFn: () => getUserJobQuizResults(userId, jobQuizId),
     enabled: !!userId && !!jobQuizId,
+    notifyOnChangeProps: "tracked",
   })
 }
 
@@ -104,6 +113,7 @@ export function useJobQuizStats(jobQuizId: string) {
     queryFn: () => getJobQuizStats(jobQuizId),
     enabled: !!jobQuizId,
     staleTime: 1000 * 60 * 5, // Statistiques mises à jour toutes les 5 minutes
+    notifyOnChangeProps: "tracked",
   })
 }
 

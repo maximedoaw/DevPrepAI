@@ -1,5 +1,6 @@
 // hooks/use-job-queries.ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMemo, useRef } from "react"
 import { 
   getJobs, 
   getJobById, 
@@ -133,6 +134,70 @@ const cacheService = {
   async invalidateMultiple(patterns: string[]): Promise<void> {
     await Promise.all(patterns.map(pattern => this.invalidate(pattern)))
   }
+}
+
+const EMPTY_ARRAY: any[] = []
+
+const buildJobListSignature = (list: any[]) =>
+  list
+    .map(
+      (job) =>
+        `${job?.id ?? "unknown"}:${job?.updatedAt ?? ""}:${job?.status ?? ""}:${
+          job?.applicants ?? 0
+        }`
+    )
+    .join("|")
+
+const buildApplicationListSignature = (list: any[]) =>
+  list
+    .map((app) => `${app?.id ?? "unknown"}:${app?.updatedAt ?? ""}:${app?.status ?? ""}`)
+    .join("|")
+
+const buildQuizListSignature = (list: any[]) =>
+  list
+    .map((quiz) => `${quiz?.id ?? "unknown"}:${quiz?.updatedAt ?? ""}:${quiz?.type ?? ""}`)
+    .join("|")
+
+const buildStatsSignature = (stats: any) =>
+  stats ? JSON.stringify(stats) : "null"
+
+const isDocumentVisible = () =>
+  typeof document === "undefined" ? true : document.visibilityState === "visible"
+
+const visibilityAwareInterval =
+  (interval: number) => (_: unknown, __: unknown) =>
+    isDocumentVisible() ? interval : false
+
+const useStableArray = <T>(array: T[] | undefined | null, signatureFn: (arr: T[]) => string) => {
+  const ref = useRef<{ signature: string; value: T[] }>({ signature: "", value: EMPTY_ARRAY })
+
+  return useMemo(() => {
+    if (!Array.isArray(array)) {
+      return ref.current.value
+    }
+
+    const signature = signatureFn(array)
+    if (signature === ref.current.signature) {
+      return ref.current.value
+    }
+
+    ref.current = { signature, value: array }
+    return array
+  }, [array, signatureFn])
+}
+
+const useStableValue = <T>(value: T, signatureFn: (val: T) => string) => {
+  const ref = useRef<{ signature: string; value: T }>({ signature: "", value })
+
+  return useMemo(() => {
+    const signature = signatureFn(value)
+    if (signature === ref.current.signature) {
+      return ref.current.value
+    }
+
+    ref.current = { signature, value }
+    return value
+  }, [value, signatureFn])
 }
 
 // Fonctions de données avec cache pour les JobQuiz
@@ -634,11 +699,12 @@ export function useJobQueries(filters?: JobFilters) {
     queryFn: () => cachedDataFetchers.getJobsWithCache(filters),
     
     // CONFIGURATION REALTIME AMÉLIORÉE
-    refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL.JOBS_LIST,
+    refetchInterval: visibilityAwareInterval(REALTIME_CONFIG.POLLING_INTERVAL.JOBS_LIST),
     refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
     refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
     staleTime: REALTIME_CONFIG.STALE_TIME.JOBS,
     gcTime: REALTIME_CONFIG.GC_TIME,
+    notifyOnChangeProps: "tracked",
   })
 
   const { 
@@ -649,11 +715,12 @@ export function useJobQueries(filters?: JobFilters) {
     queryKey: ["job-stats"],
     queryFn: cachedDataFetchers.getJobStatsWithCache,
     
-    refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL.JOBS_LIST,
+    refetchInterval: visibilityAwareInterval(REALTIME_CONFIG.POLLING_INTERVAL.JOBS_LIST),
     refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
     refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
     staleTime: REALTIME_CONFIG.STALE_TIME.JOBS,
     gcTime: REALTIME_CONFIG.GC_TIME,
+    notifyOnChangeProps: "tracked",
   })
 
   const { 
@@ -663,17 +730,17 @@ export function useJobQueries(filters?: JobFilters) {
     queryKey: ["job-filters"],
     queryFn: cachedDataFetchers.getJobFiltersWithCache,
     staleTime: 1000 * 60 * 10,
+    notifyOnChangeProps: "tracked",
   })
 
+  const stableJobs = useStableArray(jobs, buildJobListSignature)
+  const stableJobStats = useStableValue(jobStats, buildStatsSignature)
+  const stableJobFilters = useStableValue(jobFilters, buildStatsSignature)
+
   return {
-    jobs: jobs || [],
-    jobStats,
-    jobFilters: jobFilters || { 
-      domains: [], 
-      skills: [], 
-      locations: [], 
-      experienceLevels: [] 
-    },
+    jobs: stableJobs || EMPTY_ARRAY,
+    jobStats: stableJobStats,
+    jobFilters: (stableJobFilters as typeof DEFAULT_JOB_FILTERS | undefined) || DEFAULT_JOB_FILTERS,
     loadingJobs,
     loadingStats,
     loadingFilters,
@@ -698,15 +765,16 @@ export function useJobQuery(id: string) {
     enabled: !!id,
     
     // CONFIGURATION REALTIME FRÉQUENTE
-    refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL.JOB_DETAILS,
+    refetchInterval: visibilityAwareInterval(REALTIME_CONFIG.POLLING_INTERVAL.JOB_DETAILS),
     refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
     refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
     staleTime: REALTIME_CONFIG.STALE_TIME.JOBS,
     gcTime: REALTIME_CONFIG.GC_TIME,
+    notifyOnChangeProps: "tracked",
   })
 
   return {
-    job,
+    job: useStableValue(job, buildStatsSignature),
     loadingJob,
     jobError,
     refetchJob,
@@ -718,80 +786,100 @@ export function useJobQuery(id: string) {
 export function useJobQuizQueries() {
   // Récupérer un quiz spécifique
   const useJobQuiz = (id: string) => {
-    return useQuery({
+    const query = useQuery({
       queryKey: ["job-quiz", id],
       queryFn: () => cachedDataFetchers.getJobQuizByIdWithCache(id),
       enabled: !!id,
       
       // Realtime très fréquent pour les quizzes
-      refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL.QUIZ_RESULTS,
+      refetchInterval: visibilityAwareInterval(REALTIME_CONFIG.POLLING_INTERVAL.QUIZ_RESULTS),
       refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
       refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
       staleTime: REALTIME_CONFIG.STALE_TIME.QUIZ_RESULTS,
       gcTime: REALTIME_CONFIG.GC_TIME,
+      notifyOnChangeProps: "tracked",
     })
+
+    const stableData = useStableValue(query.data, buildStatsSignature)
+    return { ...query, data: stableData }
   }
 
   // Récupérer les quizzes d'un job
   const useJobQuizzes = (jobId: string) => {
-    return useQuery({
+    const query = useQuery({
       queryKey: ["job-quizzes", jobId],
       queryFn: () => cachedDataFetchers.getJobQuizzesByJobIdWithCache(jobId),
       enabled: !!jobId,
       
-      refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL.JOBS_LIST,
+      refetchInterval: visibilityAwareInterval(REALTIME_CONFIG.POLLING_INTERVAL.JOBS_LIST),
       refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
       refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
       staleTime: REALTIME_CONFIG.STALE_TIME.JOBS,
       gcTime: REALTIME_CONFIG.GC_TIME,
+      notifyOnChangeProps: "tracked",
     })
+
+    const stableData = useStableArray(query.data as any[] | undefined, buildQuizListSignature)
+    return { ...query, data: stableData }
   }
 
   // Récupérer les résultats d'un utilisateur
   const useUserQuizResults = (userId: string) => {
-    return useQuery({
+    const query = useQuery({
       queryKey: ["quiz-results", userId],
       queryFn: () => cachedDataFetchers.getUserJobQuizResultsWithCache(userId),
       enabled: !!userId,
       
       // Realtime très fréquent pour les résultats
-      refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL.QUIZ_RESULTS,
+      refetchInterval: visibilityAwareInterval(REALTIME_CONFIG.POLLING_INTERVAL.QUIZ_RESULTS),
       refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
       refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
       staleTime: REALTIME_CONFIG.STALE_TIME.QUIZ_RESULTS,
       gcTime: REALTIME_CONFIG.GC_TIME,
+      notifyOnChangeProps: "tracked",
     })
+
+    const stableData = useStableArray(query.data as any[] | undefined, buildQuizListSignature)
+    return { ...query, data: stableData }
   }
 
   // Récupérer un résultat spécifique
   const useUserQuizResult = (userId: string, jobQuizId: string) => {
-    return useQuery({
+    const query = useQuery({
       queryKey: ["quiz-result", userId, jobQuizId],
       queryFn: () => cachedDataFetchers.getUserJobQuizResultWithCache(userId, jobQuizId),
       enabled: !!userId && !!jobQuizId,
       
-      refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL.QUIZ_RESULTS,
+      refetchInterval: visibilityAwareInterval(REALTIME_CONFIG.POLLING_INTERVAL.QUIZ_RESULTS),
       refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
       refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
       staleTime: REALTIME_CONFIG.STALE_TIME.QUIZ_RESULTS,
       gcTime: REALTIME_CONFIG.GC_TIME,
+      notifyOnChangeProps: "tracked",
     })
+
+    const stableData = useStableValue(query.data, buildStatsSignature)
+    return { ...query, data: stableData }
   }
 
   // Récupérer les statistiques d'un quiz
   const useQuizStats = (jobQuizId: string) => {
-    return useQuery({
+    const query = useQuery({
       queryKey: ["quiz-stats", jobQuizId],
       queryFn: () => cachedDataFetchers.getJobQuizStatsWithCache(jobQuizId),
       enabled: !!jobQuizId,
       
       // Realtime fréquent pour les stats
-      refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL.QUIZ_STATS,
+      refetchInterval: visibilityAwareInterval(REALTIME_CONFIG.POLLING_INTERVAL.QUIZ_STATS),
       refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
       refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
       staleTime: REALTIME_CONFIG.STALE_TIME.QUIZ_STATS,
       gcTime: REALTIME_CONFIG.GC_TIME,
+      notifyOnChangeProps: "tracked",
     })
+
+    const stableData = useStableValue(query.data, buildStatsSignature)
+    return { ...query, data: stableData }
   }
 
   return {
@@ -857,7 +945,7 @@ export function useUserJobQueries(userId?: string) {
     retryDelay: (attemptIndex) => Math.min(15000 * (attemptIndex + 1), 45000), // Délai progressif jusqu'à 45 secondes
     
     // CONFIGURATION REALTIME FRÉQUENTE
-    refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL.USER_JOBS,
+    refetchInterval: visibilityAwareInterval(REALTIME_CONFIG.POLLING_INTERVAL.USER_JOBS),
     refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
     refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
     staleTime: REALTIME_CONFIG.STALE_TIME.JOBS,
@@ -870,11 +958,14 @@ export function useUserJobQueries(userId?: string) {
         return [];
       }
       return data;
-    }
+    },
+    notifyOnChangeProps: "tracked",
   })
 
+  const stableJobs = useStableArray(jobs, buildJobListSignature)
+
   return {
-    jobs: jobs || [],
+    jobs: stableJobs || EMPTY_ARRAY,
     loadingJobs,
     jobsError,
     refetchJobs,
@@ -937,11 +1028,12 @@ export function useApplicationQueries() {
       queryKey: ["application-stats"],
       queryFn: cachedDataFetchers.getApplicationStatsWithCache,
       
-      refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL.JOBS_LIST,
+      refetchInterval: visibilityAwareInterval(REALTIME_CONFIG.POLLING_INTERVAL.JOBS_LIST),
       refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
       refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
       staleTime: REALTIME_CONFIG.STALE_TIME.JOBS,
       gcTime: REALTIME_CONFIG.GC_TIME,
+      notifyOnChangeProps: "tracked",
     })
   }
 
@@ -951,11 +1043,12 @@ export function useApplicationQueries() {
       queryKey: ["applications", filters],
       queryFn: () => cachedDataFetchers.getApplicationsWithCache(filters),
       
-      refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL.JOBS_LIST,
+      refetchInterval: visibilityAwareInterval(REALTIME_CONFIG.POLLING_INTERVAL.JOBS_LIST),
       refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
       refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
       staleTime: REALTIME_CONFIG.STALE_TIME.JOBS,
       gcTime: REALTIME_CONFIG.GC_TIME,
+      notifyOnChangeProps: "tracked",
     })
   }
 
@@ -966,11 +1059,12 @@ export function useApplicationQueries() {
       queryFn: () => cachedDataFetchers.getJobApplicationsWithCache(jobId),
       enabled: !!jobId,
       
-      refetchInterval: REALTIME_CONFIG.POLLING_INTERVAL.JOBS_LIST,
+      refetchInterval: visibilityAwareInterval(REALTIME_CONFIG.POLLING_INTERVAL.JOBS_LIST),
       refetchOnWindowFocus: REALTIME_CONFIG.REFETCH_ON_WINDOW_FOCUS,
       refetchOnReconnect: REALTIME_CONFIG.REFETCH_ON_RECONNECT,
       staleTime: REALTIME_CONFIG.STALE_TIME.JOBS,
       gcTime: REALTIME_CONFIG.GC_TIME,
+      notifyOnChangeProps: "tracked",
     })
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Briefcase, FileText, Video, Settings, User } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -117,8 +117,13 @@ export default function EnterpriseInterviewsPage() {
     error: quizzesError,
   } = useUserJobQuizzes(userId as string);
 
-  // Extraction des données depuis la réponse API
-  const quizzesData = quizzesResponse?.data || [];
+  // Extraction des données depuis la réponse API avec sécurisation du typage
+  type JobQuizzesByUserResponse = {
+    data?: any[];
+  };
+
+  const quizzesData =
+    ((quizzesResponse as JobQuizzesByUserResponse | undefined)?.data ?? []);
 
   // Conversion des données API vers le format Quiz attendu par le composant
   const quizzes: Quiz[] = quizzesData.map((apiQuiz: any) => ({
@@ -142,55 +147,107 @@ export default function EnterpriseInterviewsPage() {
   // Les jobs sont maintenant récupérés depuis useUserJobQueries et transformés dans le useMemo ci-dessus
   // Le filtrage est géré directement dans JobOffersTab
 
-  const filteredQuizzes = quizzes.filter(
-    (quiz) =>
-      quiz.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quiz.technology.some((tech) =>
-        tech.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+  const filteredQuizzes = useMemo(
+    () =>
+      quizzes.filter(
+        (quiz) =>
+          quiz.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          quiz.technology.some((tech) =>
+            tech.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+      ),
+    [quizzes, searchTerm]
   );
 
-  const handleCreateJob = async (data: JobFormData) => {
-    // La création d'offre est gérée par CreateJobModal
-    // Après création, refetchJobs() sera appelé pour rafraîchir la liste
+  const handleCreateJob = useCallback(async (_data: JobFormData) => {
     refetchJobs();
-  };
+  }, [refetchJobs]);
 
-  const handleCreateQuiz = async (quizData: any) => {
-    try {
-      // Utilisation directe de la mutation pour créer un quiz
-      await createJobQuiz.mutateAsync(quizData);
-      // Le toast est géré dans le hook useJobInterviewMutations
-    } catch (error) {
-      // L'erreur est déjà gérée dans le hook
-      console.error("Error creating quiz:", error);
-    }
-  };
+  const handleCreateQuiz = useCallback(
+    async (quizData: any) => {
+      try {
+        await createJobQuiz.mutateAsync(quizData);
+      } catch (error) {
+        console.error("Error creating quiz:", error);
+      }
+    },
+    [createJobQuiz]
+  );
 
-  const handleUpdateQuiz = async (quizId: string, quizData: any) => {
-    try {
-      await updateJobQuiz.mutateAsync({ id: quizId, data: quizData });
-    } catch (error) {
-      console.error("Error updating quiz:", error);
-    }
-  };
+  const handleUpdateQuiz = useCallback(
+    async (quizId: string, quizData: any) => {
+      try {
+        await updateJobQuiz.mutateAsync({ id: quizId, data: quizData });
+      } catch (error) {
+        console.error("Error updating quiz:", error);
+      }
+    },
+    [updateJobQuiz]
+  );
 
-  const handleDeleteQuiz = async (quizId: string) => {
-    try {
-      await deleteJobQuiz.mutateAsync(quizId);
-    } catch (error) {
-      console.error("Error deleting quiz:", error);
-    }
-  };
+  const handleDeleteQuiz = useCallback(
+    async (quizId: string) => {
+      try {
+        await deleteJobQuiz.mutateAsync(quizId);
+      } catch (error) {
+        console.error("Error deleting quiz:", error);
+      }
+    },
+    [deleteJobQuiz]
+  );
 
-  const handleScheduleInterview = () => {
+  const handleScheduleInterview = useCallback(() => {
     toast.info("Planification d'entretien - Fonctionnalité à venir");
-  };
+  }, []);
 
   // Gestion des erreurs de chargement des quizzes
-  if (quizzesError) {
-    toast.error("Erreur lors du chargement des tests");
-  }
+  useEffect(() => {
+    if (quizzesError) {
+      toast.error("Erreur lors du chargement des tests");
+    }
+  }, [quizzesError]);
+
+  const timelineEntries = useMemo(
+    () =>
+      jobs.map((job) => ({
+        id: job.id,
+        title: job.title,
+        company: job.companyName,
+        location: job.location || "Non spécifié",
+        salary:
+          job.salaryMin && job.salaryMax
+            ? `${job.salaryMin.toLocaleString()} - ${job.salaryMax.toLocaleString()} ${job.currency}`
+            : job.salaryMin
+            ? `À partir de ${job.salaryMin.toLocaleString()} ${job.currency}`
+            : "À discuter",
+        type: job.type,
+        applicants: job.applicants,
+        status: job.status,
+      })),
+    [jobs]
+  );
+
+  const quickStatsJobEntries = useMemo(
+    () =>
+      jobs.map((job) => ({
+        id: job.id,
+        title: job.title,
+        company: job.companyName,
+        location: job.location || "Non spécifié",
+        salary:
+          job.salaryMin && job.salaryMax
+            ? `${job.salaryMin.toLocaleString()} - ${job.salaryMax.toLocaleString()} ${job.currency}`
+            : job.salaryMin
+            ? `À partir de ${job.salaryMin.toLocaleString()} ${job.currency}`
+            : "À discuter",
+        type: job.type,
+        applicants: job.applicants,
+        status: job.status,
+      })),
+    [jobs]
+  );
+
+  const memoizedApplicationsTab = useMemo(() => <ApplicationsTab />, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/20 to-blue-50/30 dark:from-slate-950 dark:via-green-950/10 dark:to-blue-950/10">
@@ -208,39 +265,13 @@ export default function EnterpriseInterviewsPage() {
           {/* Sidebar */}
           <div className="lg:w-1/4">
             <Timeline
-              jobOffers={jobs.map(job => ({
-                id: job.id,
-                title: job.title,
-                company: job.companyName,
-                location: job.location || "Non spécifié",
-                salary: job.salaryMin && job.salaryMax 
-                  ? `${job.salaryMin.toLocaleString()} - ${job.salaryMax.toLocaleString()} ${job.currency}`
-                  : job.salaryMin 
-                  ? `À partir de ${job.salaryMin.toLocaleString()} ${job.currency}`
-                  : "À discuter",
-                type: job.type,
-                applicants: job.applicants,
-                status: job.status,
-              }))}
+              jobOffers={timelineEntries}
               selectedOffer={selectedOffer}
               onSelectOffer={setSelectedOffer}
               loading={loadingJobs}
             />
             <QuickStats 
-              jobOffers={jobs.map(job => ({
-                id: job.id,
-                title: job.title,
-                company: job.companyName,
-                location: job.location || "Non spécifié",
-                salary: job.salaryMin && job.salaryMax 
-                  ? `${job.salaryMin.toLocaleString()} - ${job.salaryMax.toLocaleString()} ${job.currency}`
-                  : job.salaryMin 
-                  ? `À partir de ${job.salaryMin.toLocaleString()} ${job.currency}`
-                  : "À discuter",
-                type: job.type,
-                applicants: job.applicants,
-                status: job.status,
-              }))} 
+              jobOffers={quickStatsJobEntries}
               quizzes={quizzes} 
             />
           </div>
@@ -326,8 +357,7 @@ export default function EnterpriseInterviewsPage() {
               </TabsContent>
 
               <TabsContent value="applications" className="space-y-6">
-                <ApplicationsTab
-                />
+                {memoizedApplicationsTab}
               </TabsContent>
               <TabsContent value="settings">
                 <SettingsTab />
