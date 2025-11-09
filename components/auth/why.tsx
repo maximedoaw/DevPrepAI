@@ -3,7 +3,7 @@
 import { CheckCircle2, XCircle, Users, GraduationCap, Briefcase, Building2, User, Target, ArrowRight } from "lucide-react"
 import { Card } from "@/components/ui/card"
 
-const WhyTurboIntMax = () => {
+const WhySkillWokz = () => {
   const withoutPoints = [
     "Perte de temps sur plusieurs plateformes différentes sans coordination",
     "Recherche d'emploi non intelligente sans matching personnalisé",
@@ -112,8 +112,8 @@ const WhyTurboIntMax = () => {
     <section className="w-full py-20 px-4 bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100">
       <div className="max-w-7xl mx-auto text-center mb-16">
         <h2 className="text-3xl md:text-5xl font-extrabold text-slate-800 dark:text-white mb-4">
-          Sans <span className="text-red-500">TurboIntMax</span> vs Avec{" "}
-          <span className="text-blue-500">TurboIntMax Accelerator 🚀</span>
+          Sans <span className="text-red-500">SkillWokz</span> vs Avec{" "}
+          <span className="text-blue-500">SkillWokz 🚀</span>
         </h2>
         <p className="text-slate-600 dark:text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
           Voici comment nous surpassons les plateformes traditionnelles avec une approche intelligente et intégrée
@@ -122,7 +122,7 @@ const WhyTurboIntMax = () => {
 
       {/* Comparatif principal */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto mb-20">
-        {/* Colonne gauche - Sans TurboIntMax */}
+        {/* Colonne gauche - Sans SkillWokz */}
         <div className="space-y-4">
           <div className="text-center mb-6">
             <h3 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-2">
@@ -144,11 +144,11 @@ const WhyTurboIntMax = () => {
           ))}
         </div>
 
-        {/* Colonne droite - Avec TurboIntMax */}
+        {/* Colonne droite - Avec SkillWokz */}
         <div className="space-y-5">
           <div className="text-center mb-6">
             <h3 className="text-2xl font-bold text-green-600 dark:text-green-400 mb-2">
-              TurboIntMax
+              SkillWokz
             </h3>
             <div className="w-20 h-1 bg-green-500 mx-auto rounded-full"></div>
           </div>
@@ -182,10 +182,10 @@ const WhyTurboIntMax = () => {
         </div>
       </div>
 
-      {/* Section : À qui s'adresse TurboIntMax */}
+      {/* Section : À qui s'adresse SkillWokz */}
       <div className="max-w-6xl mx-auto text-center mb-16">
         <h2 className="text-3xl md:text-4xl font-bold mb-6 text-slate-800 dark:text-white">
-          À qui s'adresse <span className="text-blue-500">TurboIntMax</span> ?
+          À qui s'adresse <span className="text-blue-500">SkillWokz</span> ?
         </h2>
         <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
           Notre plateforme révolutionne l'expérience de chaque acteur du marché professionnel
@@ -234,4 +234,4 @@ const WhyTurboIntMax = () => {
   )
 }
 
-export default WhyTurboIntMax
+export default WhySkillWokz

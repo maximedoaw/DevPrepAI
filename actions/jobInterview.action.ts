@@ -866,12 +866,22 @@ export async function getApplicationQuizResults(applicationId: string, jobId: st
       const parsedAnswers = parseJsonField(result.answers)
       const parsedQuestions = parseQuizQuestions(result.jobQuiz.questions)
 
-      let analysisData = null
-      if (result.jobQuiz.type === "MOCK_INTERVIEW") {
+      let analysisData = result.analysis ? parseJsonField(result.analysis) : null
+
+      if (!analysisData && result.jobQuiz.type === "MOCK_INTERVIEW") {
         analysisData = await generateMockInterviewAnalysis(result, result.jobQuiz, parsedQuestions)
-      } else if (result.analysis) {
-        analysisData = parseJsonField(result.analysis)
       }
+
+      const reviewScore =
+        typeof result.reviewScore === "number" ? result.reviewScore : null
+      const finalScore =
+        typeof result.finalScore === "number" ? result.finalScore : null
+      const baseScore =
+        typeof finalScore === "number"
+          ? finalScore
+          : typeof result.score === "number"
+          ? result.score
+          : 0
 
       formattedResults.push({
         id: result.id,
@@ -879,8 +889,14 @@ export async function getApplicationQuizResults(applicationId: string, jobId: st
         quizTitle: result.jobQuiz.title,
         quizType: result.jobQuiz.type,
         totalPoints: result.jobQuiz.totalPoints,
-        score: result.score,
-        percentage: (result.score / result.jobQuiz.totalPoints) * 100,
+        score: baseScore,
+        originalScore: result.score,
+        reviewScore,
+        finalScore,
+        percentage:
+          result.jobQuiz.totalPoints > 0
+            ? (baseScore / result.jobQuiz.totalPoints) * 100
+            : 0,
         completedAt: result.completedAt,
         duration: result.duration,
         technology: result.jobQuiz.technology,
@@ -893,7 +909,9 @@ export async function getApplicationQuizResults(applicationId: string, jobId: st
         aiFeedback: skillAnalysis?.aiFeedback,
         improvementTips: skillAnalysis?.improvementTips || [],
         analysis: analysisData ? JSON.stringify(analysisData) : result.analysis,
-        answers: parsedAnswers ?? result.answers
+        answers: parsedAnswers ?? result.answers,
+        feedbackVisibleToCandidate: result.feedbackVisibleToCandidate,
+        feedbackReleasedAt: result.feedbackReleasedAt
       })
     }
 
@@ -1061,22 +1079,32 @@ export async function saveQuizResultReview(quizResultId: string, data: {
     }
 
     // Mettre à jour le résultat avec la review
+    const baseTestScore =
+      typeof existingResult.score === "number" ? existingResult.score : 0
+    const reviewScore = data.reviewedScore ?? 0
+    const finalScore = Number(((baseTestScore + reviewScore) / 2).toFixed(2))
+
+    const existingAnswers =
+      typeof existingResult.answers === "object" && existingResult.answers !== null
+        ? (existingResult.answers as any)
+        : {}
+
     const updatedResult = await prisma.jobQuizResult.update({
       where: { id: quizResultId },
       data: {
-        score: data.reviewedScore,
+        reviewScore,
+        finalScore,
         answers: {
-          ...(typeof existingResult.answers === 'object' && existingResult.answers !== null ? existingResult.answers as any : {}),
+          ...existingAnswers,
           reviewedAnswers: data.reviewedAnswers,
           manualCorrections: data.manualCorrections || {},
           reviewerNotes: data.reviewerNotes,
           reviewedAt: new Date().toISOString(),
-          isReviewed: true
+          reviewedScore: reviewScore,
+          finalScore,
+          isReviewed: true,
         } as any,
-        analysis: data.reviewerNotes 
-          ? `${existingResult.analysis}\n\n--- Review Humaine ---\n${data.reviewerNotes}`
-          : existingResult.analysis
-      }
+      },
     });
 
     revalidatePath("/enterprise/enterprise-interviews");
@@ -1096,9 +1124,18 @@ export async function saveQuizResultReview(quizResultId: string, data: {
   }
 }
 
-export async function saveQuizResultAnalysis(quizResultId: string, analysis: any, options?: { score?: number | null }) {
+export async function saveQuizResultAnalysis(
+  quizResultId: string,
+  analysis: any,
+  options?: { score?: number | null }
+) {
   try {
-    const payload = typeof analysis === "string" ? analysis : JSON.stringify(analysis);
+    const payload =
+      analysis === null || analysis === undefined
+        ? null
+        : typeof analysis === "string"
+        ? analysis
+        : JSON.stringify(analysis);
 
     const updatedResult = await prisma.jobQuizResult.update({
       where: { id: quizResultId },
@@ -1122,6 +1159,54 @@ export async function saveQuizResultAnalysis(quizResultId: string, analysis: any
     return {
       success: false,
       message: error instanceof Error ? error.message : "Erreur lors de l'enregistrement de l'analyse",
+    };
+  }
+}
+
+export async function shareQuizResultFeedback(
+  quizResultId: string,
+  applicationId: string,
+  options?: { visible?: boolean }
+) {
+  const visible = options?.visible ?? true;
+
+  try {
+    const updatedResult = await prisma.jobQuizResult.update({
+      where: { id: quizResultId },
+      data: {
+        feedbackVisibleToCandidate: visible,
+        feedbackReleasedAt: visible ? new Date() : null,
+      },
+      select: {
+        id: true,
+        feedbackVisibleToCandidate: true,
+        feedbackReleasedAt: true,
+      },
+    });
+
+    if (applicationId) {
+      await prisma.application.update({
+        where: { id: applicationId },
+        data: {
+          updatedAt: new Date(),
+        },
+      });
+    }
+
+    revalidatePath("/enterprise/enterprise-interviews");
+    revalidatePath("/");
+    revalidatePath("/dashboard");
+    revalidatePath("/home");
+
+    return {
+      success: true,
+      data: updatedResult,
+    };
+  } catch (error) {
+    console.error("Erreur lors du partage du feedback:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Impossible de partager le feedback",
     };
   }
 }

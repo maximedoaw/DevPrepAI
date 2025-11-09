@@ -53,6 +53,7 @@ import {
   Code,
   AlertTriangle,
   Video,
+  Send,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -60,8 +61,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useUserJobQueries, useApplicationQueries } from "@/hooks/use-job-queries";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getApplicationQuizResults, getQuizResultForReview, saveQuizResultReview, saveQuizResultAnalysis } from "@/actions/jobInterview.action";
-import { updateApplicationReview } from "@/actions/application.action";
+import { getApplicationQuizResults, getQuizResultForReview, saveQuizResultReview, saveQuizResultAnalysis, shareQuizResultFeedback } from "@/actions/jobInterview.action";
 import { getUserQuizResults } from "@/actions/interview.action";
 import { getPortfolioById, getPortfolioByUserId } from "@/actions/portfolio.action";
 import {
@@ -76,9 +76,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { safeParseJson, buildSkillProgressFromFeedback } from "@/lib/feedback-utils";
+import { MOCK_CRITERIA_DEFINITIONS } from "@/lib/feedback-constants";
+import { FeedbackModal, type FeedbackModalDetails } from "@/components/feedback-modal";
 
 // Types
-type ApplicationStatus = "pending" | "reviewed" | "interview" | "accepted" | "rejected";
+type ApplicationStatus = "pending" | "accepted" | "rejected";
 type TestStatus = "not_started" | "in_progress" | "completed" | "expired";
 
 interface TestResult {
@@ -105,6 +108,11 @@ interface TestResult {
   answers?: any;
   technology?: string[];
   domain?: string;
+  feedbackVisibleToCandidate?: boolean;
+  feedbackReleasedAt?: string | null;
+  initialScore?: number | null;
+  reviewScore?: number | null;
+  finalScore?: number | null;
 }
 
 interface Candidate {
@@ -150,25 +158,16 @@ interface JobOffer {
 
 // Fonctions de mapping avec vérifications de sécurité
 const mapStatusToUI = (status: string): ApplicationStatus => {
-  const statusMap: Record<string, ApplicationStatus> = {
-    'pending': 'pending',
-    'reviewed': 'reviewed',
-    'reviewing': 'reviewed', // REVIEWING de Prisma correspond à 'reviewed' en UI
-    'interview': 'interview',
-    'interviewing': 'interview', // INTERVIEWING de Prisma correspond à 'interview' en UI
-    'accepted': 'accepted',
-    'hired': 'accepted', // HIRED de Prisma correspond à 'accepted' en UI
-    'rejected': 'rejected',
-    'PENDING': 'pending',
-    'REVIEWING': 'reviewed', // REVIEWING de Prisma correspond à 'reviewed' en UI
-    'INTERVIEWING': 'interview', // INTERVIEWING de Prisma correspond à 'interview' en UI
-    'HIRED': 'accepted', // HIRED de Prisma correspond à 'accepted' en UI
-    'REJECTED': 'rejected',
-    'REVIEWED': 'reviewed', // Pour compatibilité si jamais utilisé
-    'INTERVIEW': 'interview', // Pour compatibilité si jamais utilisé
-    'ACCEPTED': 'accepted' // Pour compatibilité si jamais utilisé
-  };
-  return statusMap[status] || 'pending';
+  const normalized = status.toUpperCase();
+  switch (normalized) {
+    case "HIRED":
+    case "ACCEPTED":
+      return "accepted";
+    case "REJECTED":
+      return "rejected";
+    default:
+      return "pending";
+  }
 };
 
 const calculateNewApplications = (applications: any[]): number => {
@@ -228,31 +227,6 @@ const createDefaultApplication = (): Application => ({
   lastUpdated: new Date().toISOString(),
   testResults: []
 });
-
-const MOCK_CRITERIA_DEFINITIONS: Record<string, { label: string; max: number }> = {
-  jobFit: { label: "Adéquation au poste", max: 25 },
-  technicalSkills: { label: "Compétences techniques", max: 25 },
-  communication: { label: "Communication", max: 20 },
-  experience: { label: "Expérience", max: 15 },
-  softSkills: { label: "Soft skills", max: 15 },
-};
-
-const looksLikeJsonString = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  const first = trimmed[0];
-  return first === "{" || first === "[";
-};
-
-const safeParseJson = <T = any>(value: string): T | null => {
-  if (!looksLikeJsonString(value)) return null;
-  try {
-    return JSON.parse(value) as T;
-  } catch (error) {
-    console.error("Error parsing JSON string:", error);
-    return null;
-  }
-};
 
 const parseQuizAnswers = (rawAnswers: any) => {
   if (!rawAnswers) return null;
@@ -435,16 +409,20 @@ const normalizeJobQuizResult = (qr: any) => {
   let feedback = analysisData || null;
   let transcription: any[] = [];
   let messages: any[] = [];
-  let score = typeof qr.score === "number" ? qr.score : null;
+  const originalScore = typeof qr.score === "number" ? qr.score : null;
+  let derivedScore = originalScore;
   let maxScore = typeof qr.totalPoints === "number" && qr.totalPoints > 0 ? qr.totalPoints : 100;
   let skills = Array.isArray(qr.skills) ? qr.skills : [];
 
+  const feedbackVisibleToCandidate = !!qr.feedbackVisibleToCandidate;
+  const feedbackReleasedAt = qr.feedbackReleasedAt ?? null;
+
   if (qr.quizType === "MOCK_INTERVIEW") {
-    const derived = deriveMockInterviewData(parsedAnswers, score, analysisData);
+    const derived = deriveMockInterviewData(parsedAnswers, originalScore, analysisData);
     feedback = derived.feedback;
     transcription = derived.transcription;
     messages = derived.messages;
-    score = derived.score;
+    derivedScore = derived.score;
     maxScore = derived.maxScore;
     if (derived.skills.length > 0) {
       skills = derived.skills;
@@ -461,7 +439,18 @@ const normalizeJobQuizResult = (qr: any) => {
     feedback = qr.aiFeedback || null;
   }
 
-  const normalizedScore = typeof score === "number" ? score : 0;
+  const reviewScore = typeof qr.reviewScore === "number" ? qr.reviewScore : null;
+  const finalScoreValue =
+    typeof qr.finalScore === "number"
+      ? qr.finalScore
+      : reviewScore !== null && originalScore !== null
+      ? Number(((originalScore + reviewScore) / 2).toFixed(2))
+      : derivedScore ?? 0;
+
+  const normalizedScore =
+    typeof finalScoreValue === "number" && !Number.isNaN(finalScoreValue)
+      ? finalScoreValue
+      : 0;
   const normalizedTotalPoints = typeof maxScore === "number" && maxScore > 0 ? maxScore : 100;
 
   return {
@@ -471,6 +460,9 @@ const normalizeJobQuizResult = (qr: any) => {
     analysis: analysisData,
     score: normalizedScore,
     totalPoints: normalizedTotalPoints,
+    initialScore: originalScore,
+    reviewScore,
+    finalScore: finalScoreValue,
     skills,
     feedback,
     transcription,
@@ -479,50 +471,9 @@ const normalizeJobQuizResult = (qr: any) => {
     imageUrls,
     answers: parsedAnswers ?? qr.answers,
     rawAnswers: qr.answers,
+    feedbackVisibleToCandidate,
+    feedbackReleasedAt,
   };
-};
-
-const normalizeSkillName = (value?: string | null) =>
-  typeof value === "string" ? value.trim().toLowerCase() : "";
-
-const buildSkillProgressFromFeedback = (jobSkills: string[] = [], feedback: any) => {
-  const matched: string[] = Array.isArray(feedback?.skillsAnalysis?.matched) ? feedback.skillsAnalysis.matched : [];
-  const missing: string[] = Array.isArray(feedback?.skillsAnalysis?.missing) ? feedback.skillsAnalysis.missing : [];
-  const exceeds: string[] = Array.isArray(feedback?.skillsAnalysis?.exceeds) ? feedback.skillsAnalysis.exceeds : [];
-
-  const added = new Set<string>();
-  const results: { name: string; score: number; maxScore: number }[] = [];
-
-  const addSkill = (name: string, score: number) => {
-    if (!name) return;
-    const key = normalizeSkillName(name);
-    if (added.has(key)) return;
-    results.push({
-      name,
-      score: Math.max(0, Math.min(score, 100)),
-      maxScore: 100,
-    });
-    added.add(key);
-  };
-
-  jobSkills.forEach((skill) => {
-    const key = normalizeSkillName(skill);
-    if (exceeds.some((value) => normalizeSkillName(value) === key)) {
-      addSkill(skill, 100);
-    } else if (matched.some((value) => normalizeSkillName(value) === key)) {
-      addSkill(skill, 85);
-    } else if (missing.some((value) => normalizeSkillName(value) === key)) {
-      addSkill(skill, 35);
-    } else {
-      addSkill(skill, 60);
-    }
-  });
-
-  exceeds.forEach((skill) => addSkill(skill, 95));
-  matched.forEach((skill) => addSkill(skill, 80));
-  missing.forEach((skill) => addSkill(skill, 25));
-
-  return results;
 };
 
 const buildTranscriptionPayload = (test: TestResult) => {
@@ -662,14 +613,6 @@ const haveTestResultsChanged = (previous: TestResult[] = [], next: TestResult[] 
 
   return false;
 };
-
-const buildTestResultsSignature = (results: TestResult[] = []) =>
-  results
-    .map(
-      (result) =>
-        `${result.id ?? "unknown"}:${result.score ?? 0}:${result.maxScore ?? 0}:${result.status ?? "unknown"}`
-    )
-    .join("|");
 
 // Composants Skeleton améliorés
 const JobCardSkeleton = () => (
@@ -1217,8 +1160,6 @@ export const ApplicationsTab = () => {
   const [reviewingSkillIndex, setReviewingSkillIndex] = useState<number | null>(null);
   const [skillReviewNotes, setSkillReviewNotes] = useState<Record<number, string>>({});
   const [skillReviewScores, setSkillReviewScores] = useState<Record<number, number>>({});
-  const [applicationReviewScore, setApplicationReviewScore] = useState<number | null>(null);
-  const [applicationReviewStatus, setApplicationReviewStatus] = useState<string>("pending");
   // États pour l'évaluation sémantique des tests TECHNICAL
   const [semanticEvaluations, setSemanticEvaluations] = useState<Record<string, any>>({});
   const [loadingSemanticEvaluation, setLoadingSemanticEvaluation] = useState<Record<string, boolean>>({});
@@ -1373,15 +1314,17 @@ export const ApplicationsTab = () => {
     const totalJobs = jobOffers.length;
     const totalApplications = jobOffers.reduce((sum, job) => sum + job.totalApplications, 0);
     const totalNewApplications = jobOffers.reduce((sum, job) => sum + job.newApplications, 0);
-    const interviewApplications = jobOffers.reduce((sum, job) => 
-      sum + job.applications.filter(app => app.status === 'interview').length, 0
+    const acceptedApplications = jobOffers.reduce(
+      (sum, job) =>
+        sum + job.applications.filter((app) => app.status === "accepted").length,
+      0
     );
 
     return {
       totalJobs,
       totalApplications,
       totalNewApplications,
-      interviewApplications
+      acceptedApplications
     };
   }, [jobOffers]);
 
@@ -1444,14 +1387,11 @@ export const ApplicationsTab = () => {
     switch (status) {
       case "pending":
         return "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300 border-amber-200 dark:border-amber-800";
-      case "reviewed":
-        return "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 border-blue-200 dark:border-blue-800";
-      case "interview":
-        return "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 border-purple-200 dark:border-purple-800";
       case "accepted":
         return "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300 border-green-200 dark:border-green-800";
       case "rejected":
         return "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300 border-red-200 dark:border-red-800";
+
       default:
         return "bg-slate-50 text-slate-700 dark:bg-slate-800/20 dark:text-slate-300 border-slate-200 dark:border-slate-800";
     }
@@ -1459,12 +1399,14 @@ export const ApplicationsTab = () => {
 
   const getStatusText = (status: ApplicationStatus) => {
     switch (status) {
-      case "pending": return "En attente";
-      case "reviewed": return "Consultée";
-      case "interview": return "Entretien";
-      case "accepted": return "Acceptée";
-      case "rejected": return "Rejetée";
-      default: return status;
+      case "pending":
+        return "En attente";
+      case "accepted":
+        return "Acceptée";
+      case "rejected":
+        return "Rejetée";
+      default:
+        return status;
     }
   };
 
@@ -1708,8 +1650,6 @@ export const ApplicationsTab = () => {
                     <SelectContent>
                       <SelectItem value="all">Tous les statuts</SelectItem>
                       <SelectItem value="pending">En attente</SelectItem>
-                      <SelectItem value="reviewed">Consultée</SelectItem>
-                      <SelectItem value="interview">Entretien</SelectItem>
                       <SelectItem value="accepted">Acceptée</SelectItem>
                       <SelectItem value="rejected">Rejetée</SelectItem>
                     </SelectContent>
@@ -1847,9 +1787,9 @@ export const ApplicationsTab = () => {
   const [isConversationDialogOpen, setIsConversationDialogOpen] = useState(false);
   const [feedbackDialogTest, setFeedbackDialogTest] = useState<TestResult | null>(null);
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
-  const [feedbackDialogData, setFeedbackDialogData] = useState<any | null>(null);
+  const [feedbackDialogData, setFeedbackDialogData] = useState<FeedbackModalDetails | null>(null);
   const [isFeedbackDialogLoading, setIsFeedbackDialogLoading] = useState(false);
-  const feedbackCacheRef = useRef<Record<string, any>>({});
+  const feedbackCacheRef = useRef<Record<string, FeedbackModalDetails>>({});
 
   // État pour la simulation d'évaluation IA des compétences
   const [isEvaluatingSkills, setIsEvaluatingSkills] = useState(false);
@@ -1986,8 +1926,6 @@ export const ApplicationsTab = () => {
     // Mais la section des résultats individuels utilise seulement les tests du job
     const jobQuizResultsOnly = normalizedJobQuizResults;
     const applicationDisplayRef = useRef<Application | null>(null);
-    const lastApplicationIdRef = useRef<string | null>(null);
-    const autoReviewScoreRef = useRef<number | null>(null);
 
     const updatedApplication = useMemo(() => {
       if (!selectedApplication) {
@@ -2019,12 +1957,29 @@ export const ApplicationsTab = () => {
         videoUrl: typeof qr.videoUrl === "string" ? qr.videoUrl : "",
         imageUrls: Array.isArray(qr.imageUrls) ? qr.imageUrls : parseImageUrls(qr.imageUrls),
         answers: qr.answers ?? qr.rawAnswers ?? null,
+        analysis: qr.analysis || null,
+        initialScore:
+          typeof (qr as any).initialScore === "number"
+            ? (qr as any).initialScore
+            : null,
+        reviewScore:
+          typeof (qr as any).reviewScore === "number"
+            ? (qr as any).reviewScore
+            : null,
+        finalScore:
+          typeof (qr as any).finalScore === "number"
+            ? (qr as any).finalScore
+            : typeof qr.score === "number"
+            ? qr.score
+            : null,
         technology: Array.isArray(qr.technology)
           ? qr.technology
           : Array.isArray((qr as any)?.quizTechnology)
           ? (qr as any).quizTechnology
           : [],
         domain: qr.domain || (qr as any)?.quizDomain || null,
+        feedbackVisibleToCandidate: !!qr.feedbackVisibleToCandidate,
+        feedbackReleasedAt: qr.feedbackReleasedAt ?? null,
       }));
 
       const previous = applicationDisplayRef.current;
@@ -2047,51 +2002,39 @@ export const ApplicationsTab = () => {
       return nextApplication;
     }, [selectedApplication, jobQuizResultsOnly]);
 
-    const testResultsSignature = useMemo(
-      () => buildTestResultsSignature(updatedApplication?.testResults || []),
-      [updatedApplication?.testResults]
-    );
+    const autoSharedTestsRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
       if (!updatedApplication) return;
+      const twentyDaysMs = 20 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
 
-      const computedScore =
-        updatedApplication.score !== null && updatedApplication.score !== undefined
-          ? updatedApplication.score
-          : updatedApplication.testResults.length > 0
-          ? Math.round(
-              updatedApplication.testResults.reduce(
-                (sum: number, t: TestResult) => sum + (t.score / t.maxScore) * 100,
-                0
-              ) / updatedApplication.testResults.length
-            )
-          : null;
-
-      const isNewApplication = lastApplicationIdRef.current !== updatedApplication.id;
-
-      if (isNewApplication) {
-        lastApplicationIdRef.current = updatedApplication.id;
-        autoReviewScoreRef.current = computedScore;
-        setApplicationReviewStatus(updatedApplication.status);
-        setApplicationReviewScore(computedScore);
+      updatedApplication.testResults.forEach((test) => {
+        if (test.feedbackVisibleToCandidate) {
         return;
       }
-
-      if (updatedApplication.status !== applicationReviewStatus) {
-        setApplicationReviewStatus(updatedApplication.status);
+        if (!test.completedAt) {
+          return;
       }
-
-      if (computedScore !== null) {
-        const userHasModifiedScore =
-          applicationReviewScore !== null && applicationReviewScore !== autoReviewScoreRef.current;
-        if (!userHasModifiedScore && applicationReviewScore !== computedScore) {
-          setApplicationReviewScore(computedScore);
+        const completedAtTime = new Date(test.completedAt).getTime();
+        if (Number.isNaN(completedAtTime)) {
+          return;
         }
-        autoReviewScoreRef.current = computedScore;
-      } else {
-        autoReviewScoreRef.current = null;
-      }
-    }, [updatedApplication, applicationReviewStatus, applicationReviewScore]);
+        if (now - completedAtTime < twentyDaysMs) {
+          return;
+        }
+        if (autoSharedTestsRef.current.has(test.id)) {
+          return;
+        }
+
+        autoSharedTestsRef.current.add(test.id);
+        shareFeedbackMutation.mutate({
+          quizResultId: test.id,
+          applicationId: updatedApplication.id,
+          visible: true,
+        });
+      });
+    }, [updatedApplication, shareFeedbackMutation]);
 
     if (!updatedApplication) {
       return (
@@ -2193,8 +2136,8 @@ export const ApplicationsTab = () => {
     const openFeedbackDialog = useCallback(
       async (test: TestResult) => {
         if (!test) return;
-        setFeedbackDialogTest(test);
-        setIsFeedbackDialogOpen(true);
+      setFeedbackDialogTest(test);
+      setIsFeedbackDialogOpen(true);
 
         const cached = feedbackCacheRef.current[test.id];
         if (cached) {
@@ -2234,13 +2177,39 @@ export const ApplicationsTab = () => {
               }))
             : [];
 
-          const buildFinalDataFromAnalysis = (analysis: any, source: string) => ({
-            source,
-            feedback: analysis,
-            skills: buildSkillProgressFromFeedback(jobSkills, analysis),
-            score: analysis?.overallScore ?? reviewDetails?.score ?? test.score ?? null,
-            questions: questionsPayload,
-          });
+          const buildFinalDataFromAnalysis = (
+            analysis: any,
+            source: string
+          ): FeedbackModalDetails => {
+            const finalScoreValue =
+              typeof test.finalScore === "number"
+                ? test.finalScore
+                : analysis?.overallScore ??
+                  reviewDetails?.score ??
+                  test.score ??
+                  null;
+            const reviewScoreValue =
+              typeof test.reviewScore === "number"
+                ? test.reviewScore
+                : analysis?.reviewScore ??
+                  reviewDetails?.reviewScore ??
+                  null;
+            const initialScoreValue =
+              typeof test.initialScore === "number"
+                ? test.initialScore
+                : test.score ?? null;
+
+            return {
+              source,
+              feedback: analysis,
+              skills: buildSkillProgressFromFeedback(jobSkills, analysis),
+              score: finalScoreValue,
+              initialScore: initialScoreValue,
+              reviewScore: reviewScoreValue,
+              finalScore: finalScoreValue,
+              questions: questionsPayload,
+            };
+          };
 
           let finalFeedbackData: any = storedAnalysis
             ? buildFinalDataFromAnalysis(storedAnalysis, "stored")
@@ -2295,26 +2264,25 @@ export const ApplicationsTab = () => {
 
           if (!finalFeedbackData) {
             if (reviewDetails?.feedback || reviewDetails?.analysis) {
-              finalFeedbackData = {
-                source: "review",
-                feedback: reviewDetails?.feedback || parseAnalysisValue(reviewDetails?.analysis),
-                skills: buildSkillProgressFromFeedback(
-                  jobSkills,
-                  reviewDetails?.feedback || parseAnalysisValue(reviewDetails?.analysis)
-                ),
-                score: reviewDetails?.score ?? test.score ?? null,
-                questions: questionsPayload,
-              };
+              const reviewAnalysis =
+                reviewDetails?.feedback || parseAnalysisValue(reviewDetails?.analysis);
+              finalFeedbackData = buildFinalDataFromAnalysis(
+                reviewAnalysis,
+                "review"
+              );
             } else {
-              finalFeedbackData = {
-                source: "test",
-                feedback: test.feedback || null,
-                skills: test.skills || [],
-                score: test.score ?? null,
-                questions: questionsPayload,
-              };
+              finalFeedbackData = buildFinalDataFromAnalysis(
+                test.feedback || null,
+                "test"
+              );
             }
           }
+
+          finalFeedbackData = {
+            ...finalFeedbackData,
+            testName: test.testName,
+            releasedAt: (test as any)?.feedbackReleasedAt ?? null,
+          };
 
           feedbackCacheRef.current[test.id] = finalFeedbackData;
           setFeedbackDialogData(finalFeedbackData);
@@ -2329,6 +2297,28 @@ export const ApplicationsTab = () => {
       [selectedJob]
     );
 
+    const handleShareFeedback = useCallback(
+      (test: TestResult) => {
+        const applicationId = selectedApplication?.id;
+        if (!applicationId) {
+          toast.error("Aucune candidature sélectionnée");
+          return;
+        }
+
+        if (!test.feedback && !test.analysis) {
+          toast.error("Générez le feedback avant de le partager");
+          return;
+        }
+
+        shareFeedbackMutation.mutate({
+          quizResultId: test.id,
+          applicationId,
+          visible: true,
+        });
+      },
+      [selectedApplication?.id, selectedApplication?.status, shareFeedbackMutation]
+    );
+
     const handleFeedbackDialogChange = useCallback(
       (open: boolean) => {
         setIsFeedbackDialogOpen(open);
@@ -2340,37 +2330,6 @@ export const ApplicationsTab = () => {
       },
       []
     );
-
-    const effectiveFeedback = useMemo(() => {
-      if (feedbackDialogData) {
-        if (feedbackDialogData.feedback) return feedbackDialogData.feedback;
-        if (feedbackDialogData.analysis) return feedbackDialogData.analysis;
-      }
-      return feedbackDialogTest?.feedback ?? null;
-    }, [feedbackDialogData, feedbackDialogTest]);
-
-    const effectiveFeedbackScore = useMemo(() => {
-      if (typeof feedbackDialogData?.score === "number") {
-        return feedbackDialogData.score;
-      }
-      if (typeof effectiveFeedback?.overallScore === "number") {
-        return effectiveFeedback.overallScore;
-      }
-      return feedbackDialogTest?.score ?? 0;
-    }, [feedbackDialogData, effectiveFeedback, feedbackDialogTest]);
-
-    const effectiveSkillScores = useMemo(() => {
-      const candidates = [
-        feedbackDialogData?.skills,
-        feedbackDialogData?.feedback?.skills,
-        feedbackDialogData?.analysis?.skills,
-        feedbackDialogTest?.skills,
-      ].filter(
-        (list): list is Array<{ name: string; score: number; maxScore: number }> =>
-          Array.isArray(list) && list.length > 0
-      );
-      return candidates[0] || [];
-    }, [feedbackDialogData, feedbackDialogTest]);
 
     return (
       <>
@@ -2463,103 +2422,6 @@ export const ApplicationsTab = () => {
 
             {/* Colonne droite : Résultats des tests */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Section Review et Evaluation - Nouvelle section */}
-              <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Star className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                    Évaluation et Review
-                  </CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-400 text-sm">
-                    Évaluez le candidat et définissez le statut de sa candidature
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="app-review-score" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
-                        Score global (0-100)
-                      </Label>
-                      <Input
-                        id="app-review-score"
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={applicationReviewScore ?? (updatedApplication.testResults.length > 0 
-                          ? Math.round(updatedApplication.testResults.reduce((sum: number, t: TestResult) => sum + (t.score / t.maxScore) * 100, 0) / updatedApplication.testResults.length)
-                          : 0)}
-                        onChange={(e) => setApplicationReviewScore(parseInt(e.target.value) || 0)}
-                        className="bg-white dark:bg-slate-800"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="app-review-status" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
-                        Statut de candidature
-                      </Label>
-                      <Select
-                        value={applicationReviewStatus}
-                        onValueChange={setApplicationReviewStatus}
-                      >
-                        <SelectTrigger id="app-review-status" className="bg-white dark:bg-slate-800">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">En attente</SelectItem>
-                          <SelectItem value="reviewed">En cours d'examen</SelectItem>
-                          <SelectItem value="interview">Entretien programmé</SelectItem>
-                          <SelectItem value="accepted">Acceptée</SelectItem>
-                          <SelectItem value="rejected">Rejetée</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="reviewer-notes-general" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
-                      Notes générales de review
-                    </Label>
-                    <Textarea
-                      id="reviewer-notes-general"
-                      placeholder="Ajoutez vos notes générales sur le candidat..."
-                      value={reviewerNotes}
-                      onChange={(e) => setReviewerNotes(e.target.value)}
-                      className="min-h-24 bg-white dark:bg-slate-800"
-                    />
-                  </div>
-                  <Button
-                    onClick={async () => {
-                      if (!updatedApplication) return;
-                      try {
-                        await updateApplicationReviewMutation.mutateAsync({
-                          applicationId: updatedApplication.id,
-                          data: {
-                            status: applicationReviewStatus,
-                            score: applicationReviewScore || undefined,
-                            reviewerNotes: reviewerNotes
-                          }
-                        });
-                        toast.success("Évaluation sauvegardée avec succès");
-                      } catch (error) {
-                        console.error("Error updating application review:", error);
-                        toast.error("Erreur lors de la sauvegarde de l'évaluation");
-                      }
-                    }}
-                    disabled={updateApplicationReviewMutation.isPending}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                  >
-                    {updateApplicationReviewMutation.isPending ? (
-                      <>
-                        <Clock className="w-4 h-4 mr-2 animate-spin" />
-                        Sauvegarde...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4 mr-2" />
-                        Sauvegarder l'évaluation
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
               {loadingQuizResults ? (
                 <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
                   <CardContent className="p-6">
@@ -2571,7 +2433,36 @@ export const ApplicationsTab = () => {
                   </CardContent>
                 </Card>
               ) : updatedApplication.testResults.length > 0 ? (
-                updatedApplication.testResults.map((test) => (
+                updatedApplication.testResults.map((test) => {
+                  const isSharingThisTest =
+                    shareFeedbackMutation.isPending &&
+                    shareFeedbackMutation.variables?.quizResultId === test.id;
+                  const canShareFeedback = Boolean(test.feedback || test.analysis);
+                  const twentyDaysMs = 20 * 24 * 60 * 60 * 1000;
+                  const completedAtDate = test.completedAt ? new Date(test.completedAt) : null;
+                  const autoShareDate =
+                    completedAtDate && !Number.isNaN(completedAtDate.getTime())
+                      ? new Date(completedAtDate.getTime() + twentyDaysMs)
+                      : null;
+
+                  const shareDisabled =
+                    !canShareFeedback ||
+                    (shareFeedbackMutation.isPending && !isSharingThisTest);
+                  const shareTooltip = !canShareFeedback
+                    ? "Générez ou chargez le feedback avant de l'envoyer"
+                    : undefined;
+                  const displayScore =
+                    typeof test.finalScore === "number" ? test.finalScore : test.score;
+                  const initialScore =
+                    typeof test.initialScore === "number" ? test.initialScore : test.score;
+                  const reviewScoreValue =
+                    typeof test.reviewScore === "number" ? test.reviewScore : null;
+                  const percentageScore =
+                    test.maxScore > 0
+                      ? Math.round((displayScore / test.maxScore) * 100)
+                      : 0;
+
+                  return (
                   <Card key={test.id} className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
                     <CardContent className="p-6">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
@@ -2584,13 +2475,43 @@ export const ApplicationsTab = () => {
                           </p>
                         </div>
                         <div className="text-center sm:text-right">
-                          <div className={`text-3xl font-bold ${getScoreColor(test.score, test.maxScore)}`}>
-                            {test.score}/{test.maxScore}
+                          <div className={`text-3xl font-bold ${getScoreColor(displayScore, test.maxScore)}`}>
+                            {displayScore}/{test.maxScore}
                           </div>
                           <div className="text-sm text-slate-500">
-                            {Math.round((test.score / test.maxScore) * 100)}%
+                            {percentageScore}%
+                          </div>
+                          <div className="text-xs text-slate-400 dark:text-slate-500 space-x-2">
+                            <span>Score test: {initialScore}/{test.maxScore}</span>
+                            {reviewScoreValue !== null && (
+                              <span>Review: {reviewScoreValue}/{test.maxScore}</span>
+                            )}
                           </div>
                         </div>
+                      </div>
+
+                      <div className="mb-4 flex flex-wrap items-center gap-2">
+                        {test.feedbackVisibleToCandidate ? (
+                          <>
+                            <Badge className="bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-200 dark:border-cyan-700">
+                              Feedback partagé
+                            </Badge>
+                            {test.feedbackReleasedAt && (
+                              <span className="text-xs text-slate-500 dark:text-slate-400">
+                                Partagé le {formatDate(test.feedbackReleasedAt)}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                            Feedback non encore partagé avec le candidat
+                          </span>
+                        )}
+                        {!test.feedbackVisibleToCandidate && autoShareDate && (
+                          <span className="text-xs text-amber-600 dark:text-amber-300">
+                            Partage automatique au plus tard le {formatDate(autoShareDate.toISOString())}.
+                          </span>
+                        )}
                       </div>
 
                       {/* Score par compétence - Amélioré avec affichage sur 100 */}
@@ -3257,6 +3178,35 @@ export const ApplicationsTab = () => {
                           Voir les détails
                         </Button>
                         )}
+                        <Button
+                          size="sm"
+                          className={cn(
+                            "flex-1 rounded-lg text-white",
+                            test.feedbackVisibleToCandidate
+                              ? "bg-cyan-600 hover:bg-cyan-700"
+                              : "bg-cyan-500 hover:bg-cyan-600"
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShareFeedback(test);
+                          }}
+                          disabled={shareDisabled}
+                          title={shareTooltip}
+                        >
+                          {isSharingThisTest ? (
+                            <>
+                              <Clock className="w-4 h-4 mr-2 animate-spin" />
+                              Envoi...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4 mr-2" />
+                              {test.feedbackVisibleToCandidate
+                                ? "Renvoyer au candidat"
+                                : "Partager au candidat"}
+                            </>
+                          )}
+                        </Button>
                         <Button variant="outline" size="sm" className="flex-1 rounded-lg">
                           <MessageSquare className="w-4 h-4 mr-2" />
                           Notes
@@ -3264,7 +3214,7 @@ export const ApplicationsTab = () => {
                       </div>
                     </CardContent>
                   </Card>
-                ))
+                )})
               ) : (
                 <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
                   <CardContent className="text-center py-12">
@@ -3282,246 +3232,7 @@ export const ApplicationsTab = () => {
                 </Card>
               )}
 
-              {/* Section : Analyse IA des compétences techniques du poste */}
-              {selectedJob && (
-                <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
-                  <CardHeader>
-                    <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                      Analyse IA des compétences techniques
-                    </CardTitle>
-                    <CardDescription className="text-slate-600 dark:text-slate-400">
-                      Évaluation du niveau de maîtrise par rapport aux compétences demandées pour le poste
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {isEvaluatingSkills ? (
-                      <div className="space-y-4 py-8">
-                        <div className="flex items-center justify-center gap-3">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                          <div>
-                            <p className="text-sm font-medium text-slate-900 dark:text-white">Analyse en cours...</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Évaluation des compétences techniques par IA</p>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          {[1, 2, 3].map((i) => (
-                            <div key={i} className="flex items-center gap-3">
-                              <Skeleton className="h-4 w-32" />
-                              <Skeleton className="h-2 flex-1" />
-                              <Skeleton className="h-6 w-16" />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : simulateSkillEvaluation && simulateSkillEvaluation.length > 0 ? (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between mb-4">
-                          <p className="text-sm text-slate-600 dark:text-slate-400">
-                            Basé sur {jobQuizResultsOnly.length} test{jobQuizResultsOnly.length > 1 ? 's' : ''} technique{jobQuizResultsOnly.length > 1 ? 's' : ''} du poste complété{jobQuizResultsOnly.length > 1 ? 's' : ''}
-                          </p>
-                          <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
-                            <Sparkles className="w-3 h-3 mr-1" />
-                            Évaluation IA
-                          </Badge>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          {simulateSkillEvaluation.map((skill: any, index: number) => {
-                            const masteryColor = skill.percentage >= 80 
-                              ? 'text-green-600 dark:text-green-400' 
-                              : skill.percentage >= 60 
-                              ? 'text-blue-600 dark:text-blue-400'
-                              : skill.percentage >= 40
-                              ? 'text-amber-600 dark:text-amber-400'
-                              : 'text-red-600 dark:text-red-400';
-                            
-                            const masteryBg = skill.percentage >= 80 
-                              ? 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800' 
-                              : skill.percentage >= 60 
-                              ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800'
-                              : skill.percentage >= 40
-                              ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800'
-                              : 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800';
 
-                            const isReviewing = reviewingSkillIndex === index;
-                            const reviewScore = skillReviewScores[index] ?? skill.score;
-                            const reviewNote = skillReviewNotes[index] || "";
-
-                            return (
-                              <div key={index} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                                <div className="flex items-start justify-between mb-3">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="font-semibold text-slate-900 dark:text-white">{skill.name}</span>
-                                      <Badge className={`${masteryBg} ${masteryColor} border-0 text-xs`}>
-                                        {skill.mastery}
-                                      </Badge>
-                                      {/* Trouver les tests MOCK_INTERVIEW ou SOFT_SKILLS pour cette compétence */}
-                                      {updatedApplication?.testResults?.some((t: TestResult) => 
-                                        (t.quizType === 'MOCK_INTERVIEW' || t.quizType === 'SOFT_SKILLS') && 
-                                        t.skills?.some((s: any) => s.name === skill.name)
-                                      ) && (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => setReviewingSkillIndex(isReviewing ? null : index)}
-                                          className="h-6 px-2 text-xs ml-2"
-                                        >
-                                          <Edit className="w-3 h-3 mr-1" />
-                                          {isReviewing ? "Annuler" : "Réviser"}
-                                        </Button>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                                      <TrendingUpIcon className="w-3 h-3" />
-                                      <span>{reviewScore} points sur {skill.maxScore} possibles</span>
-                                      {reviewScore !== skill.score && (
-                                        <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
-                                          Révisé
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className={`text-lg font-bold ${masteryColor}`}>
-                                      {Math.round((reviewScore / skill.maxScore) * 100)}%
-                                    </div>
-                                    <div className="text-xs text-slate-500 dark:text-slate-400">
-                                      Niveau de maîtrise
-                                    </div>
-                                  </div>
-                                </div>
-                                <Progress 
-                                  value={Math.round((reviewScore / skill.maxScore) * 100)} 
-                                  className="h-3 bg-slate-200 dark:bg-slate-700 rounded-full"
-                                />
-                                <div className="mt-2 flex justify-between text-xs text-slate-500 dark:text-slate-400">
-                                  <span>Points obtenus: {reviewScore}/{skill.maxScore}</span>
-                                  <span>Répartition basée sur le total du test</span>
-                                </div>
-
-                                {/* Section de review inline pour MOCK_INTERVIEW et SOFT_SKILLS */}
-                                {isReviewing && updatedApplication?.testResults?.some((t: TestResult) => 
-                                  (t.quizType === 'MOCK_INTERVIEW' || t.quizType === 'SOFT_SKILLS') && 
-                                  t.skills?.some((s: any) => s.name === skill.name)
-                                ) && (
-                                  <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
-                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                                      <p className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-2">
-                                        Review manuelle pour {skill.name}
-                                      </p>
-                                      <div className="space-y-2">
-                                        <div className="flex items-center gap-2">
-                                          <Label htmlFor={`review-score-${index}`} className="text-xs text-slate-700 dark:text-slate-300 w-20">
-                                            Score :
-                                          </Label>
-                                          <Input
-                                            id={`review-score-${index}`}
-                                            type="number"
-                                            min={0}
-                                            max={skill.maxScore}
-                                            value={reviewScore}
-                                            onChange={(e) => setSkillReviewScores({
-                                              ...skillReviewScores,
-                                              [index]: Math.max(0, Math.min(parseInt(e.target.value) || 0, skill.maxScore))
-                                            })}
-                                            className="h-8 w-24 text-sm"
-                                          />
-                                          <span className="text-xs text-slate-500 dark:text-slate-400">/ {skill.maxScore}</span>
-                                        </div>
-                                        <div>
-                                          <Label htmlFor={`review-note-${index}`} className="text-xs text-slate-700 dark:text-slate-300">
-                                            Notes de review :
-                                          </Label>
-                                          <Textarea
-                                            id={`review-note-${index}`}
-                                            placeholder="Ajoutez vos notes sur cette compétence..."
-                                            value={reviewNote}
-                                            onChange={(e) => setSkillReviewNotes({
-                                              ...skillReviewNotes,
-                                              [index]: e.target.value
-                                            })}
-                                            className="min-h-20 mt-1 bg-white dark:bg-slate-800 text-sm"
-                                          />
-                                        </div>
-                                        <div className="flex gap-2">
-                                          <Button
-                                            size="sm"
-                                            onClick={async () => {
-                                              // Trouver le test qui correspond à cette compétence
-                                              const relevantTest = updatedApplication.testResults.find((t: TestResult) => 
-                                                (t.quizType === 'MOCK_INTERVIEW' || t.quizType === 'SOFT_SKILLS') && 
-                                                t.skills?.some((s: any) => s.name === skill.name)
-                                              );
-                                              if (relevantTest) {
-                                                try {
-                                                  const result = await getQuizResultForReview(relevantTest.id);
-                                                  if (result.success && result.data) {
-                                                    // Créer une correction manuelle pour cette compétence
-                                                    const skillCorrection = {
-                                                      skillName: skill.name,
-                                                      originalScore: skill.score,
-                                                      reviewedScore: reviewScore,
-                                                      note: reviewNote
-                                                    };
-                                                    
-                                                    await saveQuizReviewMutation.mutateAsync({
-                                                      quizResultId: relevantTest.id,
-                                                      data: {
-                                                        reviewedAnswers: result.data.answers || [],
-                                                        reviewedScore: result.data.score, // Score global du test
-                                                        reviewerNotes: reviewNote || "",
-                                                        manualCorrections: {
-                                                          [skill.name]: skillCorrection
-                                                        }
-                                                      }
-                                                    });
-                                                    
-                                                    setReviewingSkillIndex(null);
-                                                  }
-                                                } catch (error) {
-                                                  console.error("Error saving skill review:", error);
-                                                }
-                                              }
-                                            }}
-                                            className="bg-blue-600 hover:bg-blue-700 text-white h-8"
-                                          >
-                                            <Save className="w-3 h-3 mr-1" />
-                                            Sauvegarder
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => {
-                                              setReviewingSkillIndex(null);
-                                              setSkillReviewScores({ ...skillReviewScores, [index]: skill.score });
-                                              setSkillReviewNotes({ ...skillReviewNotes, [index]: "" });
-                                            }}
-                                            className="h-8"
-                                          >
-                                            <X className="w-3 h-3 mr-1" />
-                                            Annuler
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                        <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>Aucune compétence technique spécifiée pour ce poste</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
 
               {/* CV et Portfolio - Section améliorée */}
               <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl">
@@ -3783,163 +3494,131 @@ export const ApplicationsTab = () => {
             )}
           </DialogContent>
         </Dialog>
-        <Dialog open={isFeedbackDialogOpen} onOpenChange={handleFeedbackDialogChange}>
-          <DialogContent className="max-w-3xl max-h-[90vh] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 flex flex-col">
-            <DialogHeader className="shrink-0 pb-4 border-b border-slate-200 dark:border-slate-800">
-              <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-white">
-                {feedbackDialogTest?.testName ? `Feedback IA – ${feedbackDialogTest.testName}` : "Feedback IA"}
-              </DialogTitle>
-              <DialogDescription className="text-slate-600 dark:text-slate-400">
-                Synthèse détaillée de l'entretien simulé.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex-1 overflow-y-auto pr-2">
-              {isFeedbackDialogLoading ? (
-                <div className="space-y-4 py-10">
-                  <Skeleton className="h-5 w-48 mx-auto" />
-                  <Skeleton className="h-3 w-3/4 mx-auto" />
-                  <Skeleton className="h-3 w-2/3 mx-auto" />
-                  <Skeleton className="h-32 w-full rounded-xl" />
-                </div>
-              ) : effectiveFeedback ? (
-                <div className="space-y-6 py-4">
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/30">
-                      <p className="text-xs font-medium uppercase text-blue-700 dark:text-blue-300">Score global</p>
-                      <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                        {Math.round(effectiveFeedbackScore)}/100
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-900/30">
-                      <p className="text-xs font-medium uppercase text-emerald-700 dark:text-emerald-300">Adéquation au poste</p>
-                      <p className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">
-                        {effectiveFeedback.jobMatch?.percentage ?? 0}%
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/30">
-                      <p className="text-xs font-medium uppercase text-amber-700 dark:text-amber-300">Communication</p>
-                      <p className="text-lg font-semibold text-amber-900 dark:text-amber-100">
-                        {effectiveFeedback.criteriaScores?.communication ?? 0}/20
-                      </p>
-                    </div>
-                  </div>
-
-                  {effectiveFeedback.criteriaScores && (
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {Object.entries(effectiveFeedback.criteriaScores).map(([key, rawValue]) => {
-                        const def = MOCK_CRITERIA_DEFINITIONS[key] || { label: key, max: 20 }
-                        const numericValue =
-                          typeof rawValue === "number" ? rawValue : Number(rawValue ?? 0)
-                        const ratio = def.max > 0 ? (numericValue / def.max) * 100 : 0
-                        return (
-                          <div
-                            key={key}
-                            className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/60"
-                          >
-                            <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-700 dark:text-slate-300">
-                              <span>{def.label}</span>
-                              <span className="font-semibold text-blue-600 dark:text-blue-300">
-                                {numericValue}/{def.max}
-                              </span>
-                            </div>
-                            <Progress value={ratio} className="h-2 bg-slate-100 dark:bg-slate-700" />
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-
-                  {effectiveSkillScores.length > 0 && (
-                    <div className="space-y-3">
-                      <h5 className="text-sm font-semibold text-slate-900 dark:text-white">
-                        Compétences techniques évaluées
-                      </h5>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {effectiveSkillScores.map((skill, index) => {
-                          const score = typeof skill.score === "number" ? skill.score : 0;
-                          const maxScore = typeof skill.maxScore === "number" && skill.maxScore > 0 ? skill.maxScore : 100;
-                          const ratio = Math.min(100, Math.max(0, (score / maxScore) * 100));
-                          return (
-                            <div
-                              key={`${skill.name}-${index}`}
-                              className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/60"
-                            >
-                              <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-700 dark:text-slate-300">
-                                <span>{skill.name}</span>
-                                <span className="font-semibold text-emerald-600 dark:text-emerald-300">
-                                  {Math.round(ratio)}%
-                                </span>
-                              </div>
-                              <Progress value={ratio} className="h-2 bg-slate-100 dark:bg-slate-700" />
-                              <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                {score}/{maxScore}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {effectiveFeedback.evaluation && (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 leading-relaxed dark:border-slate-700 dark:bg-slate-900/40">
-                      <h5 className="mb-2 text-sm font-semibold text-slate-900 dark:text-white">Évaluation globale</h5>
-                      <p className="text-sm text-slate-700 dark:text-slate-300">
-                        {effectiveFeedback.evaluation}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {effectiveFeedback.strengths && effectiveFeedback.strengths.length > 0 && (
-                      <div className="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
-                        <h6 className="mb-2 flex items-center gap-2 text-sm font-semibold text-green-700 dark:text-green-300">
-                          <TrendingUp className="h-4 w-4" />
-                          Points forts
-                        </h6>
-                        <ul className="space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                          {effectiveFeedback.strengths.map((strength: string, idx: number) => (
-                            <li key={idx}>• {strength}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {effectiveFeedback.weaknesses && effectiveFeedback.weaknesses.length > 0 && (
-                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
-                        <h6 className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
-                          <AlertTriangle className="h-4 w-4" />
-                          Points à améliorer
-                        </h6>
-                        <ul className="space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                          {effectiveFeedback.weaknesses.map((weakness: string, idx: number) => (
-                            <li key={idx}>• {weakness}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-
-                  {effectiveFeedback.recommendations && (
-                    <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
-                      <p className="font-semibold text-slate-900 dark:text-white">Recommandations</p>
-                      <p className="mt-1">{effectiveFeedback.recommendations}</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2 py-12 text-center text-slate-600 dark:text-slate-400">
-                  <Sparkles className="mx-auto h-6 w-6 text-slate-400" />
-                  <p className="text-sm">Aucun feedback disponible pour cet entretien.</p>
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+        <FeedbackModal
+          open={isFeedbackDialogOpen}
+          onOpenChange={handleFeedbackDialogChange}
+          isLoading={isFeedbackDialogLoading}
+          details={
+            feedbackDialogData ??
+            (feedbackDialogTest
+              ? {
+                  testName: feedbackDialogTest.testName,
+                  score: feedbackDialogTest.score ?? null,
+                  releasedAt: feedbackDialogTest.feedbackReleasedAt ?? null,
+                }
+              : undefined)
+          }
+        />
       </>
     );
   };
 
   // Mutation pour sauvegarder la review d'un quiz
+  const shareFeedbackMutation = useMutation({
+    mutationFn: ({
+      quizResultId,
+      applicationId,
+      visible = true,
+    }: {
+      quizResultId: string;
+      applicationId: string;
+      visible?: boolean;
+    }) => shareQuizResultFeedback(quizResultId, applicationId, { visible }),
+    onSuccess: (response, variables) => {
+      if (!response?.success) {
+        toast.error(response?.message || "Impossible de partager le feedback");
+        return;
+      }
+
+      const releasedAtValue = response.data?.feedbackReleasedAt
+        ? new Date(response.data.feedbackReleasedAt).toISOString()
+        : new Date().toISOString();
+      const visible = response.data?.feedbackVisibleToCandidate ?? true;
+
+      toast.success(
+        visible
+          ? "Feedback envoyé au candidat"
+          : "Feedback retiré pour le candidat"
+      );
+
+      setSelectedApplication((previous) => {
+        if (!previous) return previous;
+        const updatedTests = previous.testResults.map((test) =>
+          test.id === variables.quizResultId
+            ? {
+                ...test,
+                feedbackVisibleToCandidate: visible,
+                feedbackReleasedAt: releasedAtValue,
+              }
+            : test
+        );
+        return {
+          ...previous,
+          testResults: updatedTests,
+        };
+      });
+
+      setSelectedJob((previousJob) => {
+        if (!previousJob) return previousJob;
+        return {
+          ...previousJob,
+          applications: previousJob.applications.map((application) =>
+            application.id === variables.applicationId
+              ? {
+                  ...application,
+                  testResults: application.testResults.map((test) =>
+                    test.id === variables.quizResultId
+                      ? {
+                          ...test,
+                          feedbackVisibleToCandidate: visible,
+                          feedbackReleasedAt: releasedAtValue,
+                        }
+                      : test
+                  ),
+                }
+              : application
+          ),
+        };
+      });
+
+      if (feedbackCacheRef.current[variables.quizResultId]) {
+        feedbackCacheRef.current[variables.quizResultId] = {
+          ...feedbackCacheRef.current[variables.quizResultId],
+          releasedAt: releasedAtValue,
+        };
+      }
+
+      setFeedbackDialogTest((previous) =>
+        previous && previous.id === variables.quizResultId
+          ? {
+              ...previous,
+              feedbackVisibleToCandidate: visible,
+              feedbackReleasedAt: releasedAtValue,
+            }
+          : previous
+      );
+
+      setFeedbackDialogData((previous) =>
+        previous
+          ? {
+              ...previous,
+              releasedAt: releasedAtValue,
+            }
+          : previous
+      );
+
+      queryClient.invalidateQueries({ queryKey: ["application-quiz-results"] });
+      queryClient.invalidateQueries({ queryKey: ["job-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["user-applications"] });
+    },
+    onError: (error: any) => {
+      console.error("Error sharing feedback:", error);
+      toast.error(
+        error?.message || "Erreur lors de l'envoi du feedback au candidat"
+      );
+    },
+  });
+
   const saveQuizReviewMutation = useMutation({
     mutationFn: ({ quizResultId, data }: { quizResultId: string; data: any }) => 
       saveQuizResultReview(quizResultId, data),
@@ -3959,18 +3638,6 @@ export const ApplicationsTab = () => {
   });
 
   // Mutation pour mettre à jour le statut et le score de l'application
-  const updateApplicationReviewMutation = useMutation({
-    mutationFn: ({ applicationId, data }: { applicationId: string; data: any }) =>
-      updateApplicationReview(applicationId, data),
-    onSuccess: () => {
-      toast.success("Statut de candidature mis à jour");
-      queryClient.invalidateQueries({ queryKey: ["job-applications"] });
-      queryClient.invalidateQueries({ queryKey: ["application-quiz-results"] });
-    },
-    onError: (error: any) => {
-      toast.error(error?.message || "Erreur lors de la mise à jour");
-    }
-  });
 
   // Ouvrir le modal de review pour QCM ou TECHNICAL
   const handleOpenReviewModal = async (testResult: TestResult) => {

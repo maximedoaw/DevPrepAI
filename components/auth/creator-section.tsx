@@ -62,7 +62,7 @@ export default function CreatorSection() {
           {/* Citation */}
           <blockquote className="text-slate-600 dark:text-slate-400 italic text-lg leading-relaxed mb-10 text-center border-l-4 border-blue-500 pl-6 py-2 bg-blue-50/50 dark:bg-blue-900/10 rounded-r-lg">
             "Au Cameroun, le talent est partout. Mais les opportunités sont rares,
-            mal filtrées et souvent biaisées. TurboIntMax veut casser cette logique
+            mal filtrées et souvent biaisées. SkillWokz veut casser cette logique
             pour redonner confiance et clarté à tout le processus."
           </blockquote>
 
@@ -99,12 +99,12 @@ export default function CreatorSection() {
                   <Rocket className="h-5 w-5 text-green-600 dark:text-green-400" />
                 </div>
                 <h4 className="text-xl font-bold text-slate-800 dark:text-white">
-                  La promesse TurboIntMax
+                  La promesse SkillWokz
                 </h4>
               </div>
               <div className="space-y-4 text-slate-700 dark:text-slate-300 leading-relaxed">
                 <p className="font-medium">
-                  TurboIntMax remet de l'ordre, de la transparence et de la crédibilité
+                  SkillWokz remet de l'ordre, de la transparence et de la crédibilité
                   dans le recrutement. Un espace unique où chaque acteur retrouve du
                   contrôle et du sens.
                 </p>
@@ -129,7 +129,7 @@ export default function CreatorSection() {
                 <span className="text-sm font-semibold">Notre mission</span>
               </div>
               <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                Dans un pays où le mérite n'est pas toujours récompensé, TurboIntMax
+                Dans un pays où le mérite n'est pas toujours récompensé, SkillWokz
                 redonne à chacun la possibilité d'être évalué sur ses vraies compétences.
                 Moins de promesses, plus de preuves, plus d'impact.
               </p>

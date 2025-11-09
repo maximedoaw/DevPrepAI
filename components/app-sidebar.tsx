@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -117,7 +117,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  if (isLoading || !isAuthenticated) return null;
+  const loadingOrUnauth = isLoading || !isAuthenticated;
 
   const userRole = userData?.role || "CANDIDATE";
   const isAdmin =
@@ -616,6 +616,69 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
       path: "/admin",
     });
   }
+
+  const commonAccessibleRoutes = useMemo(
+    () => [
+      "/",
+      "/profile",
+      "/settings",
+      "/messages",
+      "/notifications",
+      "/help",
+      "/support",
+    ],
+    []
+  );
+
+  const allowedRoutePrefixes = useMemo(() => {
+    const routes = new Set<string>();
+    commonAccessibleRoutes.forEach((route) => routes.add(route));
+    sidebarOptions.forEach((option) => {
+      if (option.path) {
+        routes.add(option.path);
+      }
+    });
+    return Array.from(routes);
+  }, [sidebarOptions, commonAccessibleRoutes]);
+
+  useEffect(() => {
+    if (loadingOrUnauth || userDataLoading || isAdmin) return;
+
+    const normalizedPath = pathname?.split("?")[0] || "/";
+
+    const isAllowed = allowedRoutePrefixes.some((route) => {
+      if (!route) return false;
+      if (route === "/") {
+        return normalizedPath === "/";
+      }
+      return (
+        normalizedPath === route ||
+        normalizedPath.startsWith(`${route}/`)
+      );
+    });
+
+    if (!isAllowed) {
+      const fallbackRoute =
+        sidebarOptions.find((option) => option.path)?.path ||
+        commonAccessibleRoutes[0] ||
+        "/";
+
+      if (fallbackRoute && normalizedPath !== fallbackRoute) {
+        router.replace(fallbackRoute);
+      }
+    }
+  }, [
+    pathname,
+    allowedRoutePrefixes,
+    sidebarOptions,
+    router,
+    isAdmin,
+    loadingOrUnauth,
+    userDataLoading,
+    commonAccessibleRoutes,
+  ]);
+
+  if (loadingOrUnauth) return null;
 
   // Fonction pour obtenir le titre et la description du rôle
   const getRoleInfo = () => {

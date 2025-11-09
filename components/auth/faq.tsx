@@ -11,8 +11,8 @@ import {
 const faqData = [
   {
     id: "1",
-    question: "Comment TurboIntMax m'aide-t-il à préparer mes entretiens d'embauche ?",
-    answer: "TurboIntMax utilise l'IA pour simuler des entretiens réalistes adaptés à votre domaine. Notre système analyse vos réponses, vous donne des feedbacks personnalisés et identifie les points à améliorer pour maximiser vos chances de succès."
+    question: "Comment SkillWokz m'aide-t-il à préparer mes entretiens d'embauche ?",
+    answer: "SkillWokz utilise l'IA pour simuler des entretiens réalistes adaptés à votre domaine. Notre système analyse vos réponses, vous donne des feedbacks personnalisés et identifie les points à améliorer pour maximiser vos chances de succès."
   },
   {
     id: "2",
@@ -21,7 +21,7 @@ const faqData = [
   },
   {
     id: "3",
-    question: "TurboIntMax est-il adapté à tous les domaines professionnels ?",
+    question: "SkillWokz est-il adapté à tous les domaines professionnels ?",
     answer: "Absolument ! Nous couvrons un large éventail de domaines incluant le développement web, la data science, la santé, la finance, l'ingénierie, le marketing, l'architecture et le management. Notre contenu est constamment mis à jour pour s'adapter aux besoins du marché."
   },
   {
@@ -31,13 +31,13 @@ const faqData = [
   },
   {
     id: "5",
-    question: "Puis-je utiliser TurboIntMax sur mobile ?",
+    question: "Puis-je utiliser SkillWokz sur mobile ?",
     answer: "Oui, notre plateforme est entièrement responsive et fonctionne sur tous les appareils. Vous pouvez pratiquer vos entretiens où que vous soyez, à tout moment."
   },
   {
     id: "6",
-    question: "Quelle est la différence entre TurboIntMax et les autres plateformes de préparation ?",
-    answer: "Contrairement aux solutions génériques, TurboIntMax offre des simulations hyper-réalistes avec un feedback IA avancé, un coaching personnalisé adapté au marché camerounais et africain,un matching intelligent avec des recruteurs entreprises et partenaires, et un suivi de progression détaillé pour mesurer vos améliorations le tout en un."
+    question: "Quelle est la différence entre SkillWokz et les autres plateformes de préparation ?",
+    answer: "Contrairement aux solutions génériques, SkillWokz offre des simulations hyper-réalistes avec un feedback IA avancé, un coaching personnalisé adapté au marché camerounais et africain,un matching intelligent avec des recruteurs entreprises et partenaires, et un suivi de progression détaillé pour mesurer vos améliorations le tout en un."
   }
 ]
 
@@ -48,7 +48,7 @@ export default function FAQSection() {
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold mb-4">Questions Fréquentes</h2>
           <p className="text-lg text-slate-600 dark:text-slate-300">
-            Tout ce que vous devez savoir sur TurboIntMax
+            Tout ce que vous devez savoir sur SkillWokz
           </p>
         </div>
 

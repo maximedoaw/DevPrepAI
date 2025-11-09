@@ -24,7 +24,7 @@ export default function Logo() {
       
       <div className="flex flex-col">
         <span className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600">
-          TurboIntMax
+          SkillWokz
         </span>
         <span className="text-xs text-muted-foreground font-medium tracking-wide">
           Accélérateur Carrière

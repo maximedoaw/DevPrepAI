@@ -339,7 +339,11 @@ export async function getUserApplications() {
 
         // Calculer le score moyen
         const averageScore = quizResults.length > 0
-          ? quizResults.reduce((sum, r) => sum + r.score, 0) / quizResults.length
+          ? quizResults.reduce((sum, r) => {
+              const displayScore =
+                typeof r.finalScore === "number" ? r.finalScore : r.score
+              return sum + (displayScore ?? 0)
+            }, 0) / quizResults.length
           : 0
 
         // Extraire les compétences des quiz results
@@ -363,20 +367,34 @@ export async function getUserApplications() {
 
         return {
           ...app,
-          quizResults: quizResults.map(r => ({
-            id: r.id,
-            quizTitle: r.jobQuiz.title,
-            score: r.score,
-            totalPoints: r.jobQuiz.totalPoints,
-            percentage: r.jobQuiz.totalPoints > 0 
-              ? Math.round((r.score / r.jobQuiz.totalPoints) * 100) 
-              : 0,
-            completedAt: r.completedAt,
-            answers: r.answers, // Inclure les réponses pour vérifier si révisé
-            skills: r.skillAnalysis && r.skillAnalysis.length > 0 
-              ? r.skillAnalysis[0].skills 
-              : null
-          })),
+          quizResults: quizResults.map(r => {
+            const displayScore =
+              typeof r.finalScore === "number" ? r.finalScore : r.score
+            const percentage =
+              r.jobQuiz.totalPoints > 0 && displayScore !== null && displayScore !== undefined
+                ? Math.round((displayScore / r.jobQuiz.totalPoints) * 100)
+                : 0
+
+            return {
+              id: r.id,
+              quizType: r.jobQuiz.type,
+              quizTitle: r.jobQuiz.title,
+              score: displayScore,
+              originalScore: r.score,
+              reviewScore: r.reviewScore,
+              finalScore: r.finalScore,
+              totalPoints: r.jobQuiz.totalPoints,
+              percentage,
+              completedAt: r.completedAt,
+              answers: r.answers,
+              skills: r.skillAnalysis && r.skillAnalysis.length > 0
+                ? r.skillAnalysis[0].skills
+                : null,
+              analysis: r.analysis,
+              feedbackVisibleToCandidate: r.feedbackVisibleToCandidate,
+              feedbackReleasedAt: r.feedbackReleasedAt
+            }
+          }),
           averageScore: Math.round(averageScore),
           skills: Array.from(new Set(skills)) // Supprimer les doublons
         }

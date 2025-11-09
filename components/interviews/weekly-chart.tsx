@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts"
@@ -24,10 +25,10 @@ interface WeeklyData {
 // Composant Skeleton pour le graphique hebdomadaire
 function WeeklyChartSkeleton() {
   return (
-    <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+    <Card className="border border-emerald-100 dark:border-emerald-900/40 shadow-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
+          <div className="p-2 bg-gradient-to-r from-emerald-500 to-green-600 rounded-lg">
             <TrendingUp className="h-5 w-5 text-white" />
           </div>
           <div>
@@ -65,7 +66,7 @@ function WeeklyChartSkeleton() {
             </div>
           </div>
         </div>
-        <div className="mt-2 text-xs text-gray-500 text-center">
+        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
           💡 Survolez les barres pour voir le détail par type d'interview
         </div>
       </CardContent>
@@ -74,6 +75,31 @@ function WeeklyChartSkeleton() {
 }
 
 export function WeeklyChart() {
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const root = document.documentElement
+    const media = window.matchMedia("(prefers-color-scheme: dark)")
+
+    const syncTheme = () => {
+      const hasDarkClass = root.classList.contains("dark")
+      setIsDarkMode(hasDarkClass || media.matches)
+    }
+
+    syncTheme()
+    media.addEventListener("change", syncTheme)
+
+    const observer = new MutationObserver(syncTheme)
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] })
+
+    return () => {
+      media.removeEventListener("change", syncTheme)
+      observer.disconnect()
+    }
+  }, [])
+
   const { data, isLoading, error } = useQuery<WeeklyData[], Error>({
     queryKey: ['weeklyQuizData'],
     queryFn: async () => {
@@ -100,24 +126,32 @@ export function WeeklyChart() {
 
   if (error) {
     return (
-      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-        <CardContent className="p-6 text-center text-red-500">
+      <Card className="border border-emerald-100 dark:border-emerald-900/40 shadow-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
+        <CardContent className="p-6 text-center text-red-500 dark:text-red-400">
           Une erreur est survenue lors du chargement des données
         </CardContent>
       </Card>
     )
   }
 
+  const axisColor = isDarkMode ? "#94a3b8" : "#475569"
+  const gridColor = isDarkMode ? "#1f2937" : "#e2e8f0"
+  const tooltipBackground = isDarkMode ? "rgba(15,23,42,0.95)" : "rgba(255,255,255,0.95)"
+  const tooltipText = isDarkMode ? "#e2e8f0" : "#0f172a"
+  const tooltipBorder = isDarkMode ? "#0f172a" : "#e2e8f0"
+
   return (
-    <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+    <Card className="border border-emerald-100 dark:border-emerald-900/40 shadow-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
+          <div className="p-2 bg-gradient-to-r from-emerald-500 to-green-600 rounded-lg">
             <TrendingUp className="h-5 w-5 text-white" />
           </div>
           <div>
-            <CardTitle className="text-xl">Progression Hebdomadaire</CardTitle>
-            <CardDescription>Moyenne de vos scores par jour (7 derniers jours)</CardDescription>
+            <CardTitle className="text-xl text-slate-900 dark:text-slate-100">Progression Hebdomadaire</CardTitle>
+            <CardDescription className="text-slate-500 dark:text-slate-400">
+              Moyenne de vos scores par jour (7 derniers jours)
+            </CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -125,16 +159,19 @@ export function WeeklyChart() {
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data as any}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="day" stroke="#666" />
-              <YAxis stroke="#666" domain={[0, 100]} />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+              <XAxis dataKey="day" stroke={axisColor} tick={{ fill: axisColor }} />
+              <YAxis stroke={axisColor} tick={{ fill: axisColor }} domain={[0, 100]} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'white',
-                  border: 'none',
+                  backgroundColor: tooltipBackground,
+                  border: `1px solid ${tooltipBorder}`,
                   borderRadius: '8px',
-                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                  padding: '12px'
+                  boxShadow: isDarkMode
+                    ? '0 10px 30px rgba(15,23,42,0.45)'
+                    : '0 10px 30px rgba(15,23,42,0.12)',
+                  padding: '12px',
+                  color: tooltipText,
                 }}
                 formatter={(value: number, name: string, props: any) => {
                   const data = props.payload
@@ -155,9 +192,10 @@ export function WeeklyChart() {
                             display: 'flex', 
                             justifyContent: 'space-between', 
                             marginBottom: '4px',
-                            fontSize: '12px'
+                            fontSize: '12px',
+                            color: tooltipText,
                           }}>
-                            <span style={{ color: '#666' }}>{typeLabels[type] || type}:</span>
+                            <span style={{ opacity: 0.8 }}>{typeLabels[type] || type}:</span>
                             <span style={{ fontWeight: 'bold' }}>
                               {typeData.score}% ({typeData.count})
                             </span>
@@ -171,13 +209,13 @@ export function WeeklyChart() {
                         <div style={{ 
                           fontWeight: 'bold', 
                           marginBottom: '8px',
-                          borderBottom: '1px solid #eee',
+                          borderBottom: `1px solid ${isDarkMode ? '#1e293b' : '#e2e8f0'}`,
                           paddingBottom: '4px'
                         }}>
                           Moyenne générale: {value}% ({data.interviewCount} interviews)
                         </div>
                         {typeDetails.length > 0 && (
-                          <div style={{ fontSize: '11px', color: '#666' }}>
+                          <div style={{ fontSize: '11px', color: tooltipText, opacity: 0.85 }}>
                             Détail par type:
                             {typeDetails}
                           </div>
@@ -193,13 +231,13 @@ export function WeeklyChart() {
               <Bar dataKey="score" fill="url(#gradient)" radius={[4, 4, 0, 0]} />
               <defs>
                 <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3B82F6" />
-                  <stop offset="100%" stopColor="#8B5CF6" />
+                  <stop offset="0%" stopColor="#22c55e" />
+                  <stop offset="100%" stopColor="#15803d" />
                 </linearGradient>
               </defs>
             </BarChart>
           </ResponsiveContainer>
-          <div className="mt-2 text-xs text-gray-500 text-center">
+          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
             💡 Survolez les barres pour voir le détail par type d'interview
           </div>
         </div>

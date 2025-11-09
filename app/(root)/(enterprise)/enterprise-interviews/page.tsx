@@ -247,8 +247,6 @@ export default function EnterpriseInterviewsPage() {
     [jobs]
   );
 
-  const memoizedApplicationsTab = useMemo(() => <ApplicationsTab />, []);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/20 to-blue-50/30 dark:from-slate-950 dark:via-green-950/10 dark:to-blue-950/10">
       <div className="container mx-auto px-4 py-8">
@@ -357,7 +355,7 @@ export default function EnterpriseInterviewsPage() {
               </TabsContent>
 
               <TabsContent value="applications" className="space-y-6">
-                {memoizedApplicationsTab}
+                <ApplicationsTab />
               </TabsContent>
               <TabsContent value="settings">
                 <SettingsTab />

@@ -12,9 +12,9 @@ import ScrollToTop from "@/components/scroll-top";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "TurboIntMax - Accelerateur de carriere",
+  title: "SkillWokz - Accelerateur de carriere",
   description:
-    "Préparez-vous aux entretiens techniques avec TurboIntMax - Améliorez vos hard et soft skills et progresez dans votre carriere",
+    "Préparez-vous aux entretiens techniques avec SkillWokz - Améliorez vos hard et soft skills et progresez dans votre carriere",
 };
 
 export default function RootLayout({

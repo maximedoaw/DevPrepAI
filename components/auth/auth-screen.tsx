@@ -3,7 +3,7 @@ import Hero from './hero'
 import Features from './features'
 import Testimonials from './testimonials'
 import Navbar from '../navbar'
-import WhyTurboIntMax from './why'
+import WhySkillWokz from './why'
 import { Pricing } from './pricing'
 import Footer from '../footer'
 import FAQ from './faq'
@@ -15,7 +15,7 @@ const AuthScreen = () => {
       <Navbar/>
       <Hero />
       <Features />
-      <WhyTurboIntMax/>
+      <WhySkillWokz/>
       <Pricing/>
       <Testimonials />
       <CreatorSection/>

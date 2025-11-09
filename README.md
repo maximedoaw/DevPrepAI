@@ -1,4 +1,4 @@
-🚀 MVP TurboIntMax – 3 mois (version détaillée et interactive)
+🚀 MVP SkillWokz – 3 mois (version détaillée et interactive)
 🎯 Objectif général du MVP
 
 Créer une plateforme de préparation aux entretiens techniques et de mise en relation intelligente entre talents et recruteurs, intégrant des simulations IA, des dashboards par rôle, et un matching automatique.
