@@ -199,18 +199,18 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         path: "/guides",
       },
       {
-        id: "my-interviews",
+        id: "meetings",
         title: "Mes entretiens",
         description: "Planification et suivi",
         icon: Calendar,
         color: "text-cyan-600 dark:text-cyan-400",
         bgColor: "bg-cyan-500 dark:bg-cyan-600",
         action: () => { 
-          router.push("/my-interviews"); 
+          router.push("/meetings"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
         },
         badge: "3 planifiés",
-        path: "/my-interviews",
+        path: "/meetings",
       },
     ];
   }

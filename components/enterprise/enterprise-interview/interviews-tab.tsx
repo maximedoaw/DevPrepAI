@@ -1,10 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   CalendarDays,
   CheckCircle2,
@@ -13,6 +12,7 @@ import {
   Loader2,
   MapPin,
   Plus,
+  Send,
   User,
   Users,
   Video,
@@ -21,11 +21,11 @@ import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import {
-  scheduleInterviewMeeting,
-  getInterviewMeetings,
-  getInterviewSchedulingContext,
+  type MeetingWithRelations,
   type ScheduleInterviewMeetingInput,
+  type UpdateInterviewMeetingInput,
 } from "@/actions/interview-meeting.action"
+import { useMeetings } from "@/hooks/use-meetings"
 import {
   Avatar,
   AvatarFallback,
@@ -41,7 +41,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -54,18 +53,36 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 
 interface InterviewsTabProps {
   onScheduleInterview?: () => void
 }
 
-type Meeting = Awaited<ReturnType<typeof getInterviewMeetings>>[number]
+const statusFilterOptions = [
+  { value: "ALL", label: "Tous les statuts" },
+  { value: "PLANNED", label: "Planifié" },
+  { value: "CONFIRMED", label: "Confirmé" },
+  { value: "COMPLETED", label: "Terminé" },
+  { value: "CANCELLED", label: "Annulé" },
+]
 
 export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
   const { user, isLoading: userLoading } = useKindeBrowserClient()
-  const queryClient = useQueryClient()
+
+  const [filters, setFilters] = useState({
+    page: 1,
+    pageSize: 5,
+    status: "ALL" as "ALL" | "PLANNED" | "CONFIRMED" | "COMPLETED" | "CANCELLED",
+    jobPostingId: "ALL",
+    search: "",
+    upcomingOnly: false,
+    publishedOnly: false,
+  })
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
+  const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null)
   const [formData, setFormData] = useState<ScheduleInterviewMeetingInput>({
     organizerId: "",
     jobPostingId: "",
@@ -76,48 +93,81 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
     meetingLink: "",
     location: "",
     notes: "",
-  })
-
-  const { data: contextData, isLoading: contextLoading } = useQuery({
-    queryKey: ["interview-context", user?.id],
-    queryFn: () => getInterviewSchedulingContext(user!.id),
-    enabled: !!user?.id,
-    staleTime: 1000 * 60 * 5,
+    status: "PLANNED",
   })
 
   const {
-    data: meetings = [],
-    isLoading: meetingsLoading,
-    isFetching: meetingsFetching,
-  } = useQuery({
-    queryKey: ["interview-meetings", user?.id],
-    queryFn: () => getInterviewMeetings(user!.id),
-    enabled: !!user?.id,
-    staleTime: 1000 * 60 * 2,
+    meetingsQuery,
+    contextQuery,
+    scheduleMutation,
+    updateMutation,
+    cancelMutation,
+    deleteMutation,
+    publishMutation,
+    scheduleMeeting,
+    updateMeeting,
+    cancelMeeting,
+    deleteMeeting,
+    publishMeeting,
+    upcomingCount,
+  } = useMeetings({
+    userId: user?.id,
+    filters,
+    enabled: !userLoading,
+    mode: "organizer",
   })
 
-  const scheduleMutation = useMutation({
-    mutationFn: scheduleInterviewMeeting,
-    onSuccess: () => {
-      toast.success("Entretien programmé avec succès")
-      setIsDialogOpen(false)
-      setFormData((prev) => ({
-        ...prev,
-        jobPostingId: "",
-        candidateId: "",
-        applicationId: undefined,
-        scheduledAt: "",
-        meetingLink: "",
-        location: "",
-        notes: "",
-      }))
-      queryClient.invalidateQueries({ queryKey: ["interview-meetings", user?.id] })
-      onScheduleInterview?.()
-    },
-    onError: (error: any) => {
-      toast.error(error?.message || "Impossible de planifier l'entretien")
-    },
-  })
+  const contextData = contextQuery.data
+  const contextLoading = contextQuery.isLoading
+
+const meetingsData = meetingsQuery.data
+const meetingsLoading = meetingsQuery.isPending
+const meetingsFetching = meetingsQuery.isFetching
+const meetings: MeetingWithRelations[] = meetingsData?.meetings ?? []
+const previousStatusesRef = useRef(
+  new Map<string, { status: MeetingWithRelations["status"]; respondedAt?: string | Date | null }>()
+)
+
+  useEffect(() => {
+    if (!meetings || meetings.length === 0) return
+
+    meetings.forEach((meeting) => {
+      const prev = previousStatusesRef.current.get(meeting.id)
+      const currentStatus = meeting.status
+      const respondedAt = meeting.candidateRespondedAt
+
+      if (
+        prev &&
+        prev.status !== currentStatus &&
+        respondedAt &&
+        (currentStatus === "CONFIRMED" || currentStatus === "CANCELLED")
+      ) {
+        if (currentStatus === "CONFIRMED") {
+          toast.success(
+            `${meeting.candidate.firstName ?? ""} ${meeting.candidate.lastName ?? ""} a confirmé l'entretien`
+          )
+        } else if (currentStatus === "CANCELLED") {
+          toast.error(
+            `${meeting.candidate.firstName ?? ""} ${meeting.candidate.lastName ?? ""} a refusé la proposition`
+          )
+        }
+      }
+
+      previousStatusesRef.current.set(meeting.id, {
+        status: currentStatus,
+        respondedAt,
+      })
+    })
+  }, [meetings])
+
+const pagination =
+  meetingsData?.pagination ?? {
+    page: 1,
+    pageSize: filters.pageSize,
+    total: 0,
+    totalPages: 1,
+    hasNextPage: false,
+  }
 
   const selectedJob = useMemo(() => {
     if (!contextData || !formData.jobPostingId) return undefined
@@ -128,11 +178,6 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
     if (!selectedJob) return []
     return selectedJob.candidates
   }, [selectedJob])
-
-  const upcomingMeetings = useMemo(() => {
-    const now = new Date()
-    return meetings.filter((meeting) => new Date(meeting.scheduledAt) >= now)
-  }, [meetings])
 
   const stats = useMemo(() => {
     const now = new Date()
@@ -159,16 +204,54 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
     }
   }, [meetings])
 
+  const resetForm = () => {
+    setFormData((prev) => ({
+      ...prev,
+      organizerId: user?.id ?? "",
+      jobPostingId: "",
+      candidateId: "",
+      applicationId: undefined,
+      scheduledAt: "",
+      meetingLink: "",
+      location: "",
+      notes: "",
+      durationMinutes: 45,
+      status: "PLANNED",
+    }))
+  }
+
   const handleOpenDialog = () => {
     if (!user?.id) {
       toast.error("Identifiant utilisateur introuvable.")
       return
     }
 
-    setFormData((prev) => ({
-      ...prev,
-      organizerId: user.id,
-    }))
+    setDialogMode("create")
+    setEditingMeetingId(null)
+    resetForm()
+    setIsDialogOpen(true)
+  }
+
+  const handleEditMeeting = (meeting: typeof meetings[number]) => {
+    setDialogMode("edit")
+    setEditingMeetingId(meeting.id)
+    const scheduledIso =
+      meeting.scheduledAt instanceof Date
+        ? meeting.scheduledAt.toISOString().slice(0, 16)
+        : new Date(meeting.scheduledAt).toISOString().slice(0, 16)
+
+    setFormData({
+      organizerId: meeting.organizerId,
+      jobPostingId: meeting.jobPostingId,
+      candidateId: meeting.candidateId,
+      applicationId: meeting.applicationId ?? undefined,
+      scheduledAt: scheduledIso,
+      durationMinutes: meeting.durationMinutes ?? 45,
+      meetingLink: meeting.meetingLink ?? "",
+      location: meeting.location ?? "",
+      notes: meeting.notes ?? "",
+      status: meeting.status ?? "PLANNED",
+    })
     setIsDialogOpen(true)
   }
 
@@ -177,15 +260,73 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
       toast.error("Veuillez renseigner l'offre, le candidat et la date de l'entretien.")
       return
     }
-    scheduleMutation.mutate({
-      ...formData,
-      applicationId: formData.applicationId || undefined,
-      durationMinutes: formData.durationMinutes || 45,
+
+    if (dialogMode === "create") {
+      scheduleMeeting(
+        {
+          ...formData,
+          organizerId: user?.id ?? "",
+          applicationId: formData.applicationId || undefined,
+          durationMinutes: formData.durationMinutes || 45,
+          status: formData.status ?? "PLANNED",
+        },
+        {
+          onSuccess: () => {
+            setIsDialogOpen(false)
+            resetForm()
+            onScheduleInterview?.()
+          },
+        }
+      )
+    } else if (dialogMode === "edit" && editingMeetingId) {
+      const payload: UpdateInterviewMeetingInput = {
+        jobPostingId: formData.jobPostingId,
+        candidateId: formData.candidateId,
+        applicationId: formData.applicationId ?? null,
+        scheduledAt: formData.scheduledAt,
+        durationMinutes: formData.durationMinutes ?? 45,
+        meetingLink: formData.meetingLink ?? null,
+        location: formData.location ?? null,
+        notes: formData.notes ?? null,
+        status: formData.status ?? "PLANNED",
+      }
+      updateMeeting(
+        { meetingId: editingMeetingId, data: payload },
+        {
+          onSuccess: () => {
+            setIsDialogOpen(false)
+            setEditingMeetingId(null)
+            setDialogMode("create")
+            resetForm()
+          },
+        }
+      )
+    }
+  }
+
+  const handleCancelMeeting = (meetingId: string) => {
+    cancelMeeting(
+      { meetingId },
+      {
+        onSuccess: () => {
+          toast.success("Entretien annulé")
+        },
+      }
+    )
+  }
+
+  const handleDeleteMeeting = (meetingId: string) => {
+    const confirmed = window.confirm("Supprimer définitivement cet entretien ?")
+    if (!confirmed) return
+    deleteMeeting(meetingId, {
+      onSuccess: () => {
+        toast.success("Entretien supprimé")
+      },
     })
   }
 
   const renderMeetings = () => {
-    if (meetingsLoading || meetingsFetching) {
+    if (meetingsLoading && !meetingsData) {
       return (
         <div className="space-y-3">
           {[...Array(3)].map((_, index) => (
@@ -212,6 +353,9 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
         {meetings.map((meeting) => {
           const meetingDate = new Date(meeting.scheduledAt)
           const isPast = meetingDate.getTime() < Date.now()
+          const isPublishing =
+            publishMutation.isPending &&
+            (publishMutation.variables as string | undefined) === meeting.id
 
           const initials = `${meeting.candidate.firstName?.[0] ?? ""}${meeting.candidate.lastName?.[0] ?? ""}`.trim()
 
@@ -235,6 +379,17 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
                       <p className="font-semibold text-slate-900 dark:text-slate-100">
                         {meeting.candidate.firstName} {meeting.candidate.lastName}
                       </p>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-xs border-slate-200 dark:border-slate-700",
+                          meeting.isPublished
+                            ? "text-emerald-600 dark:text-emerald-300"
+                            : "text-amber-600 dark:text-amber-300"
+                        )}
+                      >
+                        {meeting.isPublished ? "Envoyé" : "Brouillon"}
+                      </Badge>
                       <Badge
                         variant="outline"
                         className={cn(
@@ -281,27 +436,104 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
                         </a>
                       )}
                     </div>
+                    {meeting.isPublished && meeting.publishedAt && (
+                      <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-300">
+                        Envoyé le{" "}
+                        {format(new Date(meeting.publishedAt), "dd MMM yyyy à HH:mm", {
+                          locale: fr,
+                        })}
+                      </p>
+                    )}
+                    {meeting.candidateRespondedAt && (
+                      <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
+                        Réponse du candidat le{" "}
+                        {format(new Date(meeting.candidateRespondedAt), "dd MMM yyyy à HH:mm", {
+                          locale: fr,
+                        })}
+                      </p>
+                    )}
+                    {meeting.candidateNotes && (
+                      <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-200">
+                        <p className="font-medium text-slate-700 dark:text-slate-100">
+                          Message du candidat
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap">{meeting.candidateNotes}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-                  <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                    <Users className="h-3.5 w-3.5" />
-                    {meeting.application
-                      ? `Candidature: ${meeting.application.status}`
-                      : "Candidat invité"}
+                <div className="flex flex-col gap-2 sm:items-end">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                      <Users className="h-3.5 w-3.5" />
+                      {meeting.application
+                        ? `Candidature: ${meeting.application.status}`
+                        : "Candidat invité"}
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs",
+                        isPast
+                          ? "border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                          : "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
+                      )}
+                    >
+                      {isPast ? "Entretien passé" : "À venir"}
+                    </Badge>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-xs",
-                      isPast
-                        ? "border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400"
-                        : "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
+                  <div className="flex flex-wrap gap-2">
+                    {!meeting.isPublished && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
+                        onClick={() => publishMeeting(meeting.id)}
+                        disabled={isPublishing}
+                      >
+                        {isPublishing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Envoi...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="mr-2 h-4 w-4" />
+                            Envoyer
+                          </>
+                        )}
+                      </Button>
                     )}
-                  >
-                    {isPast ? "Entretien passé" : "À venir"}
-                  </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
+                      onClick={() => handleEditMeeting(meeting)}
+                    >
+                      Modifier
+                    </Button>
+                    {meeting.status !== "CANCELLED" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-300"
+                        onClick={() => handleCancelMeeting(meeting.id)}
+                        disabled={cancelMutation.isPending}
+                      >
+                        Annuler
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-red-200 text-red-600 dark:border-red-800 dark:text-red-400"
+                      onClick={() => handleDeleteMeeting(meeting.id)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      Supprimer
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -343,6 +575,123 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
             Programmer un entretien
           </Button>
         </CardHeader>
+      </Card>
+
+      <Card className="border border-slate-200/70 bg-white/80 dark:border-slate-800/70 dark:bg-slate-900/70 shadow-lg">
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Rechercher
+              </Label>
+              <Input
+                placeholder="Nom, email ou intitulé..."
+                value={filters.search}
+                onChange={(event) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    search: event.target.value,
+                    page: 1,
+                  }))
+                }
+                className="border-slate-200 dark:border-slate-700"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Statut
+              </Label>
+              <Select
+                value={filters.status}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    status: value as typeof filters.status,
+                    page: 1,
+                  }))
+                }
+              >
+                <SelectTrigger className="border-slate-200 dark:border-slate-700">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusFilterOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Offre d'emploi
+              </Label>
+              <Select
+                value={filters.jobPostingId}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    jobPostingId: value,
+                    page: 1,
+                  }))
+                }
+              >
+                <SelectTrigger className="border-slate-200 dark:border-slate-700">
+                  <SelectValue placeholder="Toutes les offres" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Toutes les offres</SelectItem>
+                  {(contextData?.jobs ?? []).map((job) => (
+                    <SelectItem key={job.id} value={job.id}>
+                      {job.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-900/10">
+              <div>
+                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-200">
+                  Uniquement les à venir
+                </p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-300">
+                  {upcomingCount} entretien(s) programmés
+                </p>
+              </div>
+              <Switch
+                checked={filters.upcomingOnly}
+                onCheckedChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    upcomingOnly: value,
+                    page: 1,
+                  }))
+                }
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/40">
+              <div>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Voir seulement les propositions envoyées
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Masque les brouillons internes.
+                </p>
+              </div>
+              <Switch
+                checked={filters.publishedOnly}
+                onCheckedChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    publishedOnly: value,
+                    page: 1,
+                  }))
+                }
+              />
+            </div>
+          </div>
+        </CardContent>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -399,18 +748,65 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
               Consultez l'ensemble de vos rendez-vous avec les candidats.
             </CardDescription>
           </div>
-          <Badge variant="outline" className="border-emerald-200 text-emerald-600 dark:border-emerald-900 dark:text-emerald-300">
-            {upcomingMeetings.length} entretien(s) à venir
-          </Badge>
+          <div className="flex items-center gap-3">
+            {meetingsFetching && (
+              <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Mise à jour…
+              </div>
+            )}
+            <Badge variant="outline" className="border-emerald-200 text-emerald-600 dark:border-emerald-900 dark:text-emerald-300">
+              {upcomingCount} entretien(s) à venir
+            </Badge>
+          </div>
         </CardHeader>
-        <CardContent>{renderMeetings()}</CardContent>
+        <CardContent className="space-y-4">
+          {renderMeetings()}
+          {meetings.length > 0 && (
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm dark:border-slate-800 dark:bg-slate-900/50">
+              <div className="text-slate-600 dark:text-slate-400">
+                Page {pagination.page} sur {pagination.totalPages} • {pagination.total} entretien(s)
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pagination.page <= 1 || meetingsLoading || meetingsFetching}
+                  onClick={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      page: Math.max(1, prev.page - 1),
+                    }))
+                  }
+                  className="border-slate-300 dark:border-slate-700"
+                >
+                  Précédent
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!pagination.hasNextPage || meetingsLoading || meetingsFetching}
+                  onClick={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      page: prev.page + 1,
+                    }))
+                  }
+                  className="border-slate-300 dark:border-slate-700"
+                >
+                  Suivant
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl border border-emerald-100 dark:border-emerald-900/40">
           <DialogHeader>
             <DialogTitle className="text-xl text-slate-900 dark:text-white">
-              Programmer un entretien
+              {dialogMode === "create" ? "Programmer un entretien" : "Modifier l'entretien"}
             </DialogTitle>
             <DialogDescription className="text-slate-600 dark:text-slate-400">
               Définissez l'offre concernée, le candidat et la date de passage.
@@ -511,6 +907,31 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
 
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Statut du meeting
+                  </Label>
+                  <Select
+                    value={formData.status ?? "PLANNED"}
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        status: value as ScheduleInterviewMeetingInput["status"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="border-slate-200 dark:border-slate-700">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PLANNED">Planifié</SelectItem>
+                      <SelectItem value="CONFIRMED">Confirmé</SelectItem>
+                      <SelectItem value="COMPLETED">Terminé</SelectItem>
+                      <SelectItem value="CANCELLED">Annulé</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Durée (minutes)
                   </Label>
                   <Input
@@ -606,24 +1027,31 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
           <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button
               variant="outline"
-              onClick={() => setIsDialogOpen(false)}
+              onClick={() => {
+                setIsDialogOpen(false)
+                setEditingMeetingId(null)
+                setDialogMode("create")
+                resetForm()
+              }}
               className="border-slate-200 dark:border-slate-700"
-              disabled={scheduleMutation.isPending}
+              disabled={scheduleMutation.isPending || updateMutation.isPending}
             >
               Annuler
             </Button>
             <Button
               onClick={handleSubmit}
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              disabled={scheduleMutation.isPending}
+              disabled={scheduleMutation.isPending || updateMutation.isPending}
             >
-              {scheduleMutation.isPending ? (
+              {(scheduleMutation.isPending || updateMutation.isPending) ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Planification en cours...
+                  Enregistrement...
                 </>
-              ) : (
+              ) : dialogMode === "create" ? (
                 "Planifier l'entretien"
+              ) : (
+                "Mettre à jour l'entretien"
               )}
             </Button>
           </DialogFooter>
