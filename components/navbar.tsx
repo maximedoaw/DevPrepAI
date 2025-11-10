@@ -38,7 +38,7 @@ export default function Navbar() {
   const [authLoading, setAuthLoading] = useState(false)
 
   return (
-    <header className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[95%] max-w-6xl rounded-2xl border border-green-200/50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl shadow-lg supports-[backdrop-filter]:bg-background/60 dark:border-green-800/50">
+    <header className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[95%] max-w-6xl rounded-full py-1 border border-green-200/50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl shadow-lg supports-[backdrop-filter]:bg-background/60 dark:border-green-800/50">
       <div className="container flex h-16 items-center justify-between px-6">
         <Link href="/" className="flex items-center">
           <Logo />
