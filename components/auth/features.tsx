@@ -94,8 +94,8 @@ const AnimatedTerminal = ({ code, language, isVisible, onComplete }: {
         </pre>
       </div>
       
-      <div className="md:hidden absolute right-2 top-12 bg-slate-800/70 rounded-full p-1 animate-bounce">
-        <ChevronDown className="h-4 w-4 text-slate-300 rotate-90" />
+      <div className="md:hidden absolute right-2 top-12 bg-emerald-800/70 dark:bg-emerald-900/50 rounded-full p-1 animate-bounce">
+        <ChevronDown className="h-4 w-4 text-emerald-200 dark:text-emerald-300 rotate-90" />
       </div>
     </div>
   )
@@ -107,23 +107,23 @@ const AnimatedProfessions = ({ isActive }: { isActive: boolean }) => {
   const [currentProfession, setCurrentProfession] = useState(0)
 
   const professions = [
-    { icon: Code, name: "Développement", color: "text-blue-500" },
-    { icon: Database, name: "Data Science", color: "text-purple-500" },
-    { icon: Calculator, name: "Finance", color: "text-green-500" },
-    { icon: BarChart3, name: "Business", color: "text-yellow-500" },
-    { icon: Cpu, name: "Ingénierie", color: "text-red-500" },
-    { icon: Palette, name: "Design", color: "text-pink-500" },
-    { icon: Cloud, name: "DevOps", color: "text-indigo-500" },
-    { icon: Shield, name: "Cybersécurité", color: "text-orange-500" },
-    { icon: MessageSquare, name: "Marketing", color: "text-teal-500" },
-    { icon: GitBranch, name: "Product", color: "text-cyan-500" },
-    { icon: Server, name: "Architecture", color: "text-amber-500" },
-    { icon: Smartphone, name: "Mobile", color: "text-lime-500" },
-    { icon: Globe, name: "Web", color: "text-emerald-500" },
-    { icon: Mail, name: "Communication", color: "text-rose-500" },
-    { icon: Calendar, name: "Management", color: "text-violet-500" },
-    { icon: BookOpen, name: "Éducation", color: "text-fuchsia-500" },
-    { icon: Heart, name: "Santé", color: "text-sky-500" }
+    { icon: Code, name: "Développement", color: "text-emerald-500 dark:text-emerald-400" },
+    { icon: Database, name: "Data Science", color: "text-green-500 dark:text-green-400" },
+    { icon: Calculator, name: "Finance", color: "text-emerald-600 dark:text-emerald-300" },
+    { icon: BarChart3, name: "Business", color: "text-teal-500 dark:text-teal-400" },
+    { icon: Cpu, name: "Ingénierie", color: "text-emerald-500 dark:text-emerald-400" },
+    { icon: Palette, name: "Design", color: "text-green-600 dark:text-green-300" },
+    { icon: Cloud, name: "DevOps", color: "text-emerald-500 dark:text-emerald-400" },
+    { icon: Shield, name: "Cybersécurité", color: "text-teal-600 dark:text-teal-300" },
+    { icon: MessageSquare, name: "Marketing", color: "text-emerald-600 dark:text-emerald-300" },
+    { icon: GitBranch, name: "Product", color: "text-green-500 dark:text-green-400" },
+    { icon: Server, name: "Architecture", color: "text-emerald-500 dark:text-emerald-400" },
+    { icon: Smartphone, name: "Mobile", color: "text-teal-500 dark:text-teal-400" },
+    { icon: Globe, name: "Web", color: "text-emerald-500 dark:text-emerald-400" },
+    { icon: Mail, name: "Communication", color: "text-green-600 dark:text-green-300" },
+    { icon: Calendar, name: "Management", color: "text-emerald-600 dark:text-emerald-300" },
+    { icon: BookOpen, name: "Éducation", color: "text-teal-600 dark:text-teal-300" },
+    { icon: Heart, name: "Santé", color: "text-emerald-500 dark:text-emerald-400" }
   ]
 
   useEffect(() => {
@@ -174,8 +174,8 @@ const AnimatedProfessions = ({ isActive }: { isActive: boolean }) => {
           </div>
         )
       })}
-      <div className="profession-item flex flex-col items-center justify-center p-3 rounded-lg bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
-        <span className="text-xs font-medium text-center text-slate-700 dark:text-slate-300">Et bien d'autres...</span>
+      <div className="profession-item flex flex-col items-center justify-center p-3 rounded-lg bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/30 dark:to-green-900/30 border border-emerald-200 dark:border-emerald-700 backdrop-blur-sm">
+        <span className="text-xs font-medium text-center text-emerald-700 dark:text-emerald-300">Et bien d'autres...</span>
       </div>
     </div>
   )
@@ -187,12 +187,12 @@ const CVAnalysisAnimation = ({ isActive }: { isActive: boolean }) => {
   const containerRef = useRef<HTMLDivElement>(null)
 
   const steps = [
-    { icon: FileCheck, text: "Analyse du format et structure", color: "text-blue-500" },
-    { icon: Search, text: "Extraction des mots-clés métier", color: "text-purple-500" },
-    { icon: Brain, text: "Évaluation de la pertinence", color: "text-indigo-500" },
-    { icon: TrendingUp, text: "Calcul du score ATS", color: "text-green-500" },
-    { icon: Sparkles, text: "Génération des recommandations", color: "text-yellow-500" },
-    { icon: Check, text: "Optimisation terminée", color: "text-emerald-500" }
+    { icon: FileCheck, text: "Analyse du format et structure", color: "text-emerald-500 dark:text-emerald-400" },
+    { icon: Search, text: "Extraction des mots-clés métier", color: "text-green-500 dark:text-green-400" },
+    { icon: Brain, text: "Évaluation de la pertinence", color: "text-emerald-600 dark:text-emerald-300" },
+    { icon: TrendingUp, text: "Calcul du score ATS", color: "text-teal-500 dark:text-teal-400" },
+    { icon: Sparkles, text: "Génération des recommandations", color: "text-emerald-500 dark:text-emerald-400" },
+    { icon: Check, text: "Optimisation terminée", color: "text-green-600 dark:text-green-300" }
   ]
 
   useEffect(() => {
@@ -239,7 +239,7 @@ const CVAnalysisAnimation = ({ isActive }: { isActive: boolean }) => {
             }`}
           >
             <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-              index === currentStep ? 'bg-blue-100 dark:bg-blue-900/30' : ''
+              index === currentStep ? 'bg-emerald-100 dark:bg-emerald-900/30' : ''
             }`}>
               {index <= currentStep ? (
                 <Icon className={`h-4 w-4 ${step.color}`} />
@@ -252,7 +252,7 @@ const CVAnalysisAnimation = ({ isActive }: { isActive: boolean }) => {
             </span>
             {index === currentStep && (
               <div className="ml-auto">
-                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                <div className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></div>
               </div>
             )}
           </div>
@@ -305,10 +305,10 @@ const LinkedInOptimizationAnimation = ({ isActive }: { isActive: boolean }) => {
     <div ref={containerRef} className="p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
-          <Linkedin className="h-5 w-5 text-blue-600 mr-2" />
+          <Linkedin className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mr-2" />
           <span className="font-semibold text-slate-800 dark:text-slate-200">Optimisation LinkedIn</span>
         </div>
-        <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700">
           {progress}%
         </Badge>
       </div>
@@ -317,12 +317,12 @@ const LinkedInOptimizationAnimation = ({ isActive }: { isActive: boolean }) => {
       
       <div className="grid grid-cols-2 gap-3 text-xs">
         <div className="flex items-center">
-          <Check className="h-3 w-3 text-green-500 mr-1" />
+          <Check className="h-3 w-3 text-emerald-500 dark:text-emerald-400 mr-1" />
           <span className="text-slate-600 dark:text-slate-400">Profil complété</span>
         </div>
         <div className="flex items-center">
           {progress > 25 ? (
-            <Check className="h-3 w-3 text-green-500 mr-1" />
+            <Check className="h-3 w-3 text-emerald-500 dark:text-emerald-400 mr-1" />
           ) : (
             <Loader className="h-3 w-3 text-slate-400 animate-spin mr-1" />
           )}
@@ -330,7 +330,7 @@ const LinkedInOptimizationAnimation = ({ isActive }: { isActive: boolean }) => {
         </div>
         <div className="flex items-center">
           {progress > 50 ? (
-            <Check className="h-3 w-3 text-green-500 mr-1" />
+            <Check className="h-3 w-3 text-emerald-500 dark:text-emerald-400 mr-1" />
           ) : (
             <Loader className="h-3 w-3 text-slate-400 animate-spin mr-1" />
           )}
@@ -338,7 +338,7 @@ const LinkedInOptimizationAnimation = ({ isActive }: { isActive: boolean }) => {
         </div>
         <div className="flex items-center">
           {progress > 75 ? (
-            <Check className="h-3 w-3 text-green-500 mr-1" />
+            <Check className="h-3 w-3 text-emerald-500 dark:text-emerald-400 mr-1" />
           ) : (
             <Loader className="h-3 w-3 text-slate-400 animate-spin mr-1" />
           )}
@@ -363,9 +363,9 @@ const MatchingAnimation = ({ isActive }: { isActive: boolean }) => {
           setTimeout(() => setMatchProgress(0), 1500)
           return 100
         }
-        return prev + 5
+        return Math.round(prev + 2)
       })
-    }, 100)
+    }, 250)
 
     return () => clearInterval(interval)
   }, [isActive])
@@ -389,16 +389,16 @@ const MatchingAnimation = ({ isActive }: { isActive: boolean }) => {
   }, [isActive])
 
   return (
-    <div ref={containerRef} className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border border-indigo-200 dark:border-indigo-700/50">
+    <div ref={containerRef} className="p-6 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-xl border border-emerald-200 dark:border-emerald-700/50">
       <div className="text-center mb-4">
-        <Network className="h-8 w-8 text-indigo-600 dark:text-indigo-400 mx-auto mb-2" />
-        <h4 className="font-semibold text-indigo-700 dark:text-indigo-300">Matching Candidat-Entreprise</h4>
+        <Network className="h-8 w-8 text-emerald-600 dark:text-emerald-400 mx-auto mb-2" />
+        <h4 className="font-semibold text-emerald-700 dark:text-emerald-300">Matching Candidat-Entreprise</h4>
       </div>
       
       <div className="flex justify-between items-center mb-4">
         <div className="text-center">
-          <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-800 border-2 border-indigo-400 dark:border-indigo-600 flex items-center justify-center mx-auto mb-2">
-            <UserCheck className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+          <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-800 border-2 border-emerald-400 dark:border-emerald-600 flex items-center justify-center mx-auto mb-2">
+            <UserCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
           </div>
           <span className="text-xs text-slate-600 dark:text-slate-400">Votre profil</span>
         </div>
@@ -406,25 +406,25 @@ const MatchingAnimation = ({ isActive }: { isActive: boolean }) => {
         <div className="relative flex-1 mx-4">
           <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300"
+              className="h-full bg-gradient-to-r from-emerald-500 to-green-500 transition-all duration-300"
               style={{ width: `${matchProgress}%` }}
             ></div>
           </div>
           {matchProgress > 0 && matchProgress < 100 && (
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <Loader className="h-4 w-4 text-indigo-500 animate-spin" />
+              <Loader className="h-4 w-4 text-emerald-500 dark:text-emerald-400 animate-spin" />
             </div>
           )}
           {matchProgress === 100 && (
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <Check className="h-5 w-5 text-green-500 bg-white dark:bg-slate-900 rounded-full p-1" />
+              <Check className="h-5 w-5 text-emerald-500 dark:text-emerald-400 bg-white dark:bg-slate-900 rounded-full p-1" />
             </div>
           )}
         </div>
         
         <div className="text-center">
-          <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-800 border-2 border-purple-400 dark:border-purple-600 flex items-center justify-center mx-auto mb-2">
-            <Building className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+          <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-800 border-2 border-green-400 dark:border-green-600 flex items-center justify-center mx-auto mb-2">
+            <Building className="h-6 w-6 text-green-600 dark:text-green-400" />
           </div>
           <span className="text-xs text-slate-600 dark:text-slate-400">Entreprises</span>
         </div>
@@ -479,7 +479,7 @@ const TimelineStep = ({
                 clearInterval(progressInterval)
                 return progress
               }
-              return prev + 2
+              return Math.round(prev + 2)
             })
           }, 30)
         }
@@ -536,37 +536,37 @@ const TimelineStep = ({
   const getColorClasses = (colorName: string) => {
     const colors = {
       blue: {
-        gradient: 'from-blue-500 to-cyan-500',
-        border: 'border-blue-400/30 dark:border-blue-500/40',
-        text: 'text-blue-600 dark:text-blue-400',
-        bg: 'bg-blue-50 dark:bg-blue-500/10'
+        gradient: 'from-emerald-500 to-green-500',
+        border: 'border-emerald-200 dark:border-emerald-900/40',
+        text: 'text-emerald-600 dark:text-emerald-400',
+        bg: 'bg-emerald-50 dark:bg-emerald-900/20'
       },
       purple: {
-        gradient: 'from-purple-500 to-pink-500',
-        border: 'border-purple-400/30 dark:border-purple-500/40',
-        text: 'text-purple-600 dark:text-purple-400',
-        bg: 'bg-purple-50 dark:bg-purple-500/10'
+        gradient: 'from-emerald-600 to-teal-500',
+        border: 'border-emerald-200 dark:border-emerald-900/40',
+        text: 'text-emerald-600 dark:text-emerald-400',
+        bg: 'bg-emerald-50 dark:bg-emerald-900/20'
       },
       indigo: {
-        gradient: 'from-indigo-500 to-purple-500',
-        border: 'border-indigo-400/30 dark:border-indigo-500/40',
-        text: 'text-indigo-600 dark:text-indigo-400',
-        bg: 'bg-indigo-50 dark:bg-indigo-500/10'
+        gradient: 'from-green-500 to-emerald-500',
+        border: 'border-emerald-200 dark:border-emerald-900/40',
+        text: 'text-emerald-600 dark:text-emerald-400',
+        bg: 'bg-emerald-50 dark:bg-emerald-900/20'
       },
       green: {
-        gradient: 'from-green-500 to-emerald-500',
-        border: 'border-green-400/30 dark:border-green-500/40',
-        text: 'text-green-600 dark:text-green-400',
-        bg: 'bg-green-50 dark:bg-green-500/10'
+        gradient: 'from-emerald-500 to-green-500',
+        border: 'border-emerald-200 dark:border-emerald-900/40',
+        text: 'text-emerald-600 dark:text-emerald-400',
+        bg: 'bg-emerald-50 dark:bg-emerald-900/20'
       },
       pink: {
-        gradient: 'from-pink-500 to-rose-500',
-        border: 'border-pink-400/30 dark:border-pink-500/40',
-        text: 'text-pink-600 dark:text-pink-400',
-        bg: 'bg-pink-50 dark:bg-pink-500/10'
+        gradient: 'from-teal-500 to-emerald-500',
+        border: 'border-emerald-200 dark:border-emerald-900/40',
+        text: 'text-emerald-600 dark:text-emerald-400',
+        bg: 'bg-emerald-50 dark:bg-emerald-900/20'
       }
     }
-    return colors[colorName as keyof typeof colors] || colors.blue
+    return colors[colorName as keyof typeof colors] || colors.green
   }
 
   const colorClasses = getColorClasses(color)
@@ -591,17 +591,7 @@ const TimelineStep = ({
   }
 
   return (
-    <div ref={stepRef} className="relative mb-16 lg:mb-24 opacity-0">
-      <div className="absolute left-4 lg:left-1/2 top-0 bottom-0 w-px bg-slate-200 dark:bg-slate-700 lg:transform lg:-translate-x-1/2 overflow-hidden">
-        <div 
-          className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-blue-500 via-purple-500 to-pink-500 origin-top transition-transform duration-1000 ease-out"
-          style={{ 
-            transform: `scaleY(${isVisible ? 1 : 0})`,
-            transition: 'transform 1.2s cubic-bezier(0.22, 0.61, 0.36, 1)'
-          }}
-        />
-      </div>
-      
+    <div ref={stepRef} className="relative mb-16 lg:mb-24 opacity-0 pb-8">
       <div 
         className={`absolute left-4 lg:left-1/2 top-8 w-4 h-4 lg:w-6 lg:h-6 rounded-full bg-gradient-to-r ${colorClasses.gradient} border-4 border-white dark:border-slate-900 lg:transform lg:-translate-x-1/2 z-10 transition-all duration-700 ${
           isVisible ? 'animate-pulse shadow-lg scale-100 opacity-100' : 'scale-0 opacity-0'
@@ -678,7 +668,7 @@ const CareerIncubatorSection = () => {
   const sectionRef = useRef<HTMLDivElement>(null)
   
   return (
-    <div ref={sectionRef} className="relative py-20 bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div ref={sectionRef} className="relative py-20 bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="container mx-auto px-4">        
         <CareerIncubator/>
       </div>
@@ -740,36 +730,36 @@ export default function Features() {
       )
     }
 
-    const timelineSteps = containerRef.current.querySelectorAll('.relative.mb-16')
-    timelineSteps.forEach((step) => {
-      gsap.to(step.querySelector('.absolute.w-px > div'), {
+    // Animation de la ligne de timeline continue
+    const timelineLine = containerRef.current?.querySelector('#timeline-line')
+    if (timelineLine && timelineRef.current) {
+      gsap.to(timelineLine, {
         scaleY: 1,
-        duration: 1.5,
-        ease: "power2.out",
+        ease: "none",
         scrollTrigger: {
-          trigger: step,
-          start: "top 85%",
-          end: "bottom 60%",
-          toggleActions: "play none none none"
+          trigger: timelineRef.current,
+          start: "top 80%",
+          end: "bottom 20%",
+          scrub: true,
         }
       })
-    })
+    }
   }, [])
 
   return (
     <section className="relative overflow-hidden mt-15">
       <CareerIncubatorSection />
       {/* Section Timeline avec fond approprié */}
-      <div className="py-16 lg:py-32 relative z-10 bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="py-16 lg:py-32 relative z-10 bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         <div className="container relative max-w-7xl mx-auto px-4 lg:px-8" ref={containerRef}>
           {/* Header */}
           <div className="text-center mb-16 lg:mb-24">
-            <Badge variant="outline" className="mb-6 bg-gradient-to-r from-indigo-500/10 to-pink-500/10 border-indigo-400/30 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-400 px-4 lg:px-6 py-2 lg:py-3">
+            <Badge variant="outline" className="mb-6 bg-gradient-to-r from-emerald-500/10 to-green-500/10 border-emerald-200 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400 px-4 lg:px-6 py-2 lg:py-3">
               <Sparkles className="h-4 w-4 mr-2" />
               Parcours d'excellence professionnel
             </Badge>
             
-            <h2 ref={titleRef} className="text-3xl lg:text-5xl xl:text-6xl font-bold mb-6 lg:mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 leading-tight">
+            <h2 ref={titleRef} className="text-3xl lg:text-5xl xl:text-6xl font-bold mb-6 lg:mb-8 bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 dark:from-emerald-400 dark:via-green-400 dark:to-teal-400 leading-tight">
               Ton voyage vers le succès
               <br />
               <span className="text-xl lg:text-2xl xl:text-3xl text-slate-600 dark:text-slate-400 font-normal">
@@ -780,6 +770,16 @@ export default function Features() {
 
           {/* Timeline verticale */}
           <div ref={timelineRef} className="relative max-w-6xl mx-auto">
+            {/* Ligne de timeline continue */}
+            <div className="absolute left-4 lg:left-1/2 top-0 bottom-0 w-px bg-slate-200 dark:bg-slate-700 lg:transform lg:-translate-x-1/2 overflow-hidden z-0" style={{ height: '100%' }}>
+              <div 
+                className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-emerald-500 via-green-500 to-teal-500 origin-top"
+                id="timeline-line"
+                style={{ transform: 'scaleY(0)' }}
+              />
+            </div>
+            
+            {/* Steps */}
             {timelineSteps.map((step) => (
               <TimelineStep
                 key={step.step}

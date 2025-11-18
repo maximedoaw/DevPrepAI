@@ -8,6 +8,7 @@ import { Pricing } from './pricing'
 import Footer from '../footer'
 import FAQ from './faq'
 import CreatorSection from './creator-section'
+import NewsLetters from './NewsLetters'
 
 const AuthScreen = () => {
   return (
@@ -17,9 +18,10 @@ const AuthScreen = () => {
       <Features />
       <WhySkillWokz/>
       <Pricing/>
-      <Testimonials />
+      {/* <Testimonials /> */}
       <CreatorSection/>
       <FAQ/>
+      <NewsLetters/>
       <Footer/>
     </div>
   )
