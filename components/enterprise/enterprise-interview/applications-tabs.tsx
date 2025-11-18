@@ -58,7 +58,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUserJobQueries, useApplicationQueries } from "@/hooks/use-job-queries";
+import { useUserJobQueries, useApplicationQueries } from "@/hooks/useJobQueries";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getApplicationQuizResults, getQuizResultForReview, saveQuizResultReview, saveQuizResultAnalysis, shareQuizResultFeedback } from "@/actions/jobInterview.action";

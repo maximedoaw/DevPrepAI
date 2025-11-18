@@ -44,7 +44,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useUserJobQueries, useJobMutations } from "@/hooks/use-job-queries";
+import { useUserJobQueries, useJobMutations } from "@/hooks/useJobQueries";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { DeleteJobModal } from "./delete-job-modal";
 import { Pagination } from "./pagination";

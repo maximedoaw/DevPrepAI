@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { JobPosting, JobFilters as JobFiltersType } from "@/types/job";
-import { useJobQueries } from "@/hooks/use-job-queries";
+import { useJobQueries } from "@/hooks/useJobQueries";
 import { JobCard } from "@/components/jobs/job-card";
 import { JobDetails } from "@/components/jobs/job-details";
 import { JobFilters } from "@/components/jobs/job-filters";

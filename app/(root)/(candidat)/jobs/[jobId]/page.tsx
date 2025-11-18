@@ -33,7 +33,7 @@ import {
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useJobQuizQueries, useJobMutations } from "@/hooks/use-job-queries";
+import { useJobQuizQueries, useJobMutations } from "@/hooks/useJobQueries";
 import { QuizType, Difficulty } from "@prisma/client";
 import { toast } from "sonner";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";

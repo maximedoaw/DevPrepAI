@@ -41,7 +41,6 @@ export function useJobQuizzesByJobPosting(jobPostingId: string) {
     enabled: !!jobPostingId, // Ne s'exécute que si jobPostingId est défini
     staleTime: 1000 * 60 * 5, // Les données sont considérées comme fraîches pendant 5 minutes
     gcTime: 1000 * 60 * 30, // Garde les données en cache pendant 30 minutes
-    notifyOnChangeProps: "tracked",
   })
 
   const stableData = useMemo(() => query.data, [query.data])
@@ -58,7 +57,6 @@ export function useJobQuiz(id: string) {
     queryFn: () => getJobQuizById(id),
     enabled: !!id, // Ne s'exécute que si l'ID est défini
     staleTime: 1000 * 60 * 10, // Données fraîches pendant 10 minutes pour les détails
-    notifyOnChangeProps: "tracked",
   })
 }
 
@@ -72,7 +70,6 @@ export function useUserJobQuizzes(userId: string) {
     queryFn: () => getJobQuizzesByUser(userId),
     enabled: !!userId,
     staleTime: 1000 * 60 * 2, // Rafraîchissement plus fréquent pour les listes utilisateur
-    notifyOnChangeProps: "tracked",
   })
 }
 
@@ -86,7 +83,6 @@ export function useJobQuizResults(jobQuizId: string) {
     queryFn: () => getJobQuizResults(jobQuizId),
     enabled: !!jobQuizId,
     staleTime: 1000 * 60 * 2, // Résultats mis à jour fréquemment
-    notifyOnChangeProps: "tracked",
   })
 }
 
@@ -99,7 +95,6 @@ export function useUserJobQuizResults(userId: string, jobQuizId: string) {
     queryKey: jobInterviewKeys.userResults(userId, jobQuizId),
     queryFn: () => getUserJobQuizResults(userId, jobQuizId),
     enabled: !!userId && !!jobQuizId,
-    notifyOnChangeProps: "tracked",
   })
 }
 
@@ -113,7 +108,6 @@ export function useJobQuizStats(jobQuizId: string) {
     queryFn: () => getJobQuizStats(jobQuizId),
     enabled: !!jobQuizId,
     staleTime: 1000 * 60 * 5, // Statistiques mises à jour toutes les 5 minutes
-    notifyOnChangeProps: "tracked",
   })
 }
 
@@ -286,7 +280,7 @@ export function useJobInterview(jobPostingId?: string) {
 
   return {
     // Données des queries
-    quizzes: queries.data?.data || [],
+    quizzes: queries.data && 'data' in queries.data ? queries.data.data : [],
     isLoading: queries.isLoading,
     isError: queries.isError,
     error: queries.error,
@@ -315,15 +309,15 @@ export function useJobQuizManagement(quizId: string) {
 
   return {
     // Données du quiz
-    quiz: quizQuery.data?.data,
+    quiz: quizQuery.data && quizQuery.data.success && 'data' in quizQuery.data ? quizQuery.data.data : undefined,
     isLoadingQuiz: quizQuery.isLoading,
     
     // Données des résultats
-    results: resultsQuery.data?.data || [],
+    results: resultsQuery.data && resultsQuery.data.success && 'data' in resultsQuery.data ? resultsQuery.data.data : [],
     isLoadingResults: resultsQuery.isLoading,
     
     // Statistiques
-    stats: statsQuery.data?.data,
+    stats: statsQuery.data && statsQuery.data.success && 'data' in statsQuery.data ? statsQuery.data.data : undefined,
     isLoadingStats: statsQuery.isLoading,
     
     // Mutations

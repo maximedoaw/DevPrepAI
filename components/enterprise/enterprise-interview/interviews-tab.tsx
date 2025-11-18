@@ -1,12 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
 import {
   CalendarDays,
   CheckCircle2,
+  Copy,
   Clock,
   Link2,
   Loader2,
@@ -25,7 +27,9 @@ import {
   type ScheduleInterviewMeetingInput,
   type UpdateInterviewMeetingInput,
 } from "@/actions/interview-meeting.action"
-import { useMeetings } from "@/hooks/use-meetings"
+import { useMeetings, useMeetingsAction } from "@/hooks/useMeetingAction"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Avatar,
   AvatarFallback,
@@ -95,6 +99,9 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
     notes: "",
     status: "PLANNED",
   })
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+  const [selectedTime, setSelectedTime] = useState<string>("09:00")
+  const { createInstantMeeting } = useMeetingsAction()
 
   const {
     meetingsQuery,
@@ -204,7 +211,17 @@ const pagination =
     }
   }, [meetings])
 
+  const handleCopyMeetingLink = useCallback((meetingId: string) => {
+    if (typeof window === "undefined") return
+    const meetingUrl = `${window.location.origin}/meetings/${meetingId}`
+    void navigator.clipboard.writeText(meetingUrl).then(() => {
+      toast.success("Lien de l'appel copié dans le presse-papiers.")
+    })
+  }, [])
+
   const resetForm = () => {
+    setSelectedDate(undefined)
+    setSelectedTime("09:00")
     setFormData((prev) => ({
       ...prev,
       organizerId: user?.id ?? "",
@@ -235,11 +252,17 @@ const pagination =
   const handleEditMeeting = (meeting: typeof meetings[number]) => {
     setDialogMode("edit")
     setEditingMeetingId(meeting.id)
-    const scheduledIso =
+    const meetingDate =
       meeting.scheduledAt instanceof Date
-        ? meeting.scheduledAt.toISOString().slice(0, 16)
-        : new Date(meeting.scheduledAt).toISOString().slice(0, 16)
+        ? meeting.scheduledAt
+        : new Date(meeting.scheduledAt)
+    const scheduledIso = meetingDate.toISOString().slice(0, 16)
+    const timeString = `${String(meetingDate.getHours()).padStart(2, "0")}:${String(
+      meetingDate.getMinutes()
+    ).padStart(2, "0")}`
 
+    setSelectedDate(meetingDate)
+    setSelectedTime(timeString)
     setFormData({
       organizerId: meeting.organizerId,
       jobPostingId: meeting.jobPostingId,
@@ -484,6 +507,25 @@ const pagination =
                     </Badge>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/20 dark:text-emerald-300"
+                      asChild
+                    >
+                      <Link href={`/meetings/${meeting.id}`} prefetch={false}>
+                        Rejoindre l'appel
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40"
+                      onClick={() => handleCopyMeetingLink(meeting.id)}
+                    >
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copier le lien
+                    </Button>
                     {!meeting.isPublished && (
                       <Button
                         variant="outline"
@@ -567,13 +609,23 @@ const pagination =
               Planifiez vos échanges, suivez les candidats rencontrés et anticipez vos prochaines sessions.
             </CardDescription>
           </div>
-          <Button
-            onClick={handleOpenDialog}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Programmer un entretien
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={createInstantMeeting}
+              variant="outline"
+              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-900/20"
+            >
+              <Video className="mr-2 h-4 w-4" />
+              Réunion instantanée
+            </Button>
+            <Button
+              onClick={handleOpenDialog}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Programmer un entretien
+            </Button>
+          </div>
         </CardHeader>
       </Card>
 
@@ -854,18 +906,65 @@ const pagination =
                   <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Date & heure
                   </Label>
-                  <Input
-                    type="datetime-local"
-                    value={formData.scheduledAt}
-                    onChange={(event) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        scheduledAt: event.target.value,
-                      }))
-                    }
-                    className="border-slate-200 dark:border-slate-700"
-                    min={new Date().toISOString().substring(0, 16)}
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal border-slate-200 dark:border-slate-700",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarDays className="mr-2 h-4 w-4" />
+                          {selectedDate ? (
+                            format(selectedDate, "PPP", { locale: fr })
+                          ) : (
+                            <span>Sélectionner une date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={(date) => {
+                            setSelectedDate(date)
+                            if (date) {
+                              const time = selectedTime || "09:00"
+                              const [hours, minutes] = time.split(":")
+                              const datetime = new Date(date)
+                              datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
+                              setFormData((prev) => ({
+                                ...prev,
+                                scheduledAt: datetime.toISOString().slice(0, 16),
+                              }))
+                            }
+                          }}
+                          disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <Input
+                      type="time"
+                      value={selectedTime}
+                      onChange={(event) => {
+                        const time = event.target.value
+                        setSelectedTime(time)
+                        if (selectedDate) {
+                          const [hours, minutes] = time.split(":")
+                          const datetime = new Date(selectedDate)
+                          datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
+                          setFormData((prev) => ({
+                            ...prev,
+                            scheduledAt: datetime.toISOString().slice(0, 16),
+                          }))
+                        }
+                      }}
+                      className="border-slate-200 dark:border-slate-700"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">

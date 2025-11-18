@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import Link from "next/link"
+import { useCallback, useMemo, useState } from "react"
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
@@ -8,6 +9,7 @@ import {
   CalendarDays,
   Check,
   Clock,
+  Copy,
   Loader2,
   MapPin,
   PhoneCall,
@@ -16,8 +18,9 @@ import {
   User2,
   X,
 } from "lucide-react"
+import { toast } from "sonner"
 
-import { useMeetings } from "@/hooks/use-meetings"
+import { useMeetings } from "@/hooks/useMeetingAction"
 import type { MeetingListResult, MeetingWithRelations } from "@/actions/interview-meeting.action"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -50,7 +53,7 @@ export function CandidateMeetings() {
     status: "ALL" as "ALL" | "PLANNED" | "CONFIRMED" | "COMPLETED" | "CANCELLED",
     jobPostingId: "ALL",
     search: "",
-    upcomingOnly: true,
+    upcomingOnly: false,
   })
   const [notesByMeeting, setNotesByMeeting] = useState<Record<string, string>>({})
 
@@ -85,6 +88,14 @@ export function CandidateMeetings() {
     })
     return Array.from(jobs.entries())
   }, [meetings])
+
+  const handleCopyMeetingLink = useCallback((meetingId: string) => {
+    if (typeof window === "undefined") return
+    const meetingUrl = `${window.location.origin}/meetings/${meetingId}`
+    void navigator.clipboard.writeText(meetingUrl).then(() => {
+      toast.success("Lien de réunion copié, vous pouvez le partager.")
+    })
+  }, [])
 
   const handleRespond = (meetingId: string, accepted: boolean) => {
     const note = notesByMeeting[meetingId]?.trim() || undefined
@@ -281,6 +292,29 @@ export function CandidateMeetings() {
                 )}
               </div>
             )}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/20 dark:text-emerald-300"
+                asChild
+                disabled={!meeting.isPublished}
+              >
+                <Link href={`/meetings/${meeting.id}`} prefetch={false}>
+                  Rejoindre l'appel
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40"
+                onClick={() => handleCopyMeetingLink(meeting.id)}
+                disabled={!meeting.isPublished}
+              >
+                <Copy className="mr-2 h-4 w-4" />
+                Copier le lien
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -40,7 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { useJobMutations } from "@/hooks/use-job-queries"
+import { useJobMutations } from "@/hooks/useJobQueries"
 import { JobPosting, JobType, WorkMode } from "@/types/job"
 import { Difficulty, Domain } from "@prisma/client"
 

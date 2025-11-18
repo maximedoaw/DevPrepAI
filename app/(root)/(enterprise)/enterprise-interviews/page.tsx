@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useJobInterviewMutations,
   useUserJobQuizzes,
-} from "@/hooks/use-job-interview";
+} from "@/hooks/useJobInterview";
 import { toast } from "sonner";
 import { JobFormData } from "@/lib/validations/job-validation-form";
 import { EnterpriseHeader } from "@/components/enterprise/enterprise-interview/enterprise-header";
@@ -19,7 +19,7 @@ import { InterviewsTab } from "@/components/enterprise/enterprise-interview/inte
 import { SettingsTab } from "@/components/enterprise/enterprise-interview/settings-tab";
 import { CreateJobModal } from "@/components/enterprise/enterprise-interview/create-job-modal";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
-import { useUserJobQueries } from "@/hooks/use-job-queries";
+import { useUserJobQueries } from "@/hooks/useJobQueries";
 import { ApplicationsTab } from "@/components/enterprise/enterprise-interview/applications-tabs";
 
 // Types - Aligné avec JobOffersTab

@@ -8,6 +8,9 @@ import { Toaster } from "sonner";
 import ClientRoot from "@/components/client-root";
 import { RouteGuard } from "@/components/protected-routes";
 import ScrollToTop from "@/components/scroll-top";
+import StreamClientProvider from "@/components/providers/StreamClientProvider";
+import "@stream-io/video-react-sdk/dist/css/styles.css";
+
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -33,7 +36,9 @@ export default function RootLayout({
         >
           <TanStackProvider>
             <ClientRoot>
-              <RouteGuard>{children}</RouteGuard>
+              <StreamClientProvider>
+                <RouteGuard>{children}</RouteGuard>
+              </StreamClientProvider>
             </ClientRoot>
           </TanStackProvider>
           <Toaster />

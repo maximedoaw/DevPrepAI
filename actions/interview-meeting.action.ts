@@ -237,7 +237,7 @@ export async function listInterviewMeetings(
     where.status = status
   }
 
-  if (jobPostingId) {
+  if (jobPostingId && jobPostingId !== "ALL") {
     where.jobPostingId = jobPostingId
   }
 
@@ -438,7 +438,7 @@ export async function listCandidateMeetings(
     where.status = status
   }
 
-  if (jobPostingId) {
+  if (jobPostingId && jobPostingId !== "ALL") {
     where.jobPostingId = jobPostingId
   }
 

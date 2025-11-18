@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
-import { usePortfolioBuilder } from "@/hooks/use-portfolio-builder"
+import { usePortfolioBuilder } from "@/hooks/usePortfolioBuilder"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"

@@ -43,7 +43,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { useJobMutations } from "@/hooks/use-job-queries"
+import { useJobMutations } from "@/hooks/useJobQueries"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
 import { Switch } from "@/components/ui/switch"
 import { jobFormSchema, Difficulty, JobType, WorkMode, Domain } from "@/lib/validations/job-validation-form"

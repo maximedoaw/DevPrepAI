@@ -48,6 +48,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@react-three/drei": "^10.7.6",
     "@react-three/fiber": "^9.3.0",
+    "@stream-io/node-sdk": "^0.7.19",
     "@stream-io/video-react-sdk": "^1.18.11",
     "@tanstack/react-query": "^5.80.7",
     "@uiw/react-codemirror": "^4.25.2",

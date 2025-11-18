@@ -8,7 +8,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { useApplicationMutations, useApplicationQueries } from "@/hooks/use-application-mutations";
+import { useApplicationMutations, useApplicationQueries } from "@/hooks/useApplicationMutations";
 import { useRouter } from "next/navigation";
 
 interface ApplyDialogProps {

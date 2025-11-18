@@ -16,8 +16,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
-import { useUserJobQueries } from "@/hooks/use-job-queries"
-import { useUserJobQuizzes } from "@/hooks/use-job-interview"
+import { useUserJobQueries } from "@/hooks/useJobQueries"
+import { useUserJobQuizzes } from "@/hooks/useJobInterview"
 
 import { InterviewBuilder } from "./interview-builder"
 import { InterviewQuestionsEditor } from "./interview-questions-editor"

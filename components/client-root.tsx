@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getUserRoleAndDomains } from "@/actions/user.action";
 import RoleDomainSelector from "./auth/role-domain-selector";
 import AppSidebar from "./app-sidebar";
+import StreamClientProvider from "./providers/StreamClientProvider";
 
 export default function ClientRoot({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: authLoading, user } = useKindeBrowserClient();
