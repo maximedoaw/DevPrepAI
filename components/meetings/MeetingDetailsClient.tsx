@@ -60,7 +60,7 @@ export default function MeetingDetailsClient({
         <div className="min-h-[500px] sm:min-h-[600px] bg-slate-950 dark:bg-slate-950">
           <MeetingRoom
             callId={meetingId}
-            meetingTitle={meetingTitle}
+            meetingId={meetingId}
             settings={meetingSettings || undefined}
             onLeave={handleLeave}
           />

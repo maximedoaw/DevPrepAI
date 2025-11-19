@@ -121,6 +121,7 @@ model User {
   JobQuizResults   JobQuizResult[]
   organizedMeetings InterviewMeeting[] @relation("UserOrganizedMeetings")
   candidateMeetings InterviewMeeting[] @relation("UserCandidateMeetings")
+  candidateMatchings CandidateMatching[] @relation("CandidateMatchings")
 
   @@index([createdAt])
   @@index([role])
@@ -183,6 +184,7 @@ model JobPosting {
   applications     Application[]       @relation("JobApplications")
   jobQuizzes       JobQuiz[]
   interviewMeetings InterviewMeeting[]
+  candidateMatchings CandidateMatching[]
 
   @@map("job_postings")
 } 
@@ -206,6 +208,31 @@ model Application {
   interviewMeetings InterviewMeeting[]
 
   @@map("applications")
+}
+
+model CandidateMatching {
+  id               String              @id @default(cuid())
+  jobPostingId     String
+  candidateId      String
+  matchScore       Float               // Score de matching (0-100)
+  aiReason         String?             // Raison du matching générée par l'IA
+  skillsMatch      Float               // Pourcentage de correspondance des compétences
+  domainMatch      Float               // Pourcentage de correspondance des domaines
+  experienceMatch  Float?              // Pourcentage de correspondance de l'expérience
+  status           String              @default("PENDING") // PENDING, VIEWED, CONTACTED, REJECTED
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  
+  // Relations
+  jobPosting       JobPosting          @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  candidate        User                @relation("CandidateMatchings", fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([jobPostingId, candidateId])
+  @@index([jobPostingId])
+  @@index([candidateId])
+  @@index([matchScore])
+  @@index([status])
+  @@map("candidate_matchings")
 }
 
 model Subscription {

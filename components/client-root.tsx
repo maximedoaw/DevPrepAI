@@ -2,12 +2,12 @@
 "use client";
 
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
-import AuthScreen from "@/components/auth/auth-screen";
+import AuthScreen from "@/components/auth/AuthScreen";
 import DevLoader from "@/components/dev-loader";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getUserRoleAndDomains } from "@/actions/user.action";
-import RoleDomainSelector from "./auth/role-domain-selector";
+import RoleDomainSelector from "./auth/RoleDomainSelector";
 import AppSidebar from "./app-sidebar";
 import StreamClientProvider from "./providers/StreamClientProvider";
 

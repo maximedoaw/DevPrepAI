@@ -58,6 +58,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface InterviewsTabProps {
   onScheduleInterview?: () => void
@@ -371,14 +372,15 @@ const pagination =
       )
     }
 
-    return (
-      <div className="space-y-3">
-        {meetings.map((meeting) => {
-          const meetingDate = new Date(meeting.scheduledAt)
-          const isPast = meetingDate.getTime() < Date.now()
-          const isPublishing =
-            publishMutation.isPending &&
-            (publishMutation.variables as string | undefined) === meeting.id
+          return (
+            <div className="space-y-3">
+              {meetings.map((meeting) => {
+                const meetingDate = new Date(meeting.scheduledAt)
+                const isPast = meetingDate.getTime() < Date.now()
+                const canJoin = meetingDate.getTime() <= Date.now()
+                const isPublishing =
+                  publishMutation.isPending &&
+                  (publishMutation.variables as string | undefined) === meeting.id
 
           const initials = `${meeting.candidate.firstName?.[0] ?? ""}${meeting.candidate.lastName?.[0] ?? ""}`.trim()
 
@@ -435,12 +437,21 @@ const pagination =
                         <CalendarDays className="h-3 w-3" />
                         {format(meetingDate, "dd MMM yyyy - HH:mm", { locale: fr })}
                       </span>
-                      {meeting.durationMinutes && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-800 dark:bg-slate-900/30">
-                          <Clock className="h-3 w-3" />
-                          {meeting.durationMinutes} min
-                        </span>
-                      )}
+                      {meeting.durationMinutes && (() => {
+                        const hours = Math.floor(meeting.durationMinutes / 60)
+                        const minutes = meeting.durationMinutes % 60
+                        const durationText = hours > 0 
+                          ? minutes > 0 
+                            ? `${hours}h ${minutes}min`
+                            : `${hours}h`
+                          : `${minutes}min`
+                        return (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-800 dark:bg-slate-900/30">
+                            <Clock className="h-3 w-3" />
+                            {durationText}
+                          </span>
+                        )
+                      })()}
                       {meeting.location && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-800 dark:bg-slate-900/30">
                           <MapPin className="h-3 w-3" />
@@ -507,16 +518,27 @@ const pagination =
                     </Badge>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/20 dark:text-emerald-300"
-                      asChild
-                    >
-                      <Link href={`/meetings/${meeting.id}`} prefetch={false}>
-                        Rejoindre l'appel
-                      </Link>
-                    </Button>
+                    {canJoin ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/20 dark:text-emerald-300"
+                        asChild
+                      >
+                        <Link href={`/meetings/${meeting.id}`} prefetch={false}>
+                          Rejoindre l'appel
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled
+                        className="border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                      >
+                        À venir
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -855,7 +877,7 @@ const pagination =
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl border border-emerald-100 dark:border-emerald-900/40">
+        <DialogContent className="max-w-2xl border border-emerald-100 dark:border-emerald-900/40 max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-xl text-slate-900 dark:text-white">
               {dialogMode === "create" ? "Programmer un entretien" : "Modifier l'entretien"}
@@ -865,15 +887,16 @@ const pagination =
             </DialogDescription>
           </DialogHeader>
 
-          {contextLoading ? (
-            <div className="space-y-3">
-              {[...Array(4)].map((_, index) => (
-                <Skeleton key={index} className="h-12 w-full rounded-lg" />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-2">
+          <div className="overflow-y-auto flex-1 pr-2 -mr-2 min-h-0">
+            {contextLoading ? (
+              <div className="space-y-3">
+                {[...Array(4)].map((_, index) => (
+                  <Skeleton key={index} className="h-12 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-5">
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Offre d'emploi
@@ -904,67 +927,71 @@ const pagination =
 
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Date & heure
+                    Date
                   </Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal border-slate-200 dark:border-slate-700",
-                            !selectedDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarDays className="mr-2 h-4 w-4" />
-                          {selectedDate ? (
-                            format(selectedDate, "PPP", { locale: fr })
-                          ) : (
-                            <span>Sélectionner une date</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={(date) => {
-                            setSelectedDate(date)
-                            if (date) {
-                              const time = selectedTime || "09:00"
-                              const [hours, minutes] = time.split(":")
-                              const datetime = new Date(date)
-                              datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
-                              setFormData((prev) => ({
-                                ...prev,
-                                scheduledAt: datetime.toISOString().slice(0, 16),
-                              }))
-                            }
-                          }}
-                          disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <Input
-                      type="time"
-                      value={selectedTime}
-                      onChange={(event) => {
-                        const time = event.target.value
-                        setSelectedTime(time)
-                        if (selectedDate) {
-                          const [hours, minutes] = time.split(":")
-                          const datetime = new Date(selectedDate)
-                          datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
-                          setFormData((prev) => ({
-                            ...prev,
-                            scheduledAt: datetime.toISOString().slice(0, 16),
-                          }))
-                        }
-                      }}
-                      className="border-slate-200 dark:border-slate-700"
-                    />
-                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal border-slate-200 dark:border-slate-700",
+                          !selectedDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        {selectedDate ? (
+                          format(selectedDate, "PPP", { locale: fr })
+                        ) : (
+                          <span>Sélectionner une date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => {
+                          setSelectedDate(date)
+                          if (date) {
+                            const time = selectedTime || "09:00"
+                            const [hours, minutes] = time.split(":")
+                            const datetime = new Date(date)
+                            datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
+                            setFormData((prev) => ({
+                              ...prev,
+                              scheduledAt: datetime.toISOString().slice(0, 16),
+                            }))
+                          }
+                        }}
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Heure
+                  </Label>
+                  <Input
+                    type="time"
+                    value={selectedTime}
+                    onChange={(event) => {
+                      const time = event.target.value
+                      setSelectedTime(time)
+                      if (selectedDate) {
+                        const [hours, minutes] = time.split(":")
+                        const datetime = new Date(selectedDate)
+                        datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
+                        setFormData((prev) => ({
+                          ...prev,
+                          scheduledAt: datetime.toISOString().slice(0, 16),
+                        }))
+                      }
+                    }}
+                    className="border-slate-200 dark:border-slate-700"
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -989,17 +1016,57 @@ const pagination =
                       <SelectValue placeholder={selectedJob ? "Choisir un candidat" : "Sélectionnez d'abord une offre"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {candidateOptions.map((candidate) => (
-                        <SelectItem key={candidate.user.id} value={candidate.user.id}>
-                          {candidate.user.firstName} {candidate.user.lastName} —{" "}
-                          {candidate.status.toLowerCase()}
-                        </SelectItem>
-                      ))}
+                      {candidateOptions.map((candidate) => {
+                        const initials = `${candidate.user.firstName?.[0] ?? ""}${candidate.user.lastName?.[0] ?? ""}`.trim() || "?"
+                        return (
+                          <SelectItem key={candidate.user.id} value={candidate.user.id}>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-6 w-6 border border-emerald-200 dark:border-emerald-800">
+                                <AvatarImage src={undefined} alt={`${candidate.user.firstName} ${candidate.user.lastName}`} />
+                                <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs font-medium">
+                                  {initials}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span>
+                                {candidate.user.firstName} {candidate.user.lastName} —{" "}
+                                {candidate.status.toLowerCase()}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
                     </SelectContent>
                   </Select>
                   {selectedJob && candidateOptions.length === 0 && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">
                       Aucun candidat n'est associé à cette offre pour le moment.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Durée (minutes)
+                  </Label>
+                  <Input
+                    type="number"
+                    min={15}
+                    value={formData.durationMinutes ?? 45}
+                    onChange={(event) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        durationMinutes: Number(event.target.value),
+                      }))
+                    }
+                    className="border-slate-200 dark:border-slate-700"
+                  />
+                  {formData.durationMinutes && formData.durationMinutes > 60 && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {(() => {
+                        const hours = Math.floor(formData.durationMinutes / 60)
+                        const minutes = formData.durationMinutes % 60
+                        return minutes > 0 ? `${hours}h ${minutes}min` : `${hours}h`
+                      })()}
                     </p>
                   )}
                 </div>
@@ -1027,24 +1094,6 @@ const pagination =
                       <SelectItem value="CANCELLED">Annulé</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Durée (minutes)
-                  </Label>
-                  <Input
-                    type="number"
-                    min={15}
-                    value={formData.durationMinutes ?? 45}
-                    onChange={(event) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        durationMinutes: Number(event.target.value),
-                      }))
-                    }
-                    className="border-slate-200 dark:border-slate-700"
-                  />
                 </div>
               </div>
 
@@ -1115,15 +1164,24 @@ const pagination =
                       : "date à définir"}
                   </span>
                   {formData.durationMinutes
-                    ? ` (durée prévue : ${formData.durationMinutes} minutes)`
+                    ? ` (durée prévue : ${(() => {
+                        const hours = Math.floor(formData.durationMinutes / 60)
+                        const minutes = formData.durationMinutes % 60
+                        return hours > 0 
+                          ? minutes > 0 
+                            ? `${hours}h ${minutes}min`
+                            : `${hours}h`
+                          : `${minutes}min`
+                      })()})`
                     : ""}
                   .
                 </p>
               </div>
             </div>
-          )}
+            )}
+          </div>
 
-          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end mt-4 flex-shrink-0">
             <Button
               variant="outline"
               onClick={() => {

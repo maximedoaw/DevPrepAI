@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useStreamVideoClient } from "@stream-io/video-react-sdk"
 import {
   Call,
@@ -10,23 +10,116 @@ import {
   StreamCall,
   StreamTheme,
   StreamVideo,
+  useCallStateHooks,
 } from "@stream-io/video-react-sdk"
 import "@stream-io/video-react-sdk/dist/css/styles.css"
 import { Card, CardContent } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Loader2 } from "lucide-react"
+import { updateInterviewMeeting } from "@/actions/interview-meeting.action"
+import { toast } from "sonner"
 
 interface MeetingRoomProps {
-  callId: string
-  meetingTitle?: string
-  settings?: {
+  callId?: string
+  meetingId?: string
+  settings: {
     videoEnabled: boolean
     audioEnabled: boolean
   }
   onLeave?: () => void
 }
 
-export function MeetingRoom({ callId, meetingTitle, settings, onLeave }: MeetingRoomProps) {
+function MeetingRoomContent({ 
+  call, 
+  onLeave, 
+  showParticipants, 
+  setShowParticipants,
+  meetingId 
+}: { 
+  call: Call
+  onLeave?: () => void
+  showParticipants: boolean
+  setShowParticipants: (show: boolean) => void
+  meetingId?: string
+}) {
+  const { useParticipants } = useCallStateHooks()
+  const participants = useParticipants()
+  const [hasCheckedCompletion, setHasCheckedCompletion] = useState(false)
+
+  // Vérifier si tous les participants ont quitté
+  useEffect(() => {
+    if (!meetingId || hasCheckedCompletion || participants.length > 0) {
+      return
+    }
+
+    // Si aucun participant n'est présent (tous ont quitté)
+    const checkCompletion = async () => {
+      try {
+        await updateInterviewMeeting(meetingId, { status: "COMPLETED" })
+        setHasCheckedCompletion(true)
+        toast.success("Réunion terminée automatiquement")
+        if (onLeave) {
+          onLeave()
+        }
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour du statut:", error)
+      }
+    }
+
+    // Délai pour éviter les mises à jour multiples
+    const timeoutId = setTimeout(() => {
+      void checkCompletion()
+    }, 2000)
+
+    return () => clearTimeout(timeoutId)
+  }, [participants.length, meetingId, hasCheckedCompletion, onLeave])
+
+  return (
+    <StreamTheme>
+      <div className="flex flex-col gap-4 h-full bg-slate-50 dark:bg-slate-950">
+        <div className="flex flex-col gap-4 md:flex-row flex-1 overflow-hidden px-4">
+          <div className="flex-1 overflow-hidden rounded-xl border border-emerald-200 bg-slate-950/5 dark:bg-slate-950 dark:border-emerald-900/40">
+            <SpeakerLayout />
+          </div>
+          {showParticipants && (
+            <div className="md:w-80 lg:w-96 border rounded-xl border-emerald-200 dark:border-emerald-900/40 bg-white dark:bg-slate-900/50 overflow-hidden flex flex-col">
+              <div className="p-4 border-b border-emerald-200 dark:border-emerald-900/40 flex items-center justify-between">
+                <h3 className="font-semibold text-slate-900 dark:text-white text-sm">
+                  Participants
+                </h3>
+                <button
+                  onClick={() => setShowParticipants(false)}
+                  className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-xl font-bold leading-none"
+                  aria-label="Fermer la liste des participants"
+                >
+                  ×
+                </button>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-2">
+                  <CallParticipantsList onClose={() => setShowParticipants(false)} />
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+          {!showParticipants && (
+            <button
+              onClick={() => setShowParticipants(true)}
+              className="md:w-80 lg:w-96 border rounded-xl border-emerald-200 dark:border-emerald-900/40 bg-white dark:bg-slate-900/50 p-4 flex items-center justify-center text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+            >
+              Afficher les participants
+            </button>
+          )}
+        </div>
+        <div className="px-4 pb-4 bg-white/50 dark:bg-slate-900/50 border-t border-emerald-100 dark:border-emerald-900/40">
+          <CallControls onLeave={onLeave} />
+        </div>
+      </div>
+    </StreamTheme>
+  )
+}
+
+export function MeetingRoom({ callId, meetingId, settings, onLeave }: MeetingRoomProps) {
   const client = useStreamVideoClient()
   const [call, setCall] = useState<Call | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -47,18 +140,18 @@ export function MeetingRoom({ callId, meetingTitle, settings, onLeave }: Meeting
         setIsJoining(true)
         setError(null)
 
-        activeCall = client.call("default", callId)
+        // Créer et rejoindre l'appel avec le callId ou un ID par défaut
+        const finalCallId = callId || "meeting-call"
+        activeCall = client.call("default", finalCallId)
 
         await activeCall.join({ create: true })
 
-        // Appliquer les paramètres après avoir rejoint
-        if (settings) {
-          if (settings.videoEnabled === false) {
-            await activeCall.camera.disable()
-          }
-          if (settings.audioEnabled === false) {
-            await activeCall.microphone.disable()
-          }
+        // Appliquer les paramètres
+        if (!settings.videoEnabled) {
+          await activeCall.camera.disable()
+        }
+        if (!settings.audioEnabled) {
+          await activeCall.microphone.disable()
         }
 
         if (isUnmounted) {
@@ -135,56 +228,14 @@ export function MeetingRoom({ callId, meetingTitle, settings, onLeave }: Meeting
   return (
     <StreamVideo client={client}>
       <StreamCall call={call}>
-        <StreamTheme>
-          <div className="flex flex-col gap-4 h-full bg-slate-50 dark:bg-slate-950">
-            {meetingTitle && (
-              <div className="px-4 py-3 bg-gradient-to-r from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-900/10 backdrop-blur-sm border-b border-emerald-200 dark:border-emerald-900/40">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                  {meetingTitle}
-                </h2>
-              </div>
-            )}
-            <div className="flex flex-col gap-4 md:flex-row flex-1 overflow-hidden px-4">
-              <div className="flex-1 overflow-hidden rounded-xl border border-emerald-200 bg-slate-950/5 dark:bg-slate-950 dark:border-emerald-900/40">
-                <SpeakerLayout />
-              </div>
-              {showParticipants && (
-                <div className="md:w-80 lg:w-96 border rounded-xl border-emerald-200 dark:border-emerald-900/40 bg-white dark:bg-slate-900/50 overflow-hidden flex flex-col">
-                  <div className="p-4 border-b border-emerald-200 dark:border-emerald-900/40 flex items-center justify-between">
-                    <h3 className="font-semibold text-slate-900 dark:text-white text-sm">
-                      Participants
-                    </h3>
-                    <button
-                      onClick={() => setShowParticipants(false)}
-                      className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-xl font-bold leading-none"
-                      aria-label="Fermer la liste des participants"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <ScrollArea className="flex-1">
-                    <div className="p-2">
-                      <CallParticipantsList onClose={() => setShowParticipants(false)} />
-                    </div>
-                  </ScrollArea>
-                </div>
-              )}
-              {!showParticipants && (
-                <button
-                  onClick={() => setShowParticipants(true)}
-                  className="md:w-80 lg:w-96 border rounded-xl border-emerald-200 dark:border-emerald-900/40 bg-white dark:bg-slate-900/50 p-4 flex items-center justify-center text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
-                >
-                  Afficher les participants
-                </button>
-              )}
-            </div>
-            <div className="px-4 pb-4 bg-white/50 dark:bg-slate-900/50 border-t border-emerald-100 dark:border-emerald-900/40">
-              <CallControls />
-            </div>
-          </div>
-        </StreamTheme>
+        <MeetingRoomContent
+          call={call}
+          onLeave={onLeave}
+          showParticipants={showParticipants}
+          setShowParticipants={setShowParticipants}
+          meetingId={meetingId}
+        />
       </StreamCall>
     </StreamVideo>
   )
 }
-

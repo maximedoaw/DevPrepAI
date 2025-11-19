@@ -48,6 +48,7 @@ import {
   Rocket,
   Leaf,
 } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface SidebarOption {
   id: string;
@@ -900,12 +901,13 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
           {sidebarOpen && user ? (
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
-                  <span className="text-white font-medium">
+                <Avatar className="w-10 h-10 flex-shrink-0 shadow-md border-2 border-emerald-200 dark:border-emerald-800">
+                  <AvatarImage src={user.picture || undefined} alt={`${user.given_name} ${user.family_name}`} />
+                  <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-green-600 text-white font-medium">
                     {user.given_name?.[0]}
                     {user.family_name?.[0]}
-                  </span>
-                </div>
+                  </AvatarFallback>
+                </Avatar>
                 <div className="flex-1 min-w-0 z-10 relative">
                   <div className="font-semibold text-slate-900 dark:text-white truncate">
                     {user.given_name} {user.family_name}
@@ -952,9 +954,12 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
             </div>
           ) : (
             <div className="flex justify-center">
-              <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full flex items-center justify-center shadow-md">
-                <User className="h-5 w-5 text-white" />
-              </div>
+              <Avatar className="w-10 h-10 shadow-md border-2 border-emerald-200 dark:border-emerald-800">
+                <AvatarImage src={user?.picture || undefined} alt={user ? `${user.given_name} ${user.family_name}` : "User"} />
+                <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-green-600 text-white">
+                  <User className="h-5 w-5" />
+                </AvatarFallback>
+              </Avatar>
             </div>
           )}
         </div>
