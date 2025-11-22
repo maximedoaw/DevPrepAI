@@ -7,21 +7,28 @@ import { TalentMatchingFilters } from "@/components/enterprise/talent-matching/T
 import { TalentMatchingList } from "@/components/enterprise/talent-matching/TalentMatchingList"
 import type { MatchedCandidate } from "@/components/enterprise/talent-matching/types"
 import { useUserJobQueries } from "@/hooks/useJobQueries"
+import { useMatchingQueries } from "@/hooks/useMatchingQueries"
 
 export default function TalentMatchingPage() {
   const { user } = useKindeBrowserClient()
   const { jobs, loadingJobs } = useUserJobQueries(user?.id)
   
-  const [allMatchings, setAllMatchings] = useState<MatchedCandidate[]>([]) // Tous les matchings (non filtrés)
-  const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedDomain, setSelectedDomain] = useState<string>("ALL")
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
-  const [isGenerating, setIsGenerating] = useState(false)
+  
+  // Utiliser le hook TanStack Query pour récupérer les matchings depuis le cache
+  const {
+    matchings: allMatchings,
+    isLoading: isLoadingMatchings,
+    regenerateMatchings,
+    isRegenerating,
+    fromCache,
+  } = useMatchingQueries(selectedJobId)
 
   // Filtrer les matchings selon les critères
   const matchings = useMemo(() => {
-    let filtered = [...allMatchings]
+    let filtered = [...(allMatchings || [])]
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
@@ -60,56 +67,6 @@ export default function TalentMatchingPage() {
     }
   }, [activeJobs, selectedJobId])
 
-  const generateMatchings = async (jobId: string) => {
-    if (!user?.id || isGenerating) return
-
-    try {
-      setIsGenerating(true)
-      const response = await fetch("/api/matching", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobPostingId: jobId }),
-      })
-
-      const data = await response.json()
-
-      if (data.success && data.matches) {
-        // Les matchings sont déjà triés par score décroissant (du meilleur au plus mauvais)
-        // Limiter à environ 20 candidats
-        setAllMatchings(data.matches.slice(0, 20))
-      }
-    } catch (error) {
-      console.error("Erreur lors de la génération des matchings:", error)
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  // Charger les matchings existants ou générer de nouveaux
-  useEffect(() => {
-    const loadMatchings = async () => {
-      if (!selectedJobId || !user?.id) {
-        setIsLoading(false)
-        return
-      }
-
-      try {
-        setIsLoading(true)
-        
-        // Générer les matchings (utilise le cache si disponible)
-        await generateMatchings(selectedJobId)
-      } catch (error) {
-        console.error("Erreur lors du chargement des matchings:", error)
-        setAllMatchings([])
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    void loadMatchings()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedJobId, user?.id])
-
   const formatDomain = (domain: string) => {
     return domain.replace(/_/g, " ").toLowerCase()
       .split(" ")
@@ -137,7 +94,6 @@ export default function TalentMatchingPage() {
               value={selectedJobId || ""}
               onChange={(e) => {
                 setSelectedJobId(e.target.value)
-                setAllMatchings([])
               }}
               className="w-full md:w-auto px-4 py-2 border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-slate-900/50 rounded-lg focus:ring-2 focus:ring-emerald-500/20"
             >
@@ -149,12 +105,18 @@ export default function TalentMatchingPage() {
             </select>
             {selectedJobId && (
               <button
-                onClick={() => generateMatchings(selectedJobId)}
-                disabled={isGenerating}
+                onClick={() => regenerateMatchings()}
+                disabled={isRegenerating}
                 className="ml-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg disabled:opacity-50"
+                title={fromCache ? "Recalculer les matchings" : "Générer les matchings"}
               >
-                {isGenerating ? "Génération..." : "Générer les matchings"}
+                {isRegenerating ? "Génération..." : fromCache ? "Recalculer" : "Générer les matchings"}
               </button>
+            )}
+            {fromCache && selectedJobId && (
+              <span className="ml-2 text-sm text-emerald-600 dark:text-emerald-400">
+                (Depuis le cache)
+              </span>
             )}
           </div>
         )}
@@ -176,7 +138,7 @@ export default function TalentMatchingPage() {
         />
 
         <TalentMatchingList
-          isLoading={isLoading || loadingJobs}
+          isLoading={isLoadingMatchings || loadingJobs}
           matchings={matchings}
           formatDomain={formatDomain}
           onResetFilters={handleReset}

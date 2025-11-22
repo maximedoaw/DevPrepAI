@@ -754,11 +754,6 @@ export default function Features() {
         <div className="container relative max-w-7xl mx-auto px-4 lg:px-8" ref={containerRef}>
           {/* Header */}
           <div className="text-center mb-16 lg:mb-24">
-            <Badge variant="outline" className="mb-6 bg-gradient-to-r from-emerald-500/10 to-green-500/10 border-emerald-200 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400 px-4 lg:px-6 py-2 lg:py-3">
-              <Sparkles className="h-4 w-4 mr-2" />
-              Parcours d'excellence professionnel
-            </Badge>
-            
             <h2 ref={titleRef} className="text-3xl lg:text-5xl xl:text-6xl font-bold mb-6 lg:mb-8 bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 dark:from-emerald-400 dark:via-green-400 dark:to-teal-400 leading-tight">
               Ton voyage vers le succès
               <br />

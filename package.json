@@ -65,6 +65,7 @@
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.13",
     "gsap": "^3.13.0",
+    "inngest": "^3.46.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.515.0",
     "monaco-editor": "^0.54.0",

@@ -90,6 +90,33 @@ enum InterviewRoomType {
   EXECUTIVE
 }
 
+enum CourseContentType {
+  TEXT
+  VIDEO
+  PDF
+  EMBED
+}
+
+enum BootcampEnrollmentStatus {
+  ACTIVE
+  AT_RISK
+  INACTIVE
+}
+
+enum BootcampNotificationType {
+  ASSIGNMENT
+  FEEDBACK
+  REMINDER
+  ACHIEVEMENT
+}
+
+enum BootcampInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
 
 model User {
   id               String              @id @default(cuid())
@@ -101,6 +128,7 @@ model User {
   updatedAt        DateTime            @updatedAt
   credits          Int                 @default(5000)
   matchingJobs     Int                 @default(0)
+  imageUrl         String?        
   skills           String[]
   role             Role                @default(CANDIDATE)
   domains          Domain[]
@@ -122,6 +150,14 @@ model User {
   organizedMeetings InterviewMeeting[] @relation("UserOrganizedMeetings")
   candidateMeetings InterviewMeeting[] @relation("UserCandidateMeetings")
   candidateMatchings CandidateMatching[] @relation("CandidateMatchings")
+  bootcampEnrollments BootcampEnrollment[]
+  bootcampFeedbacksGiven BootcampFeedback[] @relation("BootcampFeedbackInstructor")
+  bootcampFeedbacksReceived BootcampFeedback[] @relation("BootcampFeedbackStudent")
+  bootcampNotifications BootcampNotification[]
+  bootcampCourseViews BootcampCourseView[]
+  bootcampCoursesCreated BootcampCourse[] @relation("BootcampCourseCreator")
+  bootcampInvitationsSent BootcampInvitation[] @relation("BootcampInvitationSender")
+  bootcampInvitationsReceived BootcampInvitation[] @relation("BootcampInvitationReceiver")
 
   @@index([createdAt])
   @@index([role])
@@ -509,4 +545,153 @@ model VoiceInterview {
   @@index([userId, startedAt])
   @@index([status])
   @@map("voice_interviews")
+}
+
+// Modèles pour le système de bootcamp
+model BootcampCourse {
+  id               String              @id @default(cuid())
+  title            String
+  description      String?
+  content          String               // Contenu principal (texte, URL vidéo, URL PDF, embed code)
+  contentType      CourseContentType
+  domain           Domain
+  order            Int                  @default(0)
+  duration         Int?                 // Durée en minutes
+  isPublished      Boolean              @default(false)
+  createdById      String?              // ID de l'utilisateur qui a créé le cours (optionnel temporairement pour migration)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  
+  // Relations
+  createdBy        User?               @relation("BootcampCourseCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  courseViews      BootcampCourseView[]
+
+  @@index([domain])
+  @@index([isPublished])
+  @@index([createdById])
+  @@map("bootcamp_courses")
+}
+
+model BootcampCourseView {
+  id               String              @id @default(cuid())
+  userId           String
+  courseId         String
+  viewedAt         DateTime            @default(now())
+  progress         Float               @default(0) // 0-100
+  completedAt      DateTime?
+  
+  // Relations
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course           BootcampCourse      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+  @@map("bootcamp_course_views")
+}
+
+model BootcampEnrollment {
+  id               String                      @id @default(cuid())
+  userId           String
+  bootcampDomains  Domain[]                    // Domaines couverts par le bootcamp
+  status           BootcampEnrollmentStatus    @default(ACTIVE)
+  progress         Float                       @default(0) // 0-100
+  badges           String[]                    // Liste des badges obtenus
+  isJobReady       Boolean                     @default(false)
+  enrolledAt       DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  
+  // Relations
+  user             User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feedbacks       BootcampFeedback[]
+  assignedTests   BootcampAssignedTest[]
+
+  @@unique([userId])
+  @@index([status])
+  @@index([userId])
+  @@map("bootcamp_enrollments")
+}
+
+model BootcampFeedback {
+  id               String              @id @default(cuid())
+  enrollmentId     String
+  instructorId     String              // ID du formateur (User avec role BOOTCAMP)
+  studentId        String              // ID de l'apprenant
+  content          String
+  rating           Int?                // 1-5
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  
+  // Relations
+  enrollment      BootcampEnrollment  @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  instructor      User                @relation("BootcampFeedbackInstructor", fields: [instructorId], references: [id], onDelete: Cascade)
+  student         User                @relation("BootcampFeedbackStudent", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId])
+  @@index([studentId])
+  @@index([instructorId])
+  @@map("bootcamp_feedbacks")
+}
+
+model BootcampAssignedTest {
+  id               String              @id @default(cuid())
+  enrollmentId     String
+  quizId           String?             // Quiz existant
+  jobQuizId        String?             // JobQuiz existant
+  assignedBy      String              // ID du formateur
+  assignedTo       String              // ID de l'apprenant
+  dueDate          DateTime?
+  completedAt      DateTime?
+  status           String              @default("PENDING") // PENDING, COMPLETED, OVERDUE
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  
+  // Relations
+  enrollment       BootcampEnrollment  @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId])
+  @@index([assignedTo])
+  @@index([status])
+  @@map("bootcamp_assigned_tests")
+}
+
+model BootcampNotification {
+  id               String                      @id @default(cuid())
+  userId           String
+  type             BootcampNotificationType
+  title            String
+  message          String
+  isRead           Boolean                     @default(false)
+  metadata         Json?                       // Données supplémentaires (ID de test, feedback, etc.)
+  createdAt        DateTime                    @default(now())
+  
+  // Relations
+  user             User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("bootcamp_notifications")
+}
+
+model BootcampInvitation {
+  id               String                      @id @default(cuid())
+  bootcampId       String                      // ID de l'utilisateur BOOTCAMP qui envoie l'invitation
+  candidateId      String                      // ID du candidat invité
+  status           BootcampInvitationStatus     @default(PENDING)
+  message          String?                     // Message personnalisé
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  respondedAt      DateTime?                   // Date de réponse (acceptation/refus)
+  
+  // Relations
+  bootcamp         User                        @relation("BootcampInvitationSender", fields: [bootcampId], references: [id], onDelete: Cascade)
+  candidate        User                        @relation("BootcampInvitationReceiver", fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([bootcampId, candidateId])
+  @@index([bootcampId])
+  @@index([candidateId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("bootcamp_invitations")
 }

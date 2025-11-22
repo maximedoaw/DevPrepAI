@@ -6,7 +6,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import TanStackProvider from "@/components/tan-stack-provider";
 import { Toaster } from "sonner";
 import ClientRoot from "@/components/client-root";
-import { RouteGuard } from "@/components/protected-routes";
 import ScrollToTop from "@/components/scroll-top";
 import StreamClientProvider from "@/components/providers/StreamClientProvider";
 import "@stream-io/video-react-sdk/dist/css/styles.css";
@@ -37,7 +36,7 @@ export default function RootLayout({
           <TanStackProvider>
             <ClientRoot>
               <StreamClientProvider>
-                <RouteGuard>{children}</RouteGuard>
+                {children}
               </StreamClientProvider>
             </ClientRoot>
           </TanStackProvider>

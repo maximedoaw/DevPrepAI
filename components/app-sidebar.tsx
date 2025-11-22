@@ -10,6 +10,7 @@ import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { useTheme } from "next-themes";
 import { useQuery } from "@tanstack/react-query";
 import { getUserRoleAndDomains } from "@/actions/user.action";
+import { getReceivedInvitations } from "@/actions/bootcamp.action";
 
 // Logo personnalisé 
 import Logo from "./logo";
@@ -47,6 +48,7 @@ import {
   Zap,
   Rocket,
   Leaf,
+  MonitorPlay,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
@@ -75,6 +77,57 @@ function ModeToggle() {
     >
       <Sun className="h-4 w-4 text-emerald-700 dark:text-emerald-300 block dark:hidden" />
       <Moon className="h-4 w-4 text-emerald-300 hidden dark:block" />
+    </button>
+  );
+}
+
+// Composant pour le bouton d'invitations avec badge
+function InvitationsButton({ 
+  router, 
+  setSidebarOpen, 
+  sidebarOpen 
+}: { 
+  router: any; 
+  setSidebarOpen: (open: boolean) => void;
+  sidebarOpen: boolean;
+}) {
+  const { data: invitationsData } = useQuery({
+    queryKey: ["received-invitations"],
+    queryFn: async () => {
+      const result = await getReceivedInvitations();
+      return result.success ? result.data : [];
+    },
+    refetchInterval: 1000 * 60 * 2, // Refetch toutes les 2 minutes
+  });
+
+  const pendingCount = invitationsData?.filter((inv: any) => inv.status === 'PENDING').length || 0;
+
+  return (
+    <button
+      onClick={() => { 
+        router.push("/invitations"); 
+        if (window.innerWidth < 768) setSidebarOpen(false); 
+      }}
+      className="w-full text-left p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-colors hover:shadow-md relative"
+    >
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/50 dark:to-green-900/50 rounded-lg relative">
+          <Handshake className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          {pendingCount > 0 && (
+            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-emerald-500 dark:bg-emerald-400 text-white text-xs flex items-center justify-center font-bold">
+              {pendingCount > 9 ? '9+' : pendingCount}
+            </span>
+          )}
+        </div>
+        <div className="flex-1 min-w-0 z-10 relative">
+          <div className="font-semibold text-slate-700 dark:text-slate-300 bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100 bg-clip-text">
+            Invitations
+          </div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            {pendingCount > 0 ? `${pendingCount} en attente` : 'Aucune invitation'}
+          </div>
+        </div>
+      </div>
     </button>
   );
 }
@@ -120,13 +173,17 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
 
   const loadingOrUnauth = isLoading || !isAuthenticated;
 
-  const userRole = userData?.role || "CANDIDATE";
+  // Utiliser le rôle par défaut seulement si userData est défini (pas pendant le chargement)
+  const userRole = userData?.role || (userDataLoading ? undefined : "CANDIDATE");
   const isAdmin =
     userRole === "admin" ||
     userData?.role === "admin" ||
     user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
   let sidebarOptions: SidebarOption[] = [];
+  
+  // Ne pas initialiser les sidebarOptions si le rôle n'est pas encore chargé
+  if (!userDataLoading && userRole) {
 
   // Configuration pour CANDIDATE
   if (userRole === "CANDIDATE") {
@@ -450,7 +507,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
       {
         id: "dashboard",
         title: "Espace bootcamp",
-        description: "Vue d'ensemble de votre cohorte",
+        description: "Vue d'ensemble de la cohorte — KPIs, alertes et actions rapides",
         icon: Home,
         color: "text-emerald-600 dark:text-emerald-400",
         bgColor: "bg-emerald-500 dark:bg-emerald-600",
@@ -461,35 +518,35 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         path: "/",
       },
       {
-        id: "participants",
-        title: "Gestion des apprenants",
-        description: "Suivi individuel et collectif",
-        icon: Users,
-        color: "text-teal-600 dark:text-teal-400",
-        bgColor: "bg-teal-500 dark:bg-teal-600",
-        action: () => { 
-          router.push("/participants"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/participants",
-      },
-      {
-        id: "curriculum",
-        title: "Curriculum dynamique",
-        description: "Programmes de formation ajustables",
+        id: "learning-lab",
+        title: "Learning Lab",
+        description: "Concevez cours et tests techniques — modules, QCM, exercices et évaluations",
         icon: BookOpen,
         color: "text-green-600 dark:text-green-400",
         bgColor: "bg-green-500 dark:bg-green-600",
         action: () => { 
-          router.push("/curriculum"); 
+          router.push("/learning-lab"); 
           if (window.innerWidth < 768) setSidebarOpen(false); 
         },
-        path: "/curriculum",
+        path: "/learning-lab",
+      },
+      {
+        id: "room",
+        title: "Salles (Rooms)",
+        description: "Salons d'interview et environnements de test en direct — mock, live-coding, enregistrements",
+        icon: MonitorPlay,
+        color: "text-sky-600 dark:text-sky-400",
+        bgColor: "bg-sky-500 dark:bg-sky-600",
+        action: () => { 
+          router.push("/rooms"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
+        path: "/rooms",
       },
       {
         id: "placement",
         title: "Placement professionnel",
-        description: "Statistiques et suivi d'insertion",
+        description: "Statistiques d'insertion, suivi des candidatures et rapports exportables",
         icon: Briefcase,
         color: "text-lime-600 dark:text-lime-400",
         bgColor: "bg-lime-500 dark:bg-lime-600",
@@ -502,7 +559,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
       {
         id: "matching",
         title: "Matching entreprises",
-        description: "Reliez vos apprenants aux recruteurs",
+        description: "Reliez vos apprenants aux recruteurs — listes triées, scores et propositions automatiques",
         icon: Handshake,
         color: "text-cyan-600 dark:text-cyan-400",
         bgColor: "bg-cyan-500 dark:bg-cyan-600",
@@ -513,6 +570,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         path: "/matching",
       },
     ];
+    
   }
 
   // Configuration pour SCHOOL
@@ -599,23 +657,24 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     ];
   }
 
-  // Ajouter l'option admin si nécessaire
-  if (isAdmin) {
-    sidebarOptions.push({
-      id: "admin",
-      title: "Administration",
-      description: "Gestion de la plateforme",
-      icon: Shield,
-      color: "text-red-600 dark:text-red-400",
-      bgColor: "bg-red-500 dark:bg-red-600",
-      action: () => { 
-        router.push("/admin"); 
-        if (window.innerWidth < 768) setSidebarOpen(false); 
-      },
-      badge: "Admin",
-      isAdmin: true,
-      path: "/admin",
-    });
+    // Ajouter l'option admin si nécessaire
+    if (isAdmin) {
+      sidebarOptions.push({
+        id: "admin",
+        title: "Administration",
+        description: "Gestion de la plateforme",
+        icon: Shield,
+        color: "text-red-600 dark:text-red-400",
+        bgColor: "bg-red-500 dark:bg-red-600",
+        action: () => { 
+          router.push("/admin"); 
+          if (window.innerWidth < 768) setSidebarOpen(false); 
+        },
+        badge: "Admin",
+        isAdmin: true,
+        path: "/admin",
+      });
+    }
   }
 
   const commonAccessibleRoutes = useMemo(
@@ -642,8 +701,27 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     return Array.from(routes);
   }, [sidebarOptions, commonAccessibleRoutes]);
 
+  // Éviter les redirections pendant le chargement initial
+  const [hasCheckedRoutes, setHasCheckedRoutes] = useState(false);
+
   useEffect(() => {
-    if (loadingOrUnauth || userDataLoading || isAdmin) return;
+    // Attendre que les données utilisateur soient complètement chargées
+    if (userDataLoading || loadingOrUnauth) {
+      setHasCheckedRoutes(false);
+      return;
+    }
+
+    // Attendre que les sidebarOptions soient initialisées pour ce rôle
+    if (sidebarOptions.length === 0 || !userRole) {
+      setHasCheckedRoutes(false);
+      return;
+    }
+
+    // Si on est admin, ne pas rediriger automatiquement
+    if (isAdmin) {
+      setHasCheckedRoutes(true);
+      return;
+    }
 
     const normalizedPath = pathname?.split("?")[0] || "/";
 
@@ -658,14 +736,26 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
       );
     });
 
-    if (!isAllowed) {
+    // Si la route est autorisée, marquer comme vérifié et ne rien faire
+    if (isAllowed) {
+      setHasCheckedRoutes(true);
+      return;
+    }
+
+    // Ne rediriger que si on n'a pas encore vérifié les routes (éviter les boucles)
+    if (!hasCheckedRoutes) {
+      // Trouver une route de fallback valide pour ce rôle
       const fallbackRoute =
         sidebarOptions.find((option) => option.path)?.path ||
         commonAccessibleRoutes[0] ||
         "/";
 
+      // Ne rediriger que si on n'est pas déjà sur la route de fallback
       if (fallbackRoute && normalizedPath !== fallbackRoute) {
+        setHasCheckedRoutes(true);
         router.replace(fallbackRoute);
+      } else {
+        setHasCheckedRoutes(true);
       }
     }
   }, [
@@ -677,6 +767,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     loadingOrUnauth,
     userDataLoading,
     commonAccessibleRoutes,
+    hasCheckedRoutes,
+    userRole,
   ]);
 
   if (loadingOrUnauth) return null;
@@ -891,6 +983,13 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                       </div>
                     </div>
                   </button>
+                  {(userRole === "CANDIDATE" || userRole === "CAREER_CHANGER") && (
+                    <InvitationsButton 
+                      router={router} 
+                      setSidebarOpen={setSidebarOpen}
+                      sidebarOpen={sidebarOpen}
+                    />
+                  )}
               </div>
             </div>
           )}

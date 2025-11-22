@@ -1,5 +1,6 @@
 import React from 'react'
 import Hero from './Hero'
+import TrainingHero from './TrainingHero'
 import Features from './Features'
 import Testimonials from './Testimonials'
 import Navbar from '../navbar'
@@ -15,6 +16,7 @@ const AuthScreen = () => {
     <div className="min-h-screen">
       <Navbar/>
       <Hero />
+      <TrainingHero />
       <Features />
       <WhySkillWokz/>
       <Pricing/>

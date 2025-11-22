@@ -75,7 +75,7 @@ export function TalentMatchingList({
             En direct
           </Badge>
         </div>
-        {matchings.length > 10 && (
+        {matchings.length > 7 && (
           <Badge variant="outline" className="border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20">
             <Lock className="h-3 w-3 mr-1" />
             Premium pour voir plus
