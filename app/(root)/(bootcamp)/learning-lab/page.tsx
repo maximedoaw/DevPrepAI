@@ -17,10 +17,10 @@ import { toast } from 'sonner'
 import { ParticipantsList } from './components/ParticipantsList'
 import { FiltersBar } from './components/FiltersBar'
 import { ParticipantDetailsDialog } from './components/ParticipantDetails-dialog'
-import { CreateCourseDialog } from './components/CreateCourse-dialog'
+import { CreateCourseDialog } from './components/CreateCourseDialog'
 import { FeedbackDialog } from './components/FeedbackDialog'
 import { AssignTestDialog } from './components/AssignTestDialog'
-import { CoursesList } from './components/CoursesList'
+import { CoursesListWithSections } from './components/CoursesList'
 
 const LearningLabPage = () => {
   const queryClient = useQueryClient()
@@ -318,7 +318,7 @@ const LearningLabPage = () => {
                 </Button>
               </div>
             ) : (
-              <CoursesList
+              <CoursesListWithSections
                 courses={courses}
                 onRefresh={refetchCourses}
                 bootcampDomains={bootcampDomains}

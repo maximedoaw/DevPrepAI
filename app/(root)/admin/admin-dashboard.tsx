@@ -116,7 +116,7 @@ export default function AdminDashboard({ stats }: AdminDashboardProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Administration</h1>
-          <p className="text-gray-600 mt-1">Gestion complète de la plateforme DevPrepAi</p>
+          <p className="text-gray-600 mt-1">Gestion complète de la plateforme SkillWokz</p>
         </div>
         <div className="flex items-center gap-4">
           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">

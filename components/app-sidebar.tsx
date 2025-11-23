@@ -49,6 +49,7 @@ import {
   Rocket,
   Leaf,
   MonitorPlay,
+  Bell,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
@@ -82,7 +83,7 @@ function ModeToggle() {
 }
 
 // Composant pour le bouton d'invitations avec badge
-function InvitationsButton({ 
+function NotificationsButton({ 
   router, 
   setSidebarOpen, 
   sidebarOpen 
@@ -91,8 +92,8 @@ function InvitationsButton({
   setSidebarOpen: (open: boolean) => void;
   sidebarOpen: boolean;
 }) {
-  const { data: invitationsData } = useQuery({
-    queryKey: ["received-invitations"],
+  const { data: notificationsData } = useQuery({
+    queryKey: ["received-notifications"],
     queryFn: async () => {
       const result = await getReceivedInvitations();
       return result.success ? result.data : [];
@@ -100,19 +101,19 @@ function InvitationsButton({
     refetchInterval: 1000 * 60 * 2, // Refetch toutes les 2 minutes
   });
 
-  const pendingCount = invitationsData?.filter((inv: any) => inv.status === 'PENDING').length || 0;
+  const pendingCount = notificationsData?.filter((inv: any) => inv.status === 'PENDING').length || 0;
 
   return (
     <button
       onClick={() => { 
-        router.push("/invitations"); 
+        router.push("/notifications"); 
         if (window.innerWidth < 768) setSidebarOpen(false); 
       }}
       className="w-full text-left p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-colors hover:shadow-md relative"
     >
       <div className="flex items-center gap-3">
         <div className="p-2 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/50 dark:to-green-900/50 rounded-lg relative">
-          <Handshake className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          <Bell className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           {pendingCount > 0 && (
             <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-emerald-500 dark:bg-emerald-400 text-white text-xs flex items-center justify-center font-bold">
               {pendingCount > 9 ? '9+' : pendingCount}
@@ -121,10 +122,10 @@ function InvitationsButton({
         </div>
         <div className="flex-1 min-w-0 z-10 relative">
           <div className="font-semibold text-slate-700 dark:text-slate-300 bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100 bg-clip-text">
-            Invitations
+            Notifications
           </div>
           <div className="text-sm text-slate-500 dark:text-slate-400">
-            {pendingCount > 0 ? `${pendingCount} en attente` : 'Aucune invitation'}
+            {pendingCount > 0 ? `${pendingCount} en attente` : 'Aucune notification'}
           </div>
         </div>
       </div>
@@ -983,13 +984,11 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                       </div>
                     </div>
                   </button>
-                  {(userRole === "CANDIDATE" || userRole === "CAREER_CHANGER") && (
-                    <InvitationsButton 
+                    <NotificationsButton 
                       router={router} 
                       setSidebarOpen={setSidebarOpen}
                       sidebarOpen={sidebarOpen}
                     />
-                  )}
               </div>
             </div>
           )}

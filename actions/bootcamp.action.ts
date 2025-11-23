@@ -593,12 +593,11 @@ export async function getBootcampCourses(domain?: Domain, userId?: string) {
             bc.id,
             bc.title,
             bc.description,
-            bc.content,
-            bc."contentType",
             bc.domain,
             bc."order",
             bc.duration,
             bc."isPublished",
+            bc."courseImage",
             bc."createdById",
             bc."createdAt",
             bc."updatedAt",
@@ -636,12 +635,11 @@ export async function getBootcampCourses(domain?: Domain, userId?: string) {
             id: course.id,
             title: course.title,
             description: course.description,
-            content: course.content,
-            contentType: course.contentType,
             domain: course.domain,
             order: course.order,
             duration: course.duration,
             isPublished: course.isPublished,
+            courseImage: course.courseImage,
             createdById: course.createdById,
             createdAt: course.createdAt,
             updatedAt: course.updatedAt,
@@ -664,12 +662,11 @@ export async function getBootcampCourses(domain?: Domain, userId?: string) {
             id: course.id,
             title: course.title,
             description: course.description,
-            content: course.content,
-            contentType: course.contentType,
             domain: course.domain,
             order: course.order,
             duration: course.duration,
             isPublished: course.isPublished,
+            courseImage: course.courseImage,
             createdById: course.createdById,
             createdAt: course.createdAt,
             updatedAt: course.updatedAt,
@@ -696,12 +693,12 @@ export async function getBootcampCourses(domain?: Domain, userId?: string) {
 export async function updateBootcampCourse(courseId: string, data: {
   title?: string
   description?: string
-  content?: string
-  contentType?: "TEXT" | "VIDEO" | "PDF" | "EMBED"
   domain?: Domain
   order?: number
   duration?: number
   isPublished?: boolean
+  courseImage?: string
+  courseSections?: any
 }) {
   try {
     const { getUser } = getKindeServerSession()
@@ -741,12 +738,12 @@ export async function updateBootcampCourse(courseId: string, data: {
       data: {
         ...(data.title && { title: data.title }),
         ...(data.description !== undefined && { description: data.description }),
-        ...(data.content && { content: data.content }),
-        ...(data.contentType && { contentType: data.contentType }),
         ...(data.domain && { domain: data.domain }),
         ...(data.order !== undefined && { order: data.order }),
         ...(data.duration !== undefined && { duration: data.duration }),
-        ...(data.isPublished !== undefined && { isPublished: data.isPublished })
+        ...(data.isPublished !== undefined && { isPublished: data.isPublished }),
+        ...(data.courseImage !== undefined && { courseImage: data.courseImage }),
+        ...(data.courseSections !== undefined && { courseSections: data.courseSections })
       }
     })
 
@@ -823,11 +820,11 @@ export async function deleteBootcampCourse(courseId: string) {
 export async function createBootcampCourse(data: {
   title: string
   description?: string
-  content: string
-  contentType: "TEXT" | "VIDEO" | "PDF" | "EMBED"
   domain: Domain
   order?: number
   duration?: number
+  courseImage?: string
+  isPublished?: boolean
 }) {
   try {
     const { getUser } = getKindeServerSession()
@@ -850,11 +847,11 @@ export async function createBootcampCourse(data: {
       data: {
         title: data.title,
         description: data.description,
-        content: data.content,
-        contentType: data.contentType,
         domain: data.domain,
         order: data.order || 0,
         duration: data.duration,
+        courseImage: data.courseImage,
+        isPublished: data.isPublished || false,
         createdById: dbUser.id
       }
     })

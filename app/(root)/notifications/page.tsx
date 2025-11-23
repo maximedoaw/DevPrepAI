@@ -191,7 +191,6 @@ const InvitationsPage = () => {
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="h-8 w-8 animate-spin text-emerald-600 dark:text-emerald-400 mx-auto mb-4" />
-          <p className="text-slate-600 dark:text-slate-400">Chargement des invitations...</p>
         </div>
       </div>
     )
@@ -435,7 +434,6 @@ const InvitationsPage = () => {
                               {acceptMutation.isPending ? (
                                 <>
                                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                                  Traitement...
                                 </>
                               ) : (
                                 <>
@@ -453,7 +451,6 @@ const InvitationsPage = () => {
                               {declineMutation.isPending ? (
                                 <>
                                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                                  Traitement...
                                 </>
                               ) : (
                                 <>

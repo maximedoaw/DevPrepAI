@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url = env("DATABASE_URL")
 }
 
 enum SubscriptionTier {
@@ -94,7 +94,6 @@ enum CourseContentType {
   TEXT
   VIDEO
   PDF
-  EMBED
 }
 
 enum BootcampEnrollmentStatus {
@@ -552,8 +551,6 @@ model BootcampCourse {
   id               String              @id @default(cuid())
   title            String
   description      String?
-  content          String               // Contenu principal (texte, URL vidéo, URL PDF, embed code)
-  contentType      CourseContentType
   domain           Domain
   order            Int                  @default(0)
   duration         Int?                 // Durée en minutes
@@ -561,7 +558,8 @@ model BootcampCourse {
   createdById      String?              // ID de l'utilisateur qui a créé le cours (optionnel temporairement pour migration)
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
-  
+  courseImage      String?              // URL de l'image du cours (uploadthing)
+  courseSections   Json?
   // Relations
   createdBy        User?               @relation("BootcampCourseCreator", fields: [createdById], references: [id], onDelete: Cascade)
   courseViews      BootcampCourseView[]
