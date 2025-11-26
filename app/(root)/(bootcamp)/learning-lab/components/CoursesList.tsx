@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   BookOpen,
   Edit, Trash2, Eye, EyeOff, Clock, User, MoreVertical, List
@@ -361,12 +361,27 @@ export function CoursesListWithSections({ courses, onRefresh, bootcampDomains }:
     setSelectedCourseForSections(null)
   }
 
+  const handleUpdateSections = async () => {
+    // Recharger les cours
+    await onRefresh()
+  }
+
+  // Mettre à jour le cours sélectionné quand les cours changent
+  useEffect(() => {
+    if (selectedCourseForSections && courses.length > 0) {
+      const updatedCourse = courses.find(c => c.id === selectedCourseForSections.id)
+      if (updatedCourse) {
+        setSelectedCourseForSections(updatedCourse)
+      }
+    }
+  }, [courses, selectedCourseForSections?.id])
+
   // Si on affiche les sections, montrer CourseSectionsManager
   if (isViewingSections && selectedCourseForSections) {
     return (
       <CourseSectionsManager
         course={selectedCourseForSections}
-        onUpdate={onRefresh}
+        onUpdate={handleUpdateSections}
         onBack={handleBackToList}
       />
     )

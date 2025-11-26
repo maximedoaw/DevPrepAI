@@ -598,6 +598,7 @@ export async function getBootcampCourses(domain?: Domain, userId?: string) {
             bc.duration,
             bc."isPublished",
             bc."courseImage",
+            bc."courseSections",
             bc."createdById",
             bc."createdAt",
             bc."updatedAt",
@@ -640,6 +641,7 @@ export async function getBootcampCourses(domain?: Domain, userId?: string) {
             duration: course.duration,
             isPublished: course.isPublished,
             courseImage: course.courseImage,
+            courseSections: course.courseSections, // Ajouter courseSections
             createdById: course.createdById,
             createdAt: course.createdAt,
             updatedAt: course.updatedAt,
@@ -667,6 +669,7 @@ export async function getBootcampCourses(domain?: Domain, userId?: string) {
             duration: course.duration,
             isPublished: course.isPublished,
             courseImage: course.courseImage,
+            courseSections: course.courseSections, // Ajouter courseSections
             createdById: course.createdById,
             createdAt: course.createdAt,
             updatedAt: course.updatedAt,

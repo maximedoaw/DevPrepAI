@@ -47,7 +47,8 @@ const pricingPlans: PricingPlan[] = [
       "10 simulations d'entretien IA/mois",
       "Matching avancé avec recruteurs",
       "Support prioritaire",
-      "Analytics de profil"
+      "Analytics de profil",
+      "Acces a un eventail de formation dans differents domaines"
     ],
     highlighted: true,
     cta: "Choisir Pro",
@@ -100,7 +101,8 @@ const pricingPlans: PricingPlan[] = [
       "Sessions d'entretiens simulés",
       "Suivi pédagogique analytics",
       "Accès entreprises partenaires",
-      "Support dédié établissement"
+      "Support dédié établissement",
+      "Module avancé d'élaboration de formation avec IA"
     ],
     highlighted: false,
     cta: "Devenir partenaire",
