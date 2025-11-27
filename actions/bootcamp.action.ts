@@ -288,8 +288,7 @@ export async function getParticipantDetails(userId: string) {
                 id: true,
                 title: true,
                 description: true,
-                domain: true,
-                contentType: true
+                domain: true
               }
             }
           },
@@ -1425,6 +1424,372 @@ export async function undoInvitationResponse(invitationId: string) {
   } catch (error) {
     console.error("Error undoing invitation response:", error)
     return { success: false, error: "Erreur lors de l'annulation de la réponse" }
+  }
+}
+
+// Récupérer les bootcamps dont le candidat est membre
+export async function getCandidateBootcamps() {
+  try {
+    const { getUser } = getKindeServerSession()
+    const user = await getUser()
+    
+    if (!user?.id) {
+      return { success: false, error: "Non autorisé" }
+    }
+
+    // Récupérer l'utilisateur connecté depuis la base de données
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        role: true
+      }
+    })
+
+    if (!dbUser) {
+      return { success: false, error: "Utilisateur non trouvé" }
+    }
+
+    // Récupérer les invitations acceptées
+    const acceptedInvitations = await (prisma as any).bootcampInvitation.findMany({
+      where: {
+        candidateId: dbUser.id,
+        status: "ACCEPTED"
+      },
+      include: {
+        bootcamp: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            imageUrl: true,
+            domains: true,
+            role: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+
+    // Filtrer pour ne garder que les bootcamps avec le rôle BOOTCAMP
+    const bootcamps = acceptedInvitations
+      .map((inv: any) => inv.bootcamp)
+      .filter((bootcamp: any) => bootcamp && bootcamp.role === "BOOTCAMP")
+      .map((bootcamp: any) => ({
+        id: bootcamp.id,
+        firstName: bootcamp.firstName,
+        lastName: bootcamp.lastName,
+        email: bootcamp.email,
+        imageUrl: bootcamp.imageUrl,
+        domains: bootcamp.domains,
+        name: `${bootcamp.firstName || ''} ${bootcamp.lastName || ''}`.trim() || bootcamp.email
+      }))
+
+    // Supprimer les doublons basés sur l'ID
+    const uniqueBootcamps = Array.from(
+      new Map(bootcamps.map((b: any) => [b.id, b])).values()
+    )
+
+    return { success: true, data: uniqueBootcamps }
+  } catch (error) {
+    console.error("Error fetching candidate bootcamps:", error)
+    return { success: false, error: "Erreur lors de la récupération des bootcamps" }
+  }
+}
+
+// Récupérer les cours publiés par les bootcamps dont le candidat est membre
+export async function getCandidateBootcampCourses() {
+  try {
+    const { getUser } = getKindeServerSession()
+    const user = await getUser()
+    
+    if (!user?.id) {
+      return { success: false, error: "Non autorisé" }
+    }
+
+    // Récupérer les bootcamps membres
+    const bootcampsResult = await getCandidateBootcamps()
+    if (!bootcampsResult.success || !bootcampsResult.data) {
+      return { success: false, error: "Erreur lors de la récupération des bootcamps" }
+    }
+
+    const bootcampIds = bootcampsResult.data.map((b: any) => b.id)
+
+    if (bootcampIds.length === 0) {
+      return { success: true, data: [] }
+    }
+
+    // Récupérer tous les cours publiés par ces bootcamps
+    const courses = await (prisma.bootcampCourse.findMany as any)({
+      where: {
+        createdById: {
+          in: bootcampIds
+        },
+        isPublished: true
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            imageUrl: true
+          }
+        },
+        courseViews: {
+          where: {
+            userId: user.id
+          },
+          select: {
+            progress: true,
+            completedAt: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+
+    // Formater les cours avec les informations du bootcamp
+    const formattedCourses = courses.map((course: any) => ({
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      domain: course.domain,
+      order: course.order,
+      duration: course.duration,
+      isPublished: course.isPublished,
+      courseImage: course.courseImage,
+      courseSections: course.courseSections,
+      createdAt: course.createdAt,
+      updatedAt: course.updatedAt,
+      bootcamp: course.createdBy,
+      progress: course.courseViews?.[0]?.progress || 0,
+      completedAt: course.courseViews?.[0]?.completedAt || null
+    }))
+
+    return { success: true, data: formattedCourses }
+  } catch (error) {
+    console.error("Error fetching candidate bootcamp courses:", error)
+    return { success: false, error: "Erreur lors de la récupération des cours" }
+  }
+}
+
+// Vérifier si un candidat est membre d'un bootcamp spécifique
+export async function isCandidateMemberOfBootcamp(bootcampId: string) {
+  try {
+    const { getUser } = getKindeServerSession()
+    const user = await getUser()
+    
+    if (!user?.id) {
+      return { success: false, error: "Non autorisé", isMember: false }
+    }
+
+    // Récupérer l'utilisateur connecté depuis la base de données
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        role: true
+      }
+    })
+
+    if (!dbUser) {
+      return { success: false, error: "Utilisateur non trouvé", isMember: false }
+    }
+
+    // Vérifier si le bootcamp existe et a le rôle BOOTCAMP
+    const bootcamp = await prisma.user.findUnique({
+      where: { id: bootcampId },
+      select: {
+        id: true,
+        role: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        imageUrl: true,
+        domains: true
+      }
+    })
+
+    if (!bootcamp || bootcamp.role !== "BOOTCAMP") {
+      return { success: false, error: "Bootcamp non trouvé ou invalide", isMember: false }
+    }
+
+    // Vérifier si le candidat a une invitation acceptée pour ce bootcamp
+    const invitation = await (prisma as any).bootcampInvitation.findUnique({
+      where: {
+        bootcampId_candidateId: {
+          bootcampId: bootcampId,
+          candidateId: dbUser.id
+        }
+      }
+    })
+
+    const isMember = invitation?.status === "ACCEPTED"
+
+    return { success: true, isMember, bootcamp }
+  } catch (error) {
+    console.error("Error checking bootcamp membership:", error)
+    return { success: false, error: "Erreur lors de la vérification de l'appartenance", isMember: false }
+  }
+}
+
+// Récupérer les cours publiés d'un bootcamp spécifique (pour un candidat membre)
+export async function getBootcampCoursesForCandidate(bootcampId: string) {
+  try {
+    const { getUser } = getKindeServerSession()
+    const user = await getUser()
+    
+    if (!user?.id) {
+      return { success: false, error: "Non autorisé" }
+    }
+
+    // Vérifier que le candidat est membre
+    const membershipCheck = await isCandidateMemberOfBootcamp(bootcampId)
+    if (!membershipCheck.success || !membershipCheck.isMember) {
+      return { success: false, error: "Vous n'êtes pas membre de ce bootcamp" }
+    }
+
+    // Récupérer les cours publiés du bootcamp
+    const courses = await (prisma.bootcampCourse.findMany as any)({
+      where: {
+        createdById: bootcampId,
+        isPublished: true
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            imageUrl: true
+          }
+        },
+        courseViews: {
+          where: {
+            userId: user.id
+          },
+          select: {
+            progress: true,
+            completedAt: true
+          }
+        }
+      },
+      orderBy: {
+        order: 'asc'
+      }
+    })
+
+    // Formater les cours avec le progrès
+    const formattedCourses = courses.map((course: any) => ({
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      domain: course.domain,
+      order: course.order,
+      duration: course.duration,
+      isPublished: course.isPublished,
+      courseImage: course.courseImage,
+      courseSections: course.courseSections,
+      createdAt: course.createdAt,
+      updatedAt: course.updatedAt,
+      bootcamp: course.createdBy,
+      progress: course.courseViews?.[0]?.progress || 0,
+      completedAt: course.courseViews?.[0]?.completedAt || null
+    }))
+
+    return { success: true, data: formattedCourses, bootcamp: membershipCheck.bootcamp }
+  } catch (error) {
+    console.error("Error fetching bootcamp courses for candidate:", error)
+    return { success: false, error: "Erreur lors de la récupération des cours" }
+  }
+}
+
+// Récupérer un cours spécifique par ID (pour un candidat membre)
+export async function getCourseByIdForCandidate(courseId: string) {
+  try {
+    const { getUser } = getKindeServerSession()
+    const user = await getUser()
+    
+    if (!user?.id) {
+      return { success: false, error: "Non autorisé" }
+    }
+
+    // Récupérer le cours
+    const course = await (prisma.bootcampCourse.findUnique as any)({
+      where: { id: courseId },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            imageUrl: true,
+            role: true
+          }
+        },
+        courseViews: {
+          where: {
+            userId: user.id
+          },
+          select: {
+            progress: true,
+            completedAt: true
+          }
+        }
+      }
+    })
+
+    if (!course) {
+      return { success: false, error: "Cours non trouvé" }
+    }
+
+    // Vérifier que le cours est publié
+    if (!course.isPublished) {
+      return { success: false, error: "Ce cours n'est pas encore publié" }
+    }
+
+    // Vérifier que le créateur est un bootcamp
+    if (course.createdBy?.role !== "BOOTCAMP") {
+      return { success: false, error: "Cours invalide" }
+    }
+
+    // Vérifier que le candidat est membre du bootcamp
+    const membershipCheck = await isCandidateMemberOfBootcamp(course.createdById)
+    if (!membershipCheck.success || !membershipCheck.isMember) {
+      return { success: false, error: "Vous n'êtes pas membre de ce bootcamp" }
+    }
+
+    // Formater le cours
+    const formattedCourse = {
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      domain: course.domain,
+      order: course.order,
+      duration: course.duration,
+      isPublished: course.isPublished,
+      courseImage: course.courseImage,
+      courseSections: course.courseSections,
+      createdAt: course.createdAt,
+      updatedAt: course.updatedAt,
+      bootcamp: course.createdBy,
+      progress: course.courseViews?.[0]?.progress || 0,
+      completedAt: course.courseViews?.[0]?.completedAt || null
+    }
+
+    return { success: true, data: formattedCourse }
+  } catch (error) {
+    console.error("Error fetching course by ID for candidate:", error)
+    return { success: false, error: "Erreur lors de la récupération du cours" }
   }
 }
 

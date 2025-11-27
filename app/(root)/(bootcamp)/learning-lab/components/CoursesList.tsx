@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { 
   BookOpen,
-  Edit, Trash2, Eye, EyeOff, Clock, User, MoreVertical, List
+  Edit, Trash2, Eye, EyeOff, Clock, User, MoreVertical, List, Users
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -198,12 +198,15 @@ export function CoursesList({ courses, onRefresh, bootcampDomains, onManageSecti
               <div className="relative">
                 <CourseImageDisplay course={course} />
                 {/* Status Badge on Image */}
-                <div className="absolute top-2 right-2 z-30">
+                <div className="absolute top-2 right-2 z-30 flex flex-col gap-2">
                   {course.isPublished ? (
-                    <Badge className="bg-emerald-500 text-white text-xs shadow-lg">
-                      <Eye className="h-3 w-3 mr-1" />
-                      Publié
-                    </Badge>
+                    <>
+                      <Badge className="bg-emerald-500 text-white text-xs shadow-lg">
+                        <Eye className="h-3 w-3 mr-1" />
+                        Publié
+                      </Badge>
+
+                    </>
                   ) : (
                     <Badge variant="outline" className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border-slate-300 dark:border-slate-600 text-xs">
                       <EyeOff className="h-3 w-3 mr-1" />
@@ -308,12 +311,19 @@ export function CoursesList({ courses, onRefresh, bootcampDomains, onManageSecti
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <span>Ordre: {course.order}</span>
-                  {course._count && course._count.courseViews > 0 && (
-                    <span>• {course._count.courseViews} vue{course._count.courseViews > 1 ? 's' : ''}</span>
-                  )}
-                </div>
+
+                {/* Indicateur de visibilité dans les guides */}
+                {course.isPublished ? (
+                  <div className="">
+                  </div>
+                ) : (
+                  <div className="mt-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-start gap-2">
+                      <EyeOff className="h-4 w-4 text-slate-500 dark:text-slate-400 mt-0.5 flex-shrink-0" />
+
+                    </div>
+                  </div>
+                )}
 
                 {/* Bouton pour gérer les sections */}
                 <Button
