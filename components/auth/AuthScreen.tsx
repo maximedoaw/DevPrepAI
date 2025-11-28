@@ -1,5 +1,4 @@
 import React from 'react'
-import Hero from './Hero'
 import TrainingHero from './TrainingHero'
 import Features from './Features'
 import Testimonials from './Testimonials'
@@ -10,7 +9,7 @@ import FAQ from './Faq'
 import CreatorSection from './CreatorSection'
 import NewsLetters from './NewsLetters'
 import Pricing from './Pricing'
-//import { Pricing } from './Pricing'
+import Hero from './Hero'
 
 const AuthScreen = () => {
   return (
