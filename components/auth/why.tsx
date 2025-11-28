@@ -109,7 +109,7 @@ const WhySkillWokz = () => {
   ]
 
   return (
-    <section className="w-full py-20 px-4 bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100">
+    <section className="w-full py-20 px-4 bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="max-w-7xl mx-auto text-center mb-16">
         <h2 className="text-3xl md:text-5xl font-extrabold text-slate-800 dark:text-white mb-4">
           Sans <span className="text-red-500">SkillWokz</span> vs Avec{" "}

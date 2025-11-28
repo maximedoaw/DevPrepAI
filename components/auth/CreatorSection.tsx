@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function CreatorSection() {
   return (
-    <section className="w-full py-20 md:py-28 px-4 bg-gradient-to-br from-white to-emerald-50/10 dark:from-slate-950 dark:to-emerald-950/5">
+    <section className="w-full py-20 md:py-28 px-4 bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="max-w-6xl mx-auto">
         {/* Header avec "Notre histoire" souligné */}
         <div className="text-center mb-20">
@@ -27,7 +27,7 @@ export default function CreatorSection() {
           <h1 className="text-5xl md:text-6xl font-bold text-slate-800 dark:text-white mb-6 leading-tight">
             Du chaos des opportunités
             <br />
-            <span className="text-emerald-600 dark:text-emerald-400 bg-gradient-to-r from-emerald-500 to-green-500 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-emerald-500 to-green-500 bg-clip-text text-transparent">
               à la révolution des talents
             </span>
           </h1>

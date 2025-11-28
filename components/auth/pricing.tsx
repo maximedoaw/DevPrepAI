@@ -110,11 +110,11 @@ const pricingPlans: PricingPlan[] = [
   },
 ]
 
-export function Pricing() {
+export default function Pricing()  {
   const [frequency, setFrequency] = useState<Frequency>("month")
 
   return (
-    <div className="w-full bg-slate-50 dark:bg-slate-950 py-16 px-4">
+    <div className="w-full bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 py-16 px-4">
       {/* Header */}
       <div className="max-w-7xl mx-auto text-center mb-12">
         <h1 className="text-3xl md:text-5xl font-bold text-slate-900 dark:text-white mb-4">
@@ -240,3 +240,4 @@ export function Pricing() {
     </div>
   )
 }
+

@@ -154,7 +154,7 @@ export default function Testimonials() {
   return (
     <section 
       ref={containerRef}
-      className="relative py-20 overflow-hidden bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950"
+      className="relative py-20 overflow-hidden bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950"
     >
       <div className="max-w-6xl mx-auto px-6 text-center mb-14">
         <h2 className="text-4xl font-bold mb-4">
@@ -210,8 +210,8 @@ export default function Testimonials() {
 
 
       {/* Overlay gradients pour un effet de fondu sur les bords */}
-      <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-slate-50 via-blue-50 to-transparent dark:from-slate-950 dark:via-slate-900 pointer-events-none"></div>
-      <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-slate-50 via-blue-50 to-transparent dark:from-slate-950 dark:via-slate-900 pointer-events-none"></div>
+      <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-slate-50 via-emerald-50/30 to-transparent dark:from-slate-950 dark:via-slate-900 pointer-events-none"></div>
+      <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-slate-50 via-emerald-50/30 to-transparent dark:from-slate-950 dark:via-slate-900 pointer-events-none"></div>
     </section>
   )
 }
