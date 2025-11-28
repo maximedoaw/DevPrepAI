@@ -577,6 +577,7 @@ model BootcampCourseView {
   viewedAt         DateTime            @default(now())
   progress         Float               @default(0) // 0-100
   completedAt      DateTime?
+  completedLessons String[]            @default([]) // IDs des leçons complétées
   
   // Relations
   user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)

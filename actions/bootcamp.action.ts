@@ -1546,7 +1546,8 @@ export async function getCandidateBootcampCourses() {
           },
           select: {
             progress: true,
-            completedAt: true
+            completedAt: true,
+            completedLessons: true
           }
         }
       },
@@ -1678,7 +1679,8 @@ export async function getBootcampCoursesForCandidate(bootcampId: string) {
           },
           select: {
             progress: true,
-            completedAt: true
+            completedAt: true,
+            completedLessons: true
           }
         }
       },
@@ -1742,7 +1744,8 @@ export async function getCourseByIdForCandidate(courseId: string) {
           },
           select: {
             progress: true,
-            completedAt: true
+            completedAt: true,
+            completedLessons: true
           }
         }
       }
@@ -1754,7 +1757,7 @@ export async function getCourseByIdForCandidate(courseId: string) {
 
     // Vérifier que le cours est publié
     if (!course.isPublished) {
-      return { success: false, error: "Ce cours n'est pas encore publié" }
+      return { success: false, error: "Ce cours n'est pas encore publié et n'est pas accessible", isNotPublished: true }
     }
 
     // Vérifier que le créateur est un bootcamp
@@ -1783,13 +1786,109 @@ export async function getCourseByIdForCandidate(courseId: string) {
       updatedAt: course.updatedAt,
       bootcamp: course.createdBy,
       progress: course.courseViews?.[0]?.progress || 0,
-      completedAt: course.courseViews?.[0]?.completedAt || null
+      completedAt: course.courseViews?.[0]?.completedAt || null,
+      completedLessons: course.courseViews?.[0]?.completedLessons || []
     }
 
     return { success: true, data: formattedCourse }
   } catch (error) {
     console.error("Error fetching course by ID for candidate:", error)
     return { success: false, error: "Erreur lors de la récupération du cours" }
+  }
+}
+
+// Mettre à jour le progrès d'un cours pour un candidat
+export async function updateCourseProgress(courseId: string, progress: number, lessonId?: string) {
+  try {
+    const { getUser } = getKindeServerSession()
+    const user = await getUser()
+    
+    if (!user?.id) {
+      return { success: false, error: "Non autorisé" }
+    }
+
+    // Vérifier que le cours existe et est publié
+    const course = await (prisma.bootcampCourse.findUnique as any)({
+      where: { id: courseId },
+      select: {
+        id: true,
+        isPublished: true
+      }
+    })
+
+    if (!course) {
+      return { success: false, error: "Cours non trouvé" }
+    }
+
+    if (!course.isPublished) {
+      return { success: false, error: "Ce cours n'est pas publié" }
+    }
+
+    // Récupérer le createdById du cours
+    const courseWithCreator = await (prisma.bootcampCourse.findUnique as any)({
+      where: { id: courseId },
+      select: {
+        createdById: true
+      }
+    })
+
+    if (!courseWithCreator?.createdById) {
+      return { success: false, error: "Cours invalide" }
+    }
+
+    // Vérifier que le candidat est membre du bootcamp
+    const membershipCheck = await isCandidateMemberOfBootcamp(courseWithCreator.createdById)
+    if (!membershipCheck.success || !membershipCheck.isMember) {
+      return { success: false, error: "Vous n'êtes pas membre de ce bootcamp" }
+    }
+
+    // Récupérer les leçons complétées existantes
+    const existingView = await prisma.bootcampCourseView.findUnique({
+      where: {
+        userId_courseId: {
+          userId: user.id,
+          courseId: courseId
+        }
+      },
+      select: {
+        completedLessons: true
+      }
+    })
+
+    // Ajouter la leçon complétée si elle n'existe pas déjà
+    let updatedCompletedLessons = existingView?.completedLessons || []
+    if (lessonId && !updatedCompletedLessons.includes(lessonId)) {
+      updatedCompletedLessons = [...updatedCompletedLessons, lessonId]
+    }
+
+    // Mettre à jour ou créer le BootcampCourseView
+    const courseView = await prisma.bootcampCourseView.upsert({
+      where: {
+        userId_courseId: {
+          userId: user.id,
+          courseId: courseId
+        }
+      },
+      update: {
+        progress: Math.min(100, Math.max(0, progress)),
+        viewedAt: new Date(),
+        completedAt: progress >= 100 ? new Date() : null,
+        completedLessons: updatedCompletedLessons
+      },
+      create: {
+        userId: user.id,
+        courseId: courseId,
+        progress: Math.min(100, Math.max(0, progress)),
+        viewedAt: new Date(),
+        completedAt: progress >= 100 ? new Date() : null,
+        completedLessons: updatedCompletedLessons
+      }
+    })
+
+    return { success: true, data: courseView }
+  } catch (error) {
+    console.error("Error updating course progress:", error)
+    return { success: false, error: "Erreur lors de la mise à jour du progrès" }
   }
 }
 

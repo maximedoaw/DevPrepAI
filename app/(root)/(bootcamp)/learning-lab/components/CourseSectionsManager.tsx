@@ -19,6 +19,7 @@ import { updateBootcampCourse } from '@/actions/bootcamp.action'
 import { toast } from 'sonner'
 import { SubSectionDropzone } from './SubSectionDropzone'
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog'
+import { VideoPlayer } from '@/components/ui/VideoPlayer'
 
 // Enum CourseContentType (défini localement si non disponible depuis Prisma)
 enum CourseContentType {
@@ -1426,15 +1427,11 @@ export function CourseSectionsManager({ course, onUpdate, onBack }: CourseSectio
                                 {newSubSection.fileUrl && (
                                   <div className="mt-3 space-y-3">
                                     {newSubSection.type === CourseContentType.VIDEO ? (
-                                      <div className="w-full rounded-lg overflow-hidden border border-emerald-200 dark:border-emerald-800 bg-slate-900">
-                                        <video 
-                                          src={newSubSection.fileUrl} 
-                                          controls 
-                                          className="w-full h-auto max-h-[300px]"
-                                          preload="metadata"
-                                        >
-                                          Votre navigateur ne supporte pas la lecture de vidéos.
-                                        </video>
+                                      <div className="w-full rounded-lg overflow-hidden border border-emerald-200 dark:border-emerald-800">
+                                        <VideoPlayer
+                                          src={newSubSection.fileUrl}
+                                          className="max-h-[300px]"
+                                        />
                                       </div>
                                     ) : newSubSection.type === CourseContentType.PDF ? (
                                       <div className="w-full rounded-lg overflow-hidden border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-slate-900">
