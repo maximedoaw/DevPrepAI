@@ -16,6 +16,14 @@ enum SubscriptionTier {
   EXPERT
 }
 
+enum RoomType {
+  TECHNICAL_TEST
+  MOCK_INTERVIEW
+  PORTFOLIO_REVIEW
+  PROJECT_REVIEW
+  GROUP_PROJECT_REVIEW
+}
+
 enum JobType {
   FULL_TIME
   PART_TIME
@@ -509,9 +517,10 @@ model ChatSession {
 model InterviewRoom {
   id               String              @id @default(cuid())
   userId           String
-  roomType         InterviewRoomType
+  roomType         RoomType
   roomData         Json
-  participants     Json?
+  trainers         Json?
+  candidates       Json?
   startedAt        DateTime            @default(now())
   endedAt          DateTime?
   recordingUrl     String?
@@ -568,7 +577,7 @@ model BootcampCourse {
   @@index([isPublished])
   @@index([createdById])
   @@map("bootcamp_courses")
-}
+} 
 
 model BootcampCourseView {
   id               String              @id @default(cuid())

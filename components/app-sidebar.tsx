@@ -532,7 +532,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         path: "/learning-lab",
       },
       {
-        id: "room",
+        id: "rooms",
         title: "Salles (Rooms)",
         description: "Salons d'interview et environnements de test en direct — mock, live-coding, enregistrements",
         icon: MonitorPlay,
