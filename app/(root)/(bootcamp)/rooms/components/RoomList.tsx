@@ -303,8 +303,7 @@ export function RoomList({ rooms, onCreateClick, trainers, candidates }: RoomLis
             return (
               <Card
                 key={room.id}
-                className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-emerald-200 dark:border-emerald-800 shadow-lg hover:shadow-xl transition-all flex flex-col cursor-pointer"
-                onClick={() => router.push(`/rooms/${room.id}`)}
+                className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-emerald-200 dark:border-emerald-800 shadow-lg hover:shadow-xl transition-all flex flex-col"
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
@@ -406,7 +405,7 @@ export function RoomList({ rooms, onCreateClick, trainers, candidates }: RoomLis
                       router.push(`/rooms/${room.id}`)
                     }}
                     disabled={isEnded}
-                    className="mt-3 w-full bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`${isEnded ? 'bg-slate-200 dark:bg-slate-700' : 'mt-3 w-full bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white disabled:opacity-50 disabled:cursor-not-allowed'}`}
                     size="sm"
                   >
                     <Video className="h-4 w-4 mr-2" />

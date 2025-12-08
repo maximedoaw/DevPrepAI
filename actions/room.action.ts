@@ -4,6 +4,24 @@ import prisma from "@/db/prisma"
 import { RoomType } from "@prisma/client"
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server"
 
+// Messages d'erreur conviviaux
+const ERROR_MESSAGES = {
+  UNAUTHORIZED: "Vous devez être connecté pour effectuer cette action",
+  USER_NOT_FOUND: "Votre compte n'a pas été trouvé",
+  FORBIDDEN: "Vous n'avez pas les permissions nécessaires pour effectuer cette action",
+  BOOTCAMP_ONLY: "Cette fonctionnalité est réservée aux formateurs du bootcamp",
+  NOT_BOOTCAMP_OWNER: "Cette action est réservée au propriétaire du bootcamp",
+  ROOM_NOT_FOUND: "La salle de réunion demandée n'existe pas",
+  ROOM_ACCESS_DENIED: "Vous n'avez pas accès à cette salle de réunion",
+  INVALID_DATA: "Les données fournies sont incorrectes",
+  SERVER_ERROR: "Une erreur technique est survenue. Veuillez réessayer plus tard.",
+  MISSING_TRAINER: "Veuillez sélectionner au moins un formateur",
+  MISSING_CANDIDATE: "Veuillez sélectionner au moins un candidat",
+  USER_NOT_EXIST: "Certains utilisateurs sélectionnés n'existent plus",
+  NO_MEMBERS_FOUND: "Aucun membre trouvé pour votre bootcamp",
+  NO_ROOMS_FOUND: "Aucune salle de réunion n'a été créée"
+}
+
 // Récupérer les membres du bootcamp (candidats et formateurs)
 export async function getBootcampMembers() {
   try {
@@ -11,7 +29,10 @@ export async function getBootcampMembers() {
     const user = await getUser()
     
     if (!user?.id) {
-      return { success: false, error: "Non autorisé" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.UNAUTHORIZED 
+      }
     }
 
     // Récupérer l'utilisateur connecté depuis la base de données
@@ -25,12 +46,18 @@ export async function getBootcampMembers() {
     })
 
     if (!dbUser) {
-      return { success: false, error: "Utilisateur non trouvé" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.USER_NOT_FOUND 
+      }
     }
 
     // Vérifier que l'utilisateur a le rôle BOOTCAMP
     if (dbUser.role !== "BOOTCAMP") {
-      return { success: false, error: "Seuls les utilisateurs avec le rôle BOOTCAMP peuvent accéder à cette fonctionnalité" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.BOOTCAMP_ONLY 
+      }
     }
 
     const bootcampDomains = (dbUser.domains as any[]) || []
@@ -90,11 +117,19 @@ export async function getBootcampMembers() {
         role: true,
         domains: true
       },
-      take: 49 // Limiter à 49 autres formateurs (50 total avec l'utilisateur connecté)
+      take: 49
     })
 
     // Combiner l'utilisateur connecté avec les autres formateurs
     const trainers = currentUser ? [currentUser, ...otherTrainers] : otherTrainers
+
+    // Vérifier si des membres ont été trouvés
+    if (candidates.length === 0 && trainers.length === 0) {
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.NO_MEMBERS_FOUND 
+      }
+    }
 
     return { 
       success: true, 
@@ -104,10 +139,10 @@ export async function getBootcampMembers() {
       }
     }
   } catch (error) {
-    console.error("[getBootcampMembers] Error:", error)
+    console.error("[getBootcampMembers] Erreur technique:", error)
     return { 
       success: false, 
-      error: `Erreur lors de la récupération des membres: ${error instanceof Error ? error.message : 'Erreur inconnue'}` 
+      error: ERROR_MESSAGES.SERVER_ERROR 
     }
   }
 }
@@ -125,7 +160,18 @@ export async function createInterviewRoom(data: {
     const user = await getUser()
     
     if (!user?.id) {
-      return { success: false, error: "Non autorisé" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.UNAUTHORIZED 
+      }
+    }
+
+    // Vérifier les données obligatoires
+    if (!data.roomType) {
+      return { 
+        success: false, 
+        error: "Veuillez spécifier le type de réunion" 
+      }
     }
 
     // Récupérer l'utilisateur connecté depuis la base de données
@@ -138,21 +184,33 @@ export async function createInterviewRoom(data: {
     })
 
     if (!dbUser) {
-      return { success: false, error: "Utilisateur non trouvé" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.USER_NOT_FOUND 
+      }
     }
 
     // Vérifier que l'utilisateur a le rôle BOOTCAMP
     if (dbUser.role !== "BOOTCAMP") {
-      return { success: false, error: "Seuls les utilisateurs avec le rôle BOOTCAMP peuvent créer des rooms" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.BOOTCAMP_ONLY 
+      }
     }
 
     // Vérifier qu'il y a au moins un formateur et un candidat
-    if (data.trainerIds.length === 0) {
-      return { success: false, error: "Au moins un formateur est requis" }
+    if (!data.trainerIds || data.trainerIds.length === 0) {
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.MISSING_TRAINER 
+      }
     }
 
-    if (data.candidateIds.length === 0) {
-      return { success: false, error: "Au moins un candidat est requis" }
+    if (!data.candidateIds || data.candidateIds.length === 0) {
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.MISSING_CANDIDATE 
+      }
     }
 
     // Vérifier que les formateurs existent
@@ -170,7 +228,10 @@ export async function createInterviewRoom(data: {
     })
 
     if (trainers.length !== data.trainerIds.length) {
-      return { success: false, error: "Certains formateurs n'existent pas" }
+      return { 
+        success: false, 
+        error: "Certains formateurs sélectionnés ne sont plus disponibles" 
+      }
     }
 
     // Vérifier que les candidats existent
@@ -188,7 +249,10 @@ export async function createInterviewRoom(data: {
     })
 
     if (candidates.length !== data.candidateIds.length) {
-      return { success: false, error: "Certains candidats n'existent pas" }
+      return { 
+        success: false, 
+        error: "Certains candidats sélectionnés ne sont plus disponibles" 
+      }
     }
 
     // Créer la room
@@ -215,12 +279,25 @@ export async function createInterviewRoom(data: {
       }
     })
 
-    return { success: true, data: room }
+    return { 
+      success: true, 
+      data: room,
+      message: "La salle de réunion a été créée avec succès"
+    }
   } catch (error) {
-    console.error("[createInterviewRoom] Error:", error)
+    console.error("[createInterviewRoom] Erreur technique:", error)
+    
+    // Message plus spécifique pour les erreurs de validation
+    if (error instanceof Error && error.message.includes("Prisma")) {
+      return { 
+        success: false, 
+        error: "Les données fournies sont incorrectes. Veuillez vérifier vos informations." 
+      }
+    }
+    
     return { 
       success: false, 
-      error: `Erreur lors de la création de la room: ${error instanceof Error ? error.message : 'Erreur inconnue'}` 
+      error: ERROR_MESSAGES.SERVER_ERROR 
     }
   }
 }
@@ -238,7 +315,17 @@ export async function updateInterviewRoom(roomId: string, data: {
     const user = await getUser()
     
     if (!user?.id) {
-      return { success: false, error: "Non autorisé" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.UNAUTHORIZED 
+      }
+    }
+
+    if (!roomId) {
+      return { 
+        success: false, 
+        error: "Identifiant de la salle manquant" 
+      }
     }
 
     // Récupérer l'utilisateur connecté depuis la base de données
@@ -251,12 +338,18 @@ export async function updateInterviewRoom(roomId: string, data: {
     })
 
     if (!dbUser) {
-      return { success: false, error: "Utilisateur non trouvé" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.USER_NOT_FOUND 
+      }
     }
 
     // Vérifier que l'utilisateur a le rôle BOOTCAMP
     if (dbUser.role !== "BOOTCAMP") {
-      return { success: false, error: "Seuls les utilisateurs avec le rôle BOOTCAMP peuvent modifier des rooms" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.BOOTCAMP_ONLY 
+      }
     }
 
     // Vérifier que la room existe et appartient au bootcamp
@@ -269,11 +362,17 @@ export async function updateInterviewRoom(roomId: string, data: {
     })
 
     if (!existingRoom) {
-      return { success: false, error: "Room non trouvée" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.ROOM_NOT_FOUND 
+      }
     }
 
     if (existingRoom.userId !== dbUser.id) {
-      return { success: false, error: "Vous n'êtes pas autorisé à modifier cette room" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.NOT_BOOTCAMP_OWNER 
+      }
     }
 
     // Préparer les données de mise à jour
@@ -294,7 +393,10 @@ export async function updateInterviewRoom(roomId: string, data: {
     // Mettre à jour les formateurs si fournis
     if (data.trainerIds) {
       if (data.trainerIds.length === 0) {
-        return { success: false, error: "Au moins un formateur est requis" }
+        return { 
+          success: false, 
+          error: ERROR_MESSAGES.MISSING_TRAINER 
+        }
       }
 
       const trainers = await prisma.user.findMany({
@@ -311,7 +413,10 @@ export async function updateInterviewRoom(roomId: string, data: {
       })
 
       if (trainers.length !== data.trainerIds.length) {
-        return { success: false, error: "Certains formateurs n'existent pas" }
+        return { 
+          success: false, 
+          error: "Certains formateurs sélectionnés ne sont plus disponibles" 
+        }
       }
 
       updateData.trainers = trainers.map(t => ({
@@ -326,7 +431,10 @@ export async function updateInterviewRoom(roomId: string, data: {
     // Mettre à jour les candidats si fournis
     if (data.candidateIds) {
       if (data.candidateIds.length === 0) {
-        return { success: false, error: "Au moins un candidat est requis" }
+        return { 
+          success: false, 
+          error: ERROR_MESSAGES.MISSING_CANDIDATE 
+        }
       }
 
       const candidates = await prisma.user.findMany({
@@ -343,7 +451,10 @@ export async function updateInterviewRoom(roomId: string, data: {
       })
 
       if (candidates.length !== data.candidateIds.length) {
-        return { success: false, error: "Certains candidats n'existent pas" }
+        return { 
+          success: false, 
+          error: "Certains candidats sélectionnés ne sont plus disponibles" 
+        }
       }
 
       updateData.candidates = candidates.map(c => ({
@@ -355,18 +466,38 @@ export async function updateInterviewRoom(roomId: string, data: {
       }))
     }
 
+    // Vérifier s'il y a des données à mettre à jour
+    if (Object.keys(updateData).length === 0) {
+      return { 
+        success: false, 
+        error: "Aucune modification à appliquer" 
+      }
+    }
+
     // Mettre à jour la room
     const updatedRoom = await prisma.interviewRoom.update({
       where: { id: roomId },
       data: updateData
     })
 
-    return { success: true, data: updatedRoom }
+    return { 
+      success: true, 
+      data: updatedRoom,
+      message: "La salle de réunion a été mise à jour avec succès"
+    }
   } catch (error) {
-    console.error("[updateInterviewRoom] Error:", error)
+    console.error("[updateInterviewRoom] Erreur technique:", error)
+    
+    if (error instanceof Error && error.message.includes("Prisma")) {
+      return { 
+        success: false, 
+        error: "Impossible de mettre à jour la salle. Veuillez vérifier vos données." 
+      }
+    }
+    
     return { 
       success: false, 
-      error: `Erreur lors de la mise à jour de la room: ${error instanceof Error ? error.message : 'Erreur inconnue'}` 
+      error: ERROR_MESSAGES.SERVER_ERROR 
     }
   }
 }
@@ -378,7 +509,17 @@ export async function deleteInterviewRoom(roomId: string) {
     const user = await getUser()
     
     if (!user?.id) {
-      return { success: false, error: "Non autorisé" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.UNAUTHORIZED 
+      }
+    }
+
+    if (!roomId) {
+      return { 
+        success: false, 
+        error: "Identifiant de la salle manquant" 
+      }
     }
 
     // Récupérer l'utilisateur connecté depuis la base de données
@@ -391,12 +532,18 @@ export async function deleteInterviewRoom(roomId: string) {
     })
 
     if (!dbUser) {
-      return { success: false, error: "Utilisateur non trouvé" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.USER_NOT_FOUND 
+      }
     }
 
     // Vérifier que l'utilisateur a le rôle BOOTCAMP
     if (dbUser.role !== "BOOTCAMP") {
-      return { success: false, error: "Seuls les utilisateurs avec le rôle BOOTCAMP peuvent supprimer des rooms" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.BOOTCAMP_ONLY 
+      }
     }
 
     // Vérifier que la room existe et appartient au bootcamp
@@ -409,11 +556,17 @@ export async function deleteInterviewRoom(roomId: string) {
     })
 
     if (!existingRoom) {
-      return { success: false, error: "Room non trouvée" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.ROOM_NOT_FOUND 
+      }
     }
 
     if (existingRoom.userId !== dbUser.id) {
-      return { success: false, error: "Vous n'êtes pas autorisé à supprimer cette room" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.NOT_BOOTCAMP_OWNER 
+      }
     }
 
     // Supprimer la room
@@ -421,12 +574,23 @@ export async function deleteInterviewRoom(roomId: string) {
       where: { id: roomId }
     })
 
-    return { success: true }
+    return { 
+      success: true,
+      message: "La salle de réunion a été supprimée avec succès"
+    }
   } catch (error) {
-    console.error("[deleteInterviewRoom] Error:", error)
+    console.error("[deleteInterviewRoom] Erreur technique:", error)
+    
+    if (error instanceof Error && error.message.includes("Prisma")) {
+      return { 
+        success: false, 
+        error: "Impossible de supprimer la salle. Elle est peut-être déjà utilisée." 
+      }
+    }
+    
     return { 
       success: false, 
-      error: `Erreur lors de la suppression de la room: ${error instanceof Error ? error.message : 'Erreur inconnue'}` 
+      error: ERROR_MESSAGES.SERVER_ERROR 
     }
   }
 }
@@ -438,7 +602,10 @@ export async function getBootcampRooms() {
     const user = await getUser()
     
     if (!user?.id) {
-      return { success: false, error: "Non autorisé" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.UNAUTHORIZED 
+      }
     }
 
     // Récupérer l'utilisateur connecté depuis la base de données
@@ -451,12 +618,18 @@ export async function getBootcampRooms() {
     })
 
     if (!dbUser) {
-      return { success: false, error: "Utilisateur non trouvé" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.USER_NOT_FOUND 
+      }
     }
 
     // Vérifier que l'utilisateur a le rôle BOOTCAMP
     if (dbUser.role !== "BOOTCAMP") {
-      return { success: false, error: "Seuls les utilisateurs avec le rôle BOOTCAMP peuvent accéder à cette fonctionnalité" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.BOOTCAMP_ONLY 
+      }
     }
 
     // Récupérer les rooms créées par ce bootcamp
@@ -469,12 +642,22 @@ export async function getBootcampRooms() {
       }
     })
 
-    return { success: true, data: rooms }
+    if (rooms.length === 0) {
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.NO_ROOMS_FOUND 
+      }
+    }
+
+    return { 
+      success: true, 
+      data: rooms 
+    }
   } catch (error) {
-    console.error("[getBootcampRooms] Error:", error)
+    console.error("[getBootcampRooms] Erreur technique:", error)
     return { 
       success: false, 
-      error: `Erreur lors de la récupération des rooms: ${error instanceof Error ? error.message : 'Erreur inconnue'}` 
+      error: ERROR_MESSAGES.SERVER_ERROR 
     }
   }
 }
@@ -486,7 +669,17 @@ export async function getInterviewRoomById(roomId: string) {
     const user = await getUser()
     
     if (!user?.id) {
-      return { success: false, error: "Non autorisé" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.UNAUTHORIZED 
+      }
+    }
+
+    if (!roomId) {
+      return { 
+        success: false, 
+        error: "Identifiant de la salle manquant" 
+      }
     }
 
     // Récupérer l'utilisateur connecté depuis la base de données
@@ -499,7 +692,10 @@ export async function getInterviewRoomById(roomId: string) {
     })
 
     if (!dbUser) {
-      return { success: false, error: "Utilisateur non trouvé" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.USER_NOT_FOUND 
+      }
     }
 
     // Récupérer la room
@@ -508,27 +704,64 @@ export async function getInterviewRoomById(roomId: string) {
     })
 
     if (!room) {
-      return { success: false, error: "Room non trouvée" }
+      return { 
+        success: false, 
+        error: ERROR_MESSAGES.ROOM_NOT_FOUND 
+      }
     }
 
-    // Vérifier que l'utilisateur a le rôle BOOTCAMP ou est un candidat/formateur de la room
-    const trainers = typeof room.trainers === 'string' ? JSON.parse(room.trainers) : room.trainers || []
-    const candidates = typeof room.candidates === 'string' ? JSON.parse(room.candidates) : room.candidates || []
+    // Vérifier que l'utilisateur est autorisé à accéder à la room
+    // L'utilisateur doit être soit le propriétaire, soit dans la liste des trainers, soit dans la liste des candidates
+    let trainers: any[] = []
+    let candidates: any[] = []
     
+    // Parser les données JSON si nécessaire
+    if (room.trainers) {
+      if (typeof room.trainers === 'string') {
+        try {
+          trainers = JSON.parse(room.trainers)
+        } catch (e) {
+          trainers = []
+        }
+      } else {
+        trainers = Array.isArray(room.trainers) ? room.trainers : []
+      }
+    }
+    
+    if (room.candidates) {
+      if (typeof room.candidates === 'string') {
+        try {
+          candidates = JSON.parse(room.candidates)
+        } catch (e) {
+          candidates = []
+        }
+      } else {
+        candidates = Array.isArray(room.candidates) ? room.candidates : []
+      }
+    }
+    
+    // Vérifier les permissions
     const isOwner = room.userId === dbUser.id
-    const isTrainer = trainers.some((t: any) => t.id === dbUser.id)
-    const isCandidate = candidates.some((c: any) => c.id === dbUser.id)
+    const isTrainer = Array.isArray(trainers) && trainers.some((t: any) => t && t.id === dbUser.id)
+    const isCandidate = Array.isArray(candidates) && candidates.some((c: any) => c && c.id === dbUser.id)
 
-    if (dbUser.role !== "BOOTCAMP" && !isTrainer && !isCandidate) {
-      return { success: false, error: "Vous n'êtes pas autorisé à accéder à cette room" }
+    // Seuls le propriétaire, les trainers et les candidates peuvent accéder
+    if (!isOwner && !isTrainer && !isCandidate) {
+      return { 
+        success: false, 
+        error: "Vous n'avez pas été invité à cette réunion. Seuls les formateurs et candidats désignés peuvent y participer." 
+      }
     }
 
-    return { success: true, data: room }
+    return { 
+      success: true, 
+      data: room 
+    }
   } catch (error) {
-    console.error("[getInterviewRoomById] Error:", error)
+    console.error("[getInterviewRoomById] Erreur technique:", error)
     return { 
       success: false, 
-      error: `Erreur lors de la récupération de la room: ${error instanceof Error ? error.message : 'Erreur inconnue'}` 
+      error: ERROR_MESSAGES.SERVER_ERROR 
     }
   }
 }

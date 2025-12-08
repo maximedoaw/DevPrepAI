@@ -1,5 +1,4 @@
 import React from 'react'
-import { redirect } from 'next/navigation'
 import { getInterviewRoomById } from '@/actions/room.action'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,6 +9,7 @@ import {
   ArrowLeft
 } from 'lucide-react'
 import Link from 'next/link'
+import RoomVideo from '../components/RoomVideo'
 
 interface RoomPageProps {
   params: {
@@ -84,35 +84,16 @@ const RoomPage = async ({ params }: RoomPageProps) => {
   // Ici, vous pouvez ajouter le contenu de la room active
   // Pour l'instant, on affiche juste un message de succès
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-emerald-200 dark:border-emerald-800 shadow-xl">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl text-slate-800 dark:text-white">
-              Room d'entretien
-            </CardTitle>
-            <Link href="/rooms">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Retour
-              </Button>
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-12">
-            <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Video className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-3">
-              Room active
-            </h3>
-            <p className="text-slate-600 dark:text-slate-400">
-              Le contenu de la room sera affiché ici.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="h-[calc(100vh-4rem)] w-full bg-white dark:bg-slate-950">
+      <RoomVideo 
+        room={{
+          id: room.id,
+          userId: room.userId,
+          trainers: typeof room.trainers === 'string' ? JSON.parse(room.trainers) : room.trainers || [],
+          candidates: typeof room.candidates === 'string' ? JSON.parse(room.candidates) : room.candidates || []
+        }}
+        roomTitle={room?.roomData?.title}
+      />
     </div>
   )
 }

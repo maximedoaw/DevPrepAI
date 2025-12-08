@@ -8,12 +8,16 @@ export async function getUserRoleAndDomains(userId: string) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true, domains: true }
+      select: { role: true, domains: true, imageUrl: true, username: true, firstName: true, lastName: true }
     });
     
     return user ? { 
       role: user.role as string, 
-      domains: user.domains as string[] 
+      domains: user.domains as string[],
+      imageUrl: user.imageUrl || null,
+      username: user.username || null,
+      firstName: user.firstName || null,
+      lastName: user.lastName || null,
     } : null;
   } catch (error) {
     console.error("Error fetching user role:", error);
@@ -27,7 +31,11 @@ export async function createOrUpdateUserWithRole(
   firstName: string,
   lastName: string,
   role: string,
-  domains: string[]
+  domains: string[],
+  onboardingDetails?: any,
+  onboardingGoals?: any,
+  username?: string,
+  imageUrl?: string
 ) {
   try {
     // Vérifier si l'utilisateur existe déjà
@@ -43,7 +51,11 @@ export async function createOrUpdateUserWithRole(
           role: role as Role,
           domains: {
             set: domains as Domain[]
-          }
+          },
+          onboardingDetails: onboardingDetails || undefined,
+          onboardingGoals: onboardingGoals || undefined,
+          username: username || undefined,
+          imageUrl: imageUrl || undefined
         },
         select: {
           id: true,
@@ -71,7 +83,11 @@ export async function createOrUpdateUserWithRole(
           role: role as Role,
           domains: {
             set: domains as Domain[]
-          }
+          },
+          onboardingDetails: onboardingDetails || undefined,
+          onboardingGoals: onboardingGoals || undefined,
+          username: username || undefined,
+          imageUrl: imageUrl || undefined
         },
         select: {
           id: true,

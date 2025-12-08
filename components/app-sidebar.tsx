@@ -687,6 +687,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
       "/notifications",
       "/help",
       "/support",
+      // /rooms est réservé au rôle BOOTCAMP uniquement
+      // /rooms/[id] est accessible aux CANDIDATE et CAREER_CHANGER invités (vérification dans la page)
     ],
     []
   );
@@ -725,6 +727,23 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     }
 
     const normalizedPath = pathname?.split("?")[0] || "/";
+
+    // Permettre l'accès à /rooms/[id] pour CANDIDATE et CAREER_CHANGER
+    // La vérification des permissions se fait dans la page elle-même
+    if ((userRole === "CANDIDATE" || userRole === "CAREER_CHANGER") && normalizedPath.startsWith("/rooms/")) {
+      setHasCheckedRoutes(true);
+      return;
+    }
+
+    // Bloquer l'accès à /rooms (sans ID) pour les non-BOOTCAMP
+    if (normalizedPath === "/rooms" && userRole !== "BOOTCAMP") {
+      if (!hasCheckedRoutes) {
+        setHasCheckedRoutes(true);
+        const fallbackRoute = sidebarOptions.find((option) => option.path)?.path || "/";
+        router.replace(fallbackRoute);
+      }
+      return;
+    }
 
     const isAllowed = allowedRoutePrefixes.some((route) => {
       if (!route) return false;
@@ -1000,15 +1019,14 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
                 <Avatar className="w-10 h-10 flex-shrink-0 shadow-md border-2 border-emerald-200 dark:border-emerald-800">
-                  <AvatarImage src={user.picture || undefined} alt={`${user.given_name} ${user.family_name}`} />
+                  <AvatarImage src={userData?.imageUrl || user.picture || undefined} alt={userData?.username || `${user.given_name} ${user.family_name}`} />
                   <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-green-600 text-white font-medium">
-                    {user.given_name?.[0]}
-                    {user.family_name?.[0]}
+                    {(userData?.username?.[0] || user.given_name?.[0] || "U").toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0 z-10 relative">
                   <div className="font-semibold text-slate-900 dark:text-white truncate">
-                    {user.given_name} {user.family_name}
+                    {userData?.username || `${userData?.firstName || user.given_name || ""} ${userData?.lastName || user.family_name || ""}`.trim() || "Utilisateur"}
                   </div>
                   <div className="text-sm text-emerald-600 dark:text-emerald-400 truncate">
                     {userRole === "CANDIDATE"

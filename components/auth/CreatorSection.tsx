@@ -149,30 +149,56 @@ export default function CreatorSection() {
           {/* Colonne droite - Avatar et citation */}
           <div className="space-y-8 sticky top-8">
             {/* Présentation créateur */}
-            <div className="p-8 bg-white dark:bg-slate-900 rounded-2xl shadow-sm">
-              <div className="text-center">
-                <div className="relative inline-block mb-6">
-                  <Avatar className="h-40 w-40">
-                    <AvatarImage src="/maximedoaw.jpg" alt="Maxime Doaw" />
-                    <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-3xl font-bold">
-                      MD
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -bottom-2 -right-2 p-2 bg-emerald-500 rounded-full shadow-lg">
-                    <Award className="h-5 w-5 text-white" />
+              <div className="p-8 bg-white dark:bg-slate-900 rounded-2xl shadow-sm">
+                <div className="text-center">
+                  <div className="relative inline-block mb-6">
+                    <Avatar className="h-40 w-40">
+                      <AvatarImage src="/maximedoaw.jpg" alt="Maxime Doaw" />
+                      <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-3xl font-bold">
+                        MD
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute -bottom-2 -right-2 p-2 bg-emerald-500 rounded-full shadow-lg">
+                      <Award className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
+                      Maxime Doaw
+                    </h3>
+                    <p className="text-emerald-600 dark:text-emerald-400 font-medium text-lg">
+                      Software Engineer & Co-Founder
+                    </p>
                   </div>
                 </div>
-                
-                <div>
-                  <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
-                    Maxime Doaw
-                  </h3>
-                  <p className="text-emerald-600 dark:text-emerald-400 font-medium text-lg">
-                    Software Engineer & Founder
-                  </p>
+              </div>
+
+              {/* Présentation Ayina */}
+              <div className="p-8 bg-white dark:bg-slate-900 rounded-2xl shadow-sm">
+                <div className="text-center">
+                  <div className="relative inline-block mb-6">
+                    <Avatar className="h-40 w-40">
+                      <AvatarImage src="/ayina.jpg" alt="Ayina" />
+                      <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-3xl font-bold">
+                        AY
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute -bottom-2 -right-2 p-2 bg-emerald-500 rounded-full shadow-lg">
+                      <Target className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
+                      Ayina Michel
+                    </h3>
+                    <p className="text-emerald-600 dark:text-emerald-400 font-medium text-lg">
+                      Directeur Marketing & Co-Founder
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
             {/* Citation avec style créatif */}
             <div className="p-8 bg-white dark:bg-slate-900 rounded-2xl shadow-sm">
@@ -188,7 +214,7 @@ export default function CreatorSection() {
               <div className="mt-12 pt-4 border-t border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
                   <div className="w-8 h-0.5 bg-emerald-400"></div>
-                  <span className="font-medium">Founder, SkillWokz</span>
+                  <span className="font-medium">Founders, SkillWokz</span>
                 </div>
               </div>
             </div>

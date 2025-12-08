@@ -131,6 +131,7 @@ model User {
   kindeId          String?             @unique
   firstName        String?
   lastName         String?
+  username         String?             
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   credits          Int                 @default(5000)
@@ -139,6 +140,11 @@ model User {
   skills           String[]
   role             Role                @default(CANDIDATE)
   domains          Domain[]
+  onboardingDetails Json?
+  onboardingGoals   Json?
+  careerProfile     Json?
+  careerProfileUpdatedAt DateTime?
+  careerProfileTestStatus String?      // PENDING, REFUSED, DONE
 
   
   // Relations
