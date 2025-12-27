@@ -2,16 +2,29 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
+import Cropper from "react-easy-crop";
+import type { Point, Area } from "react-easy-crop";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Code, Database, Calculator, BarChart3, Cpu, Palette, Cloud, Shield, 
-  MessageSquare, GitBranch, Server, Smartphone, Globe, Mail, Calendar, 
-  BookOpen, Heart, ChevronLeft, Building, School, GraduationCap, User, 
+import {
+  Code, Database, Calculator, BarChart3, Cpu, Palette, Cloud, Shield,
+  MessageSquare, GitBranch, Server, Smartphone, Globe, Mail, Calendar,
+  BookOpen, Heart, ChevronLeft, Building, School, GraduationCap, User,
   Briefcase, ArrowRight, Check, Target, Rocket, Lightbulb, Compass,
   Users, Trophy, Search, Zap, Crown, TrendingUp, Award, Target as TargetIcon,
   Clock, MapPin, DollarSign, Globe as GlobeIcon, Brain, Layers, Eye, Upload, X,
   Headphones, Video, PenTool, ShoppingBag, Car, Home, Coffee, Music,
-  FileText
+  FileText,
+  ZoomIn,
+  Trash2,
+  Tag,
+  AtSign,
+  AlertCircle,
+  Camera,
+  CheckCircle,
+  Minus,
+  Plus,
+  Move,
+  Loader
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +34,11 @@ import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { domainMapping, roleMapping } from "@/types";
 import { createOrUpdateUserWithRole } from "@/actions/user.action";
 import { useUploadThing } from "@/lib/uploadthing";
+import { Card, CardContent } from "../ui/card";
+import { Label } from "../ui/label";
+import { Slider } from "../ui/slider";
+import { Input } from "../ui/input";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 
 interface Role {
   id: string;
@@ -125,7 +143,7 @@ const domains: Domain[] = [
 
 // Messages personnalisés pour chaque rôle à l'étape 2
 const getDomainStepMessage = (roleId: string | null) => {
-  switch(roleId) {
+  switch (roleId) {
     case 'reconversion':
       return "Dans quel domaine souhaitez-vous vous reconvertir ?";
     case 'etudiant':
@@ -170,7 +188,7 @@ const roleQuestionsConfig: Record<string, RoleQuestions> = {
         { id: "retention", label: "Difficulté à retenir les talents", icon: Heart },
         { id: "budget", label: "Contraintes budgétaires", icon: DollarSign },
         { id: "technique", label: "Évaluation des compétences techniques", icon: Code },
-        { id: "diversite", label:"Manque de diversité dans les candidatures", icon: GlobeIcon },
+        { id: "diversite", label: "Manque de diversité dans les candidatures", icon: GlobeIcon },
       ]
     }
   },
@@ -218,7 +236,7 @@ const roleQuestionsConfig: Record<string, RoleQuestions> = {
     },
     step4: {
       title: "Quels sont vos objectifs prioritaires ?",
-      description: "Sélectionnez vos 3 principaux objectifs",
+      description: "Sélectionnez vos principaux objectifs",
       multiChoice: true,
       options: [
         { id: "competences", label: "Développer mes compétences techniques", icon: Code },
@@ -343,12 +361,10 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [offsetX, setOffsetX] = useState(0); // -1 to 1
-  const [offsetY, setOffsetY] = useState(0); // -1 to 1
-  const [isDragging, setIsDragging] = useState(false);
-  const [lastPos, setLastPos] = useState<{ x: number; y: number } | null>(null);
-  
+  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState<number>(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+
   const { user, isLoading } = useKindeBrowserClient();
   const { startUpload, isUploading } = useUploadThing("mediaUploader");
 
@@ -362,9 +378,11 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
   }, [user, username]);
 
   // Utilitaire de recadrage (canvas)
-  const getCroppedFile = useCallback(async (file: File, _croppedArea: any) => {
+  const getCroppedFile = useCallback(async (file: File, pixelCrop: Area | null) => {
+    if (!pixelCrop) return null;
+
     return new Promise<File | null>((resolve, reject) => {
-    const image = new Image();
+      const image = new Image();
       image.onload = () => {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
@@ -373,31 +391,19 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
           return;
         }
 
-        const minDim = Math.min(image.width, image.height);
-        const cropSize = minDim / zoom;
-
-        // Offsets en pixels (on limite l'amplitude pour rester dans l'image)
-        const maxOffset = (minDim - cropSize) / 2;
-        let cx = image.width / 2 + offsetX * maxOffset;
-        let cy = image.height / 2 + offsetY * maxOffset;
-
-        // Clamp pour éviter de sortir du cadre
-        cx = Math.min(image.width - cropSize, Math.max(0, cx - cropSize / 2));
-        cy = Math.min(image.height - cropSize, Math.max(0, cy - cropSize / 2));
-
-        canvas.width = cropSize;
-        canvas.height = cropSize;
+        canvas.width = pixelCrop.width;
+        canvas.height = pixelCrop.height;
 
         ctx.drawImage(
           image,
-          cx,
-          cy,
-          cropSize,
-          cropSize,
+          pixelCrop.x,
+          pixelCrop.y,
+          pixelCrop.width,
+          pixelCrop.height,
           0,
           0,
-          cropSize,
-          cropSize
+          pixelCrop.width,
+          pixelCrop.height
         );
 
         canvas.toBlob((blob) => {
@@ -414,8 +420,12 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
     });
   }, []);
 
+  const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
   const mutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (imageUrl?: string) => {
       if (isLoading) throw new Error("Chargement des données utilisateur en cours");
       if (!user?.id) throw new Error("ID utilisateur manquant");
       if (!user.email) throw new Error("Email utilisateur manquant");
@@ -439,7 +449,7 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
         detailsAnswer,
         goalsAnswer,
         username.trim(),
-        avatarUrl || undefined
+        imageUrl || undefined
       );
     },
     onSuccess: (data) => {
@@ -461,10 +471,8 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
     setAvatarPreview(URL.createObjectURL(file));
     setUploadError(null);
     setZoom(1);
-    setOffsetX(0);
-    setOffsetY(0);
-    setIsDragging(false);
-    setLastPos(null);
+    setCrop({ x: 0, y: 0 });
+    setCroppedAreaPixels(null);
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -492,15 +500,15 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
 
   const handleDomainToggle = (domainId: string) => {
     const currentRole = roles.find(role => role.id === selectedRole);
-    
+
     if (currentRole?.multipleDomains) {
-      setSelectedDomains(prev => 
-        prev.includes(domainId) 
+      setSelectedDomains(prev =>
+        prev.includes(domainId)
           ? prev.filter(id => id !== domainId)
           : [...prev, domainId]
       );
     } else {
-      setSelectedDomains(prev => 
+      setSelectedDomains(prev =>
         prev.includes(domainId) ? [] : [domainId]
       );
     }
@@ -514,8 +522,8 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
 
   const handleDetailsSelect = (optionId: string, multi: boolean) => {
     if (multi) {
-      setDetailsAnswer(prev => 
-        prev.includes(optionId) 
+      setDetailsAnswer(prev =>
+        prev.includes(optionId)
           ? prev.filter(id => id !== optionId)
           : [...prev, optionId]
       );
@@ -533,8 +541,8 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
 
   const handleGoalsSelect = (optionId: string, multi: boolean) => {
     if (multi) {
-      setGoalsAnswer(prev => 
-        prev.includes(optionId) 
+      setGoalsAnswer(prev =>
+        prev.includes(optionId)
           ? prev.filter(id => id !== optionId)
           : [...prev, optionId]
       );
@@ -573,10 +581,10 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
       setUploadError(null);
       let finalAvatarUrl = avatarUrl || null;
 
-      if (avatarFile) {
+      if (avatarFile && croppedAreaPixels) {
         // Recadrer l'image si une zone de crop est définie
         let fileToUpload: File = avatarFile;
-        const cropped = await getCroppedFile(avatarFile, null);
+        const cropped = await getCroppedFile(avatarFile, croppedAreaPixels);
         if (cropped) {
           fileToUpload = cropped;
         }
@@ -590,7 +598,7 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
         setAvatarUrl(finalAvatarUrl);
       }
 
-      mutation.mutate();
+      mutation.mutate(finalAvatarUrl || undefined);
     } catch (error) {
       console.error("Erreur d'upload avatar:", error);
       setUploadError("Impossible de téléverser l'avatar. Réessayez.");
@@ -598,12 +606,12 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
   };
 
   const currentRole = roles.find(role => role.id === selectedRole);
-  const currentQuestions = selectedRole && roleQuestionsConfig[selectedRole] 
-    ? roleQuestionsConfig[selectedRole] 
+  const currentQuestions = selectedRole && roleQuestionsConfig[selectedRole]
+    ? roleQuestionsConfig[selectedRole]
     : roleQuestionsConfig.etudiant;
 
   const getStepNumber = (s: string) => {
-    switch(s) {
+    switch (s) {
       case "role": return 1;
       case "domain": return 2;
       case "details": return 3;
@@ -626,13 +634,13 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
         >
           <div className="flex flex-col items-center justify-center mb-6 mt-6">
             <div className="relative w-40 h-40 mb-3">
-              <img 
-                src="/Skillwokz.png" 
+              <img
+                src="/Skillwokz.png"
                 alt="Skillwokz"
                 className="w-full h-full object-contain drop-shadow-lg"
               />
             </div>
-            
+
             <h1 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">
               Personnalisez votre expérience
             </h1>
@@ -652,17 +660,15 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
             <div className="flex items-center gap-2">
               {[1, 2, 3, 4, 5].map((num) => (
                 <React.Fragment key={num}>
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-300 ${
-                    currentStepNum >= num
-                      ? "bg-emerald-500 text-white shadow-md shadow-emerald-200 dark:shadow-emerald-900/30" 
-                      : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
-                  }`}>
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-300 ${currentStepNum >= num
+                    ? "bg-emerald-500 text-white shadow-md shadow-emerald-200 dark:shadow-emerald-900/30"
+                    : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+                    }`}>
                     <span className="text-sm font-medium">{num}</span>
                   </div>
                   {num < 5 && (
-                    <div className={`w-8 h-0.5 transition-all duration-300 ${
-                      currentStepNum > num ? "bg-emerald-300 dark:bg-emerald-500" : "bg-slate-200 dark:bg-slate-600"
-                    }`}></div>
+                    <div className={`w-8 h-0.5 transition-all duration-300 ${currentStepNum > num ? "bg-emerald-300 dark:bg-emerald-500" : "bg-slate-200 dark:bg-slate-600"
+                      }`}></div>
                   )}
                 </React.Fragment>
               ))}
@@ -685,7 +691,7 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
                   <p className="text-sm text-slate-600 dark:text-slate-400 text-center mb-6">
                     Sélectionnez le profil qui vous correspond le mieux
                   </p>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {roles.map((role) => {
                       const isSelected = selectedRole === role.id;
@@ -694,20 +700,17 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
                           key={role.id}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
-                          className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
-                            isSelected
-                              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 shadow-sm"
-                              : "border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500"
-                          }`}
+                          className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${isSelected
+                            ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 shadow-sm"
+                            : "border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500"
+                            }`}
                           onClick={() => handleRoleSelect(role.id)}
                         >
                           <div className="flex items-center gap-3 mb-2">
-                            <role.icon className={`h-5 w-5 ${
-                              isSelected ? "text-emerald-500" : "text-slate-500 dark:text-slate-400"
-                            }`} />
-                            <span className={`font-medium ${
-                              isSelected ? "text-emerald-700 dark:text-emerald-300" : "text-slate-700 dark:text-slate-300"
-                            }`}>
+                            <role.icon className={`h-5 w-5 ${isSelected ? "text-emerald-500" : "text-slate-500 dark:text-slate-400"
+                              }`} />
+                            <span className={`font-medium ${isSelected ? "text-emerald-700 dark:text-emerald-300" : "text-slate-700 dark:text-slate-300"
+                              }`}>
                               {role.name}
                             </span>
                             {isSelected && (
@@ -733,10 +736,10 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
                   className="space-y-6"
                 >
                   <div className="flex items-center gap-4 mb-6">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={handleBack} 
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleBack}
                       className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
                     >
                       <ChevronLeft className="h-4 w-4" />
@@ -754,7 +757,7 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
 
                   <div className="text-center mb-6">
                     <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-                      {currentRole.multipleDomains 
+                      {currentRole.multipleDomains
                         ? "Sélectionnez les domaines qui vous intéressent"
                         : "Choisissez votre domaine principal"}
                     </p>
@@ -772,11 +775,10 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
                           key={domain.id}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          className={`px-3 py-2.5 rounded-lg border transition-all duration-200 flex items-center gap-2 ${
-                            isSelected
-                              ? "bg-emerald-500 text-white border-emerald-500 shadow-md"
-                              : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-sm"
-                          }`}
+                          className={`px-3 py-2.5 rounded-lg border transition-all duration-200 flex items-center gap-2 ${isSelected
+                            ? "bg-emerald-500 text-white border-emerald-500 shadow-md"
+                            : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-sm"
+                            }`}
                           onClick={() => handleDomainToggle(domain.id)}
                         >
                           <domain.icon className={`h-4 w-4 ${isSelected ? "text-white" : domain.color}`} />
@@ -788,7 +790,7 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
                   </div>
 
                   <div className="flex justify-center mt-8">
-                    <Button 
+                    <Button
                       onClick={handleDomainNext}
                       disabled={selectedDomains.length === 0}
                       className="px-8 py-3 font-medium bg-emerald-500 hover:bg-emerald-600 text-white rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
@@ -809,10 +811,10 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
                   className="space-y-6"
                 >
                   <div className="flex items-center gap-4 mb-6">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={handleBack} 
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleBack}
                       className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
                     >
                       <ChevronLeft className="h-4 w-4" />
@@ -835,17 +837,15 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
                           key={option.id}
                           whileHover={{ scale: 1.01 }}
                           whileTap={{ scale: 0.99 }}
-                          className={`p-4 rounded-xl border transition-all duration-200 text-left flex items-center gap-4 ${
-                            isSelected
-                              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 shadow-sm"
-                              : "border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 hover:shadow-sm"
-                          }`}
+                          className={`p-4 rounded-xl border transition-all duration-200 text-left flex items-center gap-4 ${isSelected
+                            ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 shadow-sm"
+                            : "border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 hover:shadow-sm"
+                            }`}
                           onClick={() => handleDetailsSelect(option.id, currentQuestions.step3.multiChoice)}
                         >
                           {option.icon && (
-                            <div className={`p-2 rounded-lg ${
-                              isSelected ? "bg-emerald-100 dark:bg-emerald-800" : "bg-slate-100 dark:bg-slate-700"
-                            }`}>
+                            <div className={`p-2 rounded-lg ${isSelected ? "bg-emerald-100 dark:bg-emerald-800" : "bg-slate-100 dark:bg-slate-700"
+                              }`}>
                               <option.icon className={`h-5 w-5 ${isSelected ? "text-emerald-500" : "text-slate-500"}`} />
                             </div>
                           )}
@@ -867,7 +867,7 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
                       <p className="text-sm text-slate-500 dark:text-slate-400">
                         {detailsAnswer.length > 0 ? `${detailsAnswer.length} sélectionné(s)` : "Sélectionnez au moins une option"}
                       </p>
-                      <Button 
+                      <Button
                         onClick={handleDetailsNext}
                         disabled={detailsAnswer.length === 0}
                         className="px-6 py-2 font-medium bg-emerald-500 hover:bg-emerald-600 text-white rounded-full transition-colors shadow-sm hover:shadow-md hover:scale-105"
@@ -895,10 +895,10 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
                   className="space-y-6"
                 >
                   <div className="flex items-center gap-4 mb-6">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={handleBack} 
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleBack}
                       className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
                     >
                       <ChevronLeft className="h-4 w-4" />
@@ -921,17 +921,15 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
                           key={option.id}
                           whileHover={{ scale: 1.01 }}
                           whileTap={{ scale: 0.99 }}
-                          className={`p-4 rounded-xl border transition-all duration-200 text-left flex items-center gap-4 ${
-                            isSelected
-                              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 shadow-sm"
-                              : "border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 hover:shadow-sm"
-                          }`}
+                          className={`p-4 rounded-xl border transition-all duration-200 text-left flex items-center gap-4 ${isSelected
+                            ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 shadow-sm"
+                            : "border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 hover:shadow-sm"
+                            }`}
                           onClick={() => handleGoalsSelect(option.id, currentQuestions.step4.multiChoice)}
                         >
                           {option.icon && (
-                            <div className={`p-2 rounded-lg ${
-                              isSelected ? "bg-emerald-100 dark:bg-emerald-800" : "bg-slate-100 dark:bg-slate-700"
-                            }`}>
+                            <div className={`p-2 rounded-lg ${isSelected ? "bg-emerald-100 dark:bg-emerald-800" : "bg-slate-100 dark:bg-slate-700"
+                              }`}>
                               <option.icon className={`h-5 w-5 ${isSelected ? "text-emerald-500" : "text-slate-500"}`} />
                             </div>
                           )}
@@ -950,13 +948,13 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
 
                   <div className="flex justify-between items-center mt-8">
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                      {goalsAnswer.length > 0 
-                        ? `${goalsAnswer.length} objectif(s) sélectionné(s)` 
-                        : currentQuestions.step4.multiChoice 
+                      {goalsAnswer.length > 0
+                        ? `${goalsAnswer.length} objectif(s) sélectionné(s)`
+                        : currentQuestions.step4.multiChoice
                           ? "Sélectionnez au moins un objectif"
                           : "Sélectionnez votre objectif principal"}
                     </p>
-                    <Button 
+                    <Button
                       onClick={handleComplete}
                       disabled={goalsAnswer.length === 0}
                       className="px-6 py-2 font-medium bg-emerald-500 hover:bg-emerald-600 text-white rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
@@ -973,207 +971,219 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="space-y-6"
+                  className="space-y-8"
                 >
-                  <div className="flex items-center gap-4 mb-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => setStep("goals")} 
-                      className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
+                  {/* Header avec retour */}
+                  <div className="flex items-center gap-3 mb-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setStep("goals")}
+                      className="h-8 w-8"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <div className="flex-1">
-                      <h2 className="text-lg font-medium text-slate-900 dark:text-white">
-                        Personnalisez votre profil
+                      <h2 className="text-xl font-semibold text-foreground">
+                        Profil utilisateur
                       </h2>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Choisissez une photo de profil et un nom d'utilisateur
+                      <p className="text-sm text-muted-foreground">
+                        Personnalisez votre présence sur la plateforme
                       </p>
                     </div>
                   </div>
 
-                  {/* Avatar uploader avec recadrage style réseau social */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                      <Upload className="h-4 w-4 text-emerald-500" />
-                      Photo de profil
-                    </label>
-
-                    <div className="grid gap-4 md:grid-cols-[1.5fr_1fr]">
-                      <div
-                        className="relative w-full h-64 rounded-2xl overflow-hidden border border-emerald-200/70 dark:border-emerald-800/70 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 flex items-center justify-center select-none"
-                        onMouseDown={(e) => {
-                          setIsDragging(true);
-                          setLastPos({ x: e.clientX, y: e.clientY });
-                        }}
-                        onMouseUp={() => setIsDragging(false)}
-                        onMouseLeave={() => setIsDragging(false)}
-                        onMouseMove={(e) => {
-                          if (!isDragging || !lastPos) return;
-                          const dx = e.clientX - lastPos.x;
-                          const dy = e.clientY - lastPos.y;
-                          const scale = 0.005;
-                          setOffsetX((prev) => Math.max(-1, Math.min(1, prev + dx * scale)));
-                          setOffsetY((prev) => Math.max(-1, Math.min(1, prev + dy * scale)));
-                          setLastPos({ x: e.clientX, y: e.clientY });
-                        }}
-                      >
-                        {avatarPreview ? (
-                          <div 
-                            className="w-48 h-48 rounded-full border-4 border-emerald-400/70 shadow-[0_0_30px_rgba(16,185,129,0.25)] overflow-hidden relative"
-                            style={{
-                              backgroundImage: `url(${avatarPreview})`,
-                              backgroundSize: `${zoom * 100}%`,
-                              backgroundRepeat: "no-repeat",
-                              backgroundPosition: `${50 + offsetX * 50}% ${50 + offsetY * 50}%`,
-                              cursor: isDragging ? "grabbing" : "grab",
-                            }}
-                          />
-                        ) : (
-                          <div className="text-center text-slate-300 space-y-2">
-                            <Avatar className="w-20 h-20 mx-auto border-2 border-emerald-300/50 shadow-inner">
-                              <AvatarImage src="" alt="avatar" />
-                              <AvatarFallback className="bg-emerald-900/40 text-emerald-200">
-                                <User className="h-10 w-10" />
-                              </AvatarFallback>
-                            </Avatar>
-                            <p className="text-sm">Ajoutez une photo</p>
-                          </div>
-                        )}
-                        <div className="absolute bottom-3 left-3 text-xs text-white/80 bg-black/40 px-3 py-1 rounded-full border border-white/10 backdrop-blur">
-                          Glissez pour recadrer
-                        </div>
-                        <div className="absolute bottom-3 right-3 flex items-center gap-2 text-xs text-emerald-200 bg-emerald-600/40 px-3 py-1 rounded-full border border-emerald-200/50 backdrop-blur">
-                          <button
-                            type="button"
-                            className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setZoom((prev) => Math.max(0.8, prev - 0.1));
-                            }}
-                          >
-                            –
-                          </button>
-                          <span>Zoom</span>
-                          <button
-                            type="button"
-                            className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setZoom((prev) => Math.min(3, prev + 0.1));
-                            }}
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
+                  {/* Section Avatar */}
+                  <div className="space-y-6">
+                    {!avatarPreview ? (
+                      <div className="flex flex-col items-center justify-center">
                         <div
                           {...getRootProps()}
-                          className={`border-2 border-dashed rounded-xl p-4 cursor-pointer transition-all ${
-                            isDragActive
-                              ? "border-emerald-500 bg-emerald-50"
-                              : "border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40"
-                          }`}
+                          className={`
+                            w-full max-w-md h-72 rounded-3xl border-2 border-dashed
+                            flex flex-col items-center justify-center cursor-pointer transition-all duration-300
+                            ${isDragActive
+                              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 scale-105"
+                              : "border-slate-300 dark:border-slate-600 hover:border-emerald-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                            }
+                          `}
                         >
                           <input {...getInputProps()} />
-                          <div className="flex items-center gap-3">
-                            <Avatar className="w-12 h-12 border border-emerald-200 dark:border-emerald-800">
-                              <AvatarImage src={avatarPreview || ""} alt="avatar" />
-                              <AvatarFallback className="bg-emerald-900/30 text-emerald-200">
-                                <User className="h-6 w-6" />
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <p className="text-sm text-slate-700 dark:text-slate-200 font-medium">
-                                Déposez une image ou cliquez pour choisir
-                              </p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">
-                                PNG / JPG, max 4MB
-                              </p>
-                            </div>
+                          <div className="bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-950/20 p-5 rounded-full mb-5 shadow-lg">
+                            <Camera className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
                           </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                          <span>Glissez pour recadrer, molette pour zoomer.</span>
-                          {avatarFile && (
-                            <button
-                              onClick={() => {
-                                setAvatarFile(null);
-                                setAvatarPreview(null);
-                                setAvatarUrl(null);
-                                setZoom(1);
-                                setOffsetX(0);
-                                setOffsetY(0);
-                              }}
-                              className="text-red-500 hover:text-red-600 font-medium"
-                            >
-                              Réinitialiser
-                            </button>
-                          )}
+                          <p className="text-base font-semibold text-slate-900 dark:text-white mb-2">
+                            {isDragActive ? "Déposez votre photo" : "Ajoutez votre photo de profil"}
+                          </p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 max-w-xs text-center px-6 leading-relaxed">
+                            Cliquez ou glissez une image JPG ou PNG (max 5MB)
+                          </p>
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-3 font-medium">
+                            Une belle photo augmente vos chances ✨
+                          </p>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Cropper Container */}
+                        <div className="relative h-96 w-full bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 rounded-3xl overflow-hidden shadow-2xl border-2 border-slate-200 dark:border-slate-800">
+                          <Cropper
+                            image={avatarPreview}
+                            crop={crop}
+                            zoom={zoom}
+                            aspect={1}
+                            cropShape="round"
+                            showGrid={false}
+                            onCropChange={setCrop}
+                            onCropComplete={onCropComplete}
+                            onZoomChange={setZoom}
+                            style={{
+                              containerStyle: {
+                                background: 'transparent',
+                              },
+                              cropAreaStyle: {
+                                border: '3px solid rgb(16 185 129)',
+                                boxShadow: '0 0 0 9999em rgba(0, 0, 0, 0.75)'
+                              }
+                            }}
+                          />
+                        </div>
+
+                        {/* Controls */}
+                        <Card className="border-slate-200 dark:border-slate-700 shadow-lg">
+                          <CardContent className="pt-6 space-y-5">
+                            {/* Zoom Control */}
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                  <ZoomIn className="h-4 w-4 text-emerald-600" />
+                                  Zoom
+                                </Label>
+                                <Badge variant="secondary" className="font-mono text-xs">
+                                  {Math.round(zoom * 100)}%
+                                </Badge>
+                              </div>
+                              <Slider
+                                value={[zoom]}
+                                min={1}
+                                max={3}
+                                step={0.05}
+                                onValueChange={(value) => setZoom(value[0])}
+                                className="w-full"
+                              />
+                              <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                                <Move className="h-3 w-3" />
+                                Glissez l'image avec votre souris pour repositionner
+                              </p>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-3 pt-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setZoom(1);
+                                  setCrop({ x: 0, y: 0 });
+                                }}
+                                className="flex-1 gap-2"
+                              >
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Réinitialiser
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => {
+                                  setAvatarFile(null);
+                                  setAvatarPreview(null);
+                                  setAvatarUrl(null);
+                                  setZoom(1);
+                                  setCrop({ x: 0, y: 0 });
+                                  setCroppedAreaPixels(null);
+                                }}
+                                className="flex-1 gap-2"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Supprimer
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Username input */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {/* Section Nom d'utilisateur */}
+                  <div className="space-y-3">
+                    <Label htmlFor="username" className="text-sm font-medium">
                       Nom d'utilisateur
-                    </label>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="ex: johndoe"
-                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                    />
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Ce nom apparaîtra pour vos sessions et votre profil.
+                    </Label>
+                    <div className="relative">
+                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                        <AtSign className="h-4 w-4" />
+                      </div>
+                      <Input
+                        id="username"
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="ex: johndoe"
+                        className="pl-10 h-11"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Votre identifiant unique sur la plateforme d'apprentissage
                     </p>
                   </div>
 
+                  {/* Messages d'erreur */}
                   {uploadError && (
-                    <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                      {uploadError}
-                    </div>
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Erreur</AlertTitle>
+                      <AlertDescription>{uploadError}</AlertDescription>
+                    </Alert>
                   )}
 
                   {(mutation.isError || mutation.data?.success === false) && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-center p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg border border-red-200 dark:border-red-800 text-sm"
-                    >
-                      {mutation.data?.error || mutation.error?.message || "Une erreur s'est produite. Veuillez réessayer."}
-                    </motion.div>
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Erreur d'enregistrement</AlertTitle>
+                      <AlertDescription>
+                        {mutation.data?.error || mutation.error?.message || "Une erreur s'est produite"}
+                      </AlertDescription>
+                    </Alert>
                   )}
 
-                  <div className="flex justify-end gap-3 pt-2">
-                    <Button 
-                      variant="outline" 
+                  {/* Actions */}
+                  <div className="flex justify-between pt-6 border-t">
+                    <Button
+                      variant="outline"
                       onClick={() => setStep("goals")}
+                      className="gap-2"
                     >
+                      <ChevronLeft className="h-4 w-4" />
                       Retour
                     </Button>
-                    <Button 
+                    <Button
                       onClick={handleProfileSubmit}
-                      disabled={mutation.isPending || isUploading}
-                      className="px-6 py-2 font-medium bg-emerald-500 hover:bg-emerald-600 text-white rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+                      disabled={mutation.isPending || isUploading || !username.trim()}
+                      className="gap-2"
                     >
                       {(mutation.isPending || isUploading) ? (
                         <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          <Loader className="h-4 w-4 animate-spin" />
                           Enregistrement...
                         </>
                       ) : (
                         <>
                           Terminer
-                          <ArrowRight className="ml-2 h-4 w-4" />
+                          <Check className="h-4 w-4" />
                         </>
                       )}
                     </Button>

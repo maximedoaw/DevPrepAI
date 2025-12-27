@@ -690,6 +690,136 @@ Retourne UNIQUEMENT un JSON valide avec ce format exact (sans texte supplémenta
         );
       }
 
+    } else if (body.type === 'generate-career-plan') {
+      // ------------------------------------------------------------------
+      // NOUVELLE LOGIQUE : GÉNÉRATION DE PLAN DE CARRIÈRE
+      // ------------------------------------------------------------------
+      const { answers, onboardingContext } = body as any;
+
+      if (!answers || !Array.isArray(answers) || answers.length === 0) {
+         return NextResponse.json(
+           { error: "Le tableau 'answers' est requis et ne doit pas être vide pour générer un plan de carrière." },
+           { status: 400 }
+         );
+       }
+
+      const answersText = answers
+        .map((a: any, idx: number) => `Question ${idx + 1} (${a.questionId}): ${a.answer}`)
+        .join('\n\n');
+
+      const role = onboardingContext?.role || 'Non spécifié';
+      const domains = Array.isArray(onboardingContext?.domains) 
+        ? onboardingContext.domains.join(', ') 
+        : 'Non spécifié';
+      
+      const onboardingDetails = onboardingContext?.onboardingDetails || {};
+      const onboardingGoals = onboardingContext?.onboardingGoals || {};
+
+      const prompt = `Tu es un expert senior en développement de carrière et en RH. Ta mission est de créer un plan de carrière ultra-personnalisé pour un candidat, basé sur ses réponses détaillées et son profil d'onboarding.
+
+PROFIL DU CANDIDAT:
+- Rôle visé/actuel: ${role}
+- Domaines d'intérêt: ${domains}
+- Détails Onboarding: ${JSON.stringify(onboardingDetails, null, 2)}
+- Objectifs Onboarding: ${JSON.stringify(onboardingGoals, null, 2)}
+
+RÉPONSES AU QUESTIONNAIRE DE CARRIÈRE:
+${answersText}
+
+OBJECTIF:
+Génère une feuille de route structurée, inspirante et réaliste. Ton ton doit être professionnel mais encourageant, comme un mentor bienveillant.
+
+Format JSON STRICT attendu (ne retourne rien d'autre que ce JSON):
+{
+  "summary": "Résumé exécutif du profil du candidat (3-4 phrases percutantes qui synthétisent ses forces et son potentiel)",
+  "persona": {
+    "type": "Titre professionnel synthétique (ex: 'Futur Lead Developer' ou 'Expert Data en devenir')",
+    "tags": ["Tag1", "Tag2", "Tag3", "Tag4"] (4-5 mots-clés forts définissant son identité pro)
+  },
+  "currentSituation": {
+    "role": "Position actuelle identifiée",
+    "skills": ["Compétence 1", "Compétence 2", "Compétence 3"] (Top 3-5 compétences détectées),
+    "experience": "Analyse brève de son niveau d'expérience actuel",
+    "strengths": ["Force 1", "Force 2", "Force 3"] (3 atouts majeurs),
+    "areasForImprovement": ["Axe 1", "Axe 2"] (2 axes de progression principaux)
+  },
+  "careerGoals": {
+    "shortTerm": ["Objectif 1", "Objectif 2"] (Actions concrètes à 3-6 mois),
+    "mediumTerm": ["Objectif 1", "Objectif 2"] (Évolution à 6-12 mois),
+    "longTerm": ["Objectif 1", "Objectif 2"] (Vision à 12-18 mois et plus)
+  },
+  "recommendedPath": {
+    "nextSteps": [
+      {
+        "step": "Titre de l'étape",
+        "description": "Description de l'action à entreprendre",
+        "timeline": "Estimation de temps (ex: 'Semaine 1-2')",
+        "priority": "high" // ou "medium", "low"
+      }
+    ] (Liste de 3 à 5 étapes clés),
+    "skillsToAcquire": [
+      {
+        "skill": "Nom de la compétence",
+        "importance": "high", // ou "medium", "low"
+        "resources": ["Livre X", "Cours Y", "Projet Z"] (Suggestions concrètes d'apprentissage)
+      }
+    ],
+    "certifications": [
+      {
+        "name": "Nom de la certification recommandée",
+        "provider": "Organisme (AWS, Google, Coursera...)",
+        "relevance": "Pourquoi cette certif est utile pour lui"
+      }
+    ]
+  },
+  "matchingOpportunities": {
+    "jobTypes": [
+      {
+        "title": "Intitulé de poste cible",
+        "description": "Pourquoi ce poste lui correspond",
+        "matchScore": 85 // Estimation du % de correspondance
+      }
+    ],
+    "companies": ["Type d'entreprise 1", "Type d'entreprise 2"] (Startup, Grand Groupe, Agence...),
+    "industries": ["Secteur 1", "Secteur 2"],
+    "workPreferences": {
+       "remote": "Remote/Hybride/Sur site recommandé",
+       "teamSize": "Petite/Moyenne/Grande équipe",
+       "companyStage": "Early Stage/Growth/Established"
+    }
+  },
+  "actionPlan": {
+    "week1": ["Action immédiate 1", "Action immédiate 2"],
+    "month1": ["Objectif à fin de mois 1", "Objectif à fin de mois 2"],
+    "month3": ["Jalon trimestriel 1"],
+    "month6": ["Vision semestrielle"]
+  },
+  "motivationalMessage": "Un message de fin inspirant et personnalisé pour motiver le candidat à passer à l'action."
+}`;
+
+      console.log("🤖 [API] Appel Gemini générer plan carrière...");
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt
+      });
+
+      const generatedText = response.text;
+      if (!generatedText) throw new Error("Aucun texte généré par Gemini");
+
+      // Robust JSON Parsing
+      let jsonText = generatedText.trim();
+      const jsonMatch = jsonText.match(/```json\s*([\s\S]*?)\s*```/) || jsonText.match(/```\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) jsonText = jsonMatch[1].trim();
+
+      const parsedResult = JSON.parse(jsonText);
+
+      // Validation minimale
+      if (!parsedResult.summary || !parsedResult.careerGoals) {
+        throw new Error("Format de réponse Gemini invalide (champs manquants)");
+      }
+
+      return NextResponse.json({ success: true, data: parsedResult });
+    
     } else {
       // Requête simple avec prompt
       if (!body.prompt || typeof body.prompt !== 'string') {

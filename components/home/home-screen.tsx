@@ -67,7 +67,7 @@ export default function HomePage() {
     )
   }
 
-  return (
+  return ( 
     <DashboardRouter
       userId={userData.id}
       getDashboardData={getUserDashboardData}

@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getUserApplications } from "@/actions/application.action"
 import { Badge } from "@/components/ui/badge"
@@ -15,9 +15,10 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   Legend,
+
   ResponsiveContainer,
 } from "recharts"
-import { Target, Trophy, Brain, Sparkles, Play, Video, TrendingUp, Briefcase, Building, CheckCircle2, XCircle, Clock, Star } from "lucide-react"
+import { Target, Trophy, Brain, Sparkles, Play, Video, TrendingUp, Briefcase, Building, CheckCircle2, XCircle, Clock, Star, ArrowRight } from "lucide-react"
 import { MissionCard } from "./mission-card"
 import { ActivityItem } from "./activity-item"
 import { AchievementBadge } from "./achievement-badge"
@@ -30,6 +31,10 @@ import type { DashboardData, Mission, Achievement } from "@/types/dashboard"
 import { FeedbackModal, FeedbackModalDetails } from "@/components/feedback-modal"
 import { buildSkillProgressFromFeedback, safeParseJson } from "@/lib/feedback-utils"
 import { toast } from "sonner"
+import { getCareerProfile, startCareerTest, refuseCareerTest, submitCareerTest, type CareerTestAnswer } from "@/actions/career-profile.action"
+import { Loader2, X, Sparkles as SparklesIcon } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { CareerPlanModal } from "./career-plan-modal"
 
 interface CandidateDashboardProps {
   data: DashboardData
@@ -47,8 +52,76 @@ export function CandidateDashboard({
   isLoadingAchievements,
 }: CandidateDashboardProps) {
   // Récupérer les candidatures de l'utilisateur avec leurs résultats
+  const queryClient = useQueryClient();
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [feedbackModalDetails, setFeedbackModalDetails] = useState<FeedbackModalDetails | null>(null);
+  const [testStatus, setTestStatus] = useState<"idle" | "accepted" | "refused" | "done">("idle");
+  const [showCareerModal, setShowCareerModal] = useState(false);
+  const [showCareerPlanModal, setShowCareerPlanModal] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [isSubmittingCareer, setIsSubmittingCareer] = useState(false);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [isPendingCareer, startTransitionCareer] = useTransition();
+
+  // Query pour le profil de carrière avec cache
+  const { data: careerProfileResult } = useQuery({
+    queryKey: ["career-profile", data.user.id],
+    queryFn: async () => {
+      const res = await getCareerProfile();
+      return res.success ? res.data : null;
+    },
+    staleTime: Infinity, // Le profil ne change pas souvent, on le garde en cache
+  });
+
+  const careerProfile = careerProfileResult?.careerProfile as any;
+
+  // Synchroniser l'état local avec les données du cache
+  useEffect(() => {
+    if (careerProfileResult) {
+      if (careerProfileResult.careerProfileTestStatus === "DONE") setTestStatus("done");
+      if (careerProfileResult.careerProfileTestStatus === "REFUSED") setTestStatus("refused");
+    }
+  }, [careerProfileResult]);
+
+  const careerQuestions = useMemo(() => {
+    const onboardingDetails = (data as any)?.user?.onboardingDetails || {};
+    const onboardingGoals = (data as any)?.user?.onboardingGoals || {};
+    const domainLabel = (onboardingDetails.domain || onboardingGoals.domain || data.user?.domains?.[0] || "votre domaine").toString();
+    const seniority = onboardingDetails.seniority || onboardingGoals.seniority || onboardingDetails.level || onboardingGoals.level;
+    const preferedWork = onboardingDetails.workMode || onboardingGoals.workMode;
+    const targetRole = onboardingGoals.roleTarget || onboardingDetails.roleTarget || data.user?.role;
+    const learningFocus = onboardingGoals.learningFocus || onboardingDetails.learningFocus;
+    const industries = onboardingGoals.industries || onboardingDetails.industries;
+
+    return [
+      {
+        id: "role",
+        label: `Parle-moi de ton rôle actuel ou ciblé (${targetRole || domainLabel}).`,
+        placeholder: "Ex: Développeur front, Product designer, Data analyst..."
+      },
+      {
+        id: "tasks",
+        label: "Quelles sont tes missions quotidiennes ou celles que tu souhaites faire ?",
+        placeholder: "Ex: Intégration UI, A/B tests, dashboards data, refonte archi..."
+      },
+      {
+        id: "stack",
+        label: `Quelles techno / outils utilises-tu ou veux-tu pratiquer (domaine ${domainLabel}) ?`,
+        placeholder: "Ex: TypeScript, React, Next.js, SQL, Python, Figma..."
+      },
+      {
+        id: "preferences",
+        label: "Préférences de travail (remote, rythme, taille d'équipe, type de produit) ?",
+        placeholder: preferedWork ? `Ex: ${preferedWork}, équipe 5-8, produit early stage...` : "Ex: full remote, équipe 5-8, produit early stage..."
+      },
+      {
+        id: "ambition",
+        label: `Objectifs à 12-18 mois (séniorité ${seniority || "souhaitée"}, roles/industries visés) ?`,
+        placeholder: industries ? `Ex: viser ${industries}, passer lead, renforcer ${learningFocus || "data/archi"}` : "Ex: passer lead, renforcer data, rejoindre scale-up produit..."
+      }
+    ];
+  }, [data]);
 
   const { data: userApplications, isLoading: loadingApplications } = useQuery({
     queryKey: ["user-applications", data.user.id],
@@ -116,18 +189,18 @@ export function CandidateDashboard({
         typeof result.percentage === "number"
           ? result.percentage
           : convertToPercent(result.finalScore ?? result.score) ??
-            (typeof feedback?.overallScore === "number"
-              ? Math.round(feedback.overallScore)
-              : null);
+          (typeof feedback?.overallScore === "number"
+            ? Math.round(feedback.overallScore)
+            : null);
 
       const questionsPayload = Array.isArray(result.questions)
         ? result.questions
         : Array.isArray(feedback?.questions)
-        ? feedback.questions.map((question: any, index: number) => ({
+          ? feedback.questions.map((question: any, index: number) => ({
             id: question?.id ?? String(index + 1),
             text: question?.text || question?.question || "",
           }))
-        : [];
+          : [];
 
       setFeedbackModalDetails({
         testName: result.quizTitle,
@@ -159,8 +232,187 @@ export function CandidateDashboard({
     [data.recentQuizzes],
   )
 
+
+
+  const handleSubmitCareer = async () => {
+    console.log("🚀 Début de la génération du plan de carrière")
+    setIsSubmittingCareer(true)
+    setShowCareerModal(false) // Fermer le modal immédiatement
+    setIsGeneratingPlan(true) // Activer le skeleton sur le dashboard
+
+    const formatted: CareerTestAnswer[] = careerQuestions.map((q) => ({
+      questionId: q.id,
+      answer: answers[q.id] || ""
+    }))
+    console.log("📝 Réponses formatées:", formatted.length, "questions")
+
+    const onboardingContext = {
+      role: data.user?.role,
+      domains: data.user?.domains || [],
+      onboardingDetails: (data as any)?.user?.onboardingDetails ?? null,
+      onboardingGoals: (data as any)?.user?.onboardingGoals ?? null,
+    }
+    console.log("👤 Contexte onboarding:", onboardingContext.role, onboardingContext.domains)
+
+    try {
+      console.log("⏳ Appel du server action submitCareerTest...")
+      const res = await submitCareerTest(formatted, onboardingContext)
+      console.log("✅ Réponse reçue:", res)
+
+      if (res.success && res.data) {
+        console.log("🎉 Plan de carrière généré avec succès!")
+        // Mise à jour du cache React Query
+        queryClient.setQueryData(["career-profile", data.user.id], {
+          careerProfile: res.data,
+          careerProfileTestStatus: "DONE",
+          careerProfileUpdatedAt: new Date()
+        });
+
+        setTestStatus("done")
+        toast.success("Plan de carrière généré avec succès!")
+      } else {
+        console.error("❌ Erreur dans la réponse:", res.error)
+        toast.error(res.error || "Une erreur est survenue lors de la génération. Veuillez réessayer.")
+        setTestStatus("accepted") // Revenir à l'état accepté pour pouvoir relancer
+      }
+    } catch (error) {
+      console.error("💥 Exception capturée:", error)
+      toast.error("Erreur inattendue.")
+      setTestStatus("accepted")
+    } finally {
+      setIsSubmittingCareer(false)
+      setIsGeneratingPlan(false)
+      console.log("🏁 Fin du processus de génération")
+    }
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Mini test IA : profil de carrière */}
+      {/* Career Plan Premium Card */}
+      <div className="mb-8 relative overflow-hidden rounded-3xl border border-emerald-100 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-950/30 dark:via-slate-900 dark:to-teal-950/10 shadow-lg group">
+
+        {/* Decorative Background Elements */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-400/10 rounded-full blur-3xl -mr-24 -mt-24 pointer-events-none group-hover:bg-emerald-400/20 transition-all duration-700"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-400/10 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
+
+        <div className="relative p-6 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8">
+
+          {/* Left Content */}
+          <div className="flex-1 space-y-6 text-center md:text-left">
+            {!testStatus || testStatus === "idle" || testStatus === "refused" ? (
+              <>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100/80 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold uppercase tracking-wider mb-2">
+                  <Sparkles className="w-3 h-3" />
+                  Nouveau
+                </div>
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+                  Débloquez votre <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400">Potentiel</span>
+                </h2>
+                <p className="text-lg text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed mx-auto md:mx-0">
+                  Obtenez une feuille de route ultra-personnalisée : analyse de compétences, objectifs ciblés et opportunités sur-mesure. En 2 minutes.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center gap-4 justify-center md:justify-start pt-2">
+                  <Button
+                    size="lg"
+                    onClick={() => {
+                      startTransitionCareer(async () => {
+                        setTestStatus("accepted")
+                        setShowCareerModal(true)
+                        await startCareerTest()
+                      })
+                    }}
+                    disabled={isPendingCareer}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-8 h-12 text-base font-semibold shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 transition-all hover:-translate-y-0.5"
+                  >
+                    {isPendingCareer ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Play className="mr-2 h-5 w-5 fill-current" />}
+                    Générer mon plan
+                  </Button>
+                  <p className="text-sm text-slate-500 font-medium">
+                    Gratuit & Instantané
+                  </p>
+                </div>
+              </>
+            ) : testStatus === "accepted" ? (
+              <div className="max-w-xl">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Initialisation...</h2>
+                <p className="text-slate-600 dark:text-slate-400">Préparation de votre entretien personnalisé.</p>
+              </div>
+            ) : isGeneratingPlan ? (
+              <div className="w-full max-w-xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">L'IA analyse votre profil...</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full rounded-full" />
+                    <Skeleton className="h-4 w-3/4 rounded-full" />
+                  </div>
+                  <div className="flex gap-3">
+                    <Skeleton className="h-24 w-full rounded-xl" />
+                    <Skeleton className="h-24 w-full rounded-xl" />
+                  </div>
+                </div>
+              </div>
+            ) : testStatus === "done" && careerProfile ? (
+              <>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-100/80 dark:bg-green-900/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 text-xs font-bold uppercase tracking-wider mb-2">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Terminé
+                </div>
+                <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-3">
+                  Votre Plan est prêt !
+                </h2>
+                <p className="text-lg text-slate-600 dark:text-slate-300 max-w-lg mb-6 leading-relaxed">
+                  {careerProfile.summary ? (
+                    <span className="line-clamp-2">{careerProfile.summary}</span>
+                  ) : "Votre stratégie de carrière personnalisée vous attend."}
+                </p>
+                <Button
+                  size="lg"
+                  onClick={() => setShowCareerPlanModal(true)}
+                  className="bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-50 dark:hover:bg-slate-700 rounded-full px-8 h-12 text-base font-bold shadow-sm transition-all"
+                >
+                  Consulter mon plan
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </>
+            ) : null}
+          </div>
+
+          {/* Right Visual / Illustration */}
+          <div className="hidden md:flex flex-1 justify-end relative">
+            <div className="relative z-10 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 max-w-xs rotate-3 hover:rotate-0 transition-transform duration-500">
+              <div className="flex items-center gap-3 mb-4 border-b border-slate-100 dark:border-slate-700 pb-3">
+                <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600">
+                  <Target className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="h-2 w-20 bg-slate-200 dark:bg-slate-700 rounded mb-1"></div>
+                  <div className="h-2 w-12 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded"></div>
+                <div className="h-2 w-5/6 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                <div className="h-2 w-4/6 bg-slate-100 dark:bg-slate-800 rounded"></div>
+              </div>
+              <div className="mt-6 flex gap-2">
+                <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30"></div>
+                <div className="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-900/30"></div>
+                <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-900/30"></div>
+              </div>
+            </div>
+
+            {/* Abstract Shapes behind */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-emerald-500/10 rounded-full animate-[spin_10s_linear_infinite]"></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-52 h-52 border-2 border-dashed border-teal-500/20 rounded-full animate-[spin_15s_linear_infinite_reverse]"></div>
+          </div>
+
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
@@ -180,34 +432,37 @@ export function CandidateDashboard({
                 Atteignez vos objectifs quotidiens pour optimiser votre progression
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {isLoadingMissions ? (
-                <div className="space-y-4">
-                  {[...Array(3)].map((_, i) => (
-                    <Skeleton key={i} className="h-24 w-full" />
-                  ))}
-                </div>
-              ) : missions.length > 0 ? (
-                missions.map((mission) => (
-                  <MissionCard
-                    key={mission.id}
-                    icon={getTypeIcon(mission.type)}
-                    title={mission.title}
-                    xp={mission.xp}
-                    progress={mission.progress}
-                    total={mission.total}
-                  />
-                ))
-              ) : (
-                <div className="text-center py-8 text-slate-500">Aucun objectif pour aujourd'hui</div>
-              )}
+            <CardContent className="overflow-x-auto pb-4 sm:pb-6 px-4 md:px-6 -mx-4 md:mx-0">
+              <div className="flex sm:flex-col gap-4 min-w-[300px] sm:min-w-0 px-4 sm:px-0">
+                {isLoadingMissions ? (
+                  <div className="space-y-4 w-full">
+                    {[...Array(3)].map((_, i) => (
+                      <Skeleton key={i} className="h-24 w-full" />
+                    ))}
+                  </div>
+                ) : missions.length > 0 ? (
+                  missions.map((mission) => (
+                    <div key={mission.id} className="min-w-[85vw] sm:min-w-0">
+                      <MissionCard
+                        icon={getTypeIcon(mission.type)}
+                        title={mission.title}
+                        xp={mission.xp}
+                        progress={mission.progress}
+                        total={mission.total}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-slate-500 w-full">Aucun objectif pour aujourd'hui</div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
 
-            <div className="h-[300px] mb-30">
-              <WeeklyChart />
-            </div>
+          <div className="h-[300px] mb-30">
+            <WeeklyChart />
+          </div>
 
           {/* Mes Candidatures - Nouvelle section */}
           {userApplications && userApplications.length > 0 && (
@@ -273,7 +528,7 @@ export function CandidateDashboard({
                         }
                       }
 
-                      const isProfileValidated = application.status && 
+                      const isProfileValidated = application.status &&
                         ['reviewed', 'interview', 'accepted'].includes(application.status.toLowerCase())
 
                       return (
@@ -312,7 +567,7 @@ export function CandidateDashboard({
                               </p>
                               <div className="flex flex-wrap gap-1">
                                 {application.job.skills.slice(0, 5).map((skill: string, idx: number) => (
-                                  <Badge 
+                                  <Badge
                                     key={idx}
                                     variant="secondary"
                                     className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
@@ -339,13 +594,12 @@ export function CandidateDashboard({
                                     Score de review humaine :
                                   </span>
                                 </div>
-                                <Badge className={`text-xs font-bold ${
-                                  application.score >= 80 
-                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-300 dark:border-green-600' 
-                                    : application.score >= 60 
-                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-300 dark:border-blue-600' 
+                                <Badge className={`text-xs font-bold ${application.score >= 80
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-300 dark:border-green-600'
+                                  : application.score >= 60
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-300 dark:border-blue-600'
                                     : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300 dark:border-amber-600'
-                                }`}>
+                                  }`}>
                                   {application.score}/100
                                 </Badge>
                               </div>
@@ -384,18 +638,17 @@ export function CandidateDashboard({
                                             </Badge>
                                           )}
                                         </div>
-                                        <span className={`font-medium ${
-                                          result.percentage >= 80 
-                                            ? 'text-green-600 dark:text-green-400' 
-                                            : result.percentage >= 60 
-                                            ? 'text-blue-600 dark:text-blue-400' 
+                                        <span className={`font-medium ${result.percentage >= 80
+                                          ? 'text-green-600 dark:text-green-400'
+                                          : result.percentage >= 60
+                                            ? 'text-blue-600 dark:text-blue-400'
                                             : 'text-amber-600 dark:text-amber-400'
-                                        }`}>
+                                          }`}>
                                           {result.percentage}%
                                         </span>
                                       </div>
-                                      <Progress 
-                                        value={result.percentage} 
+                                      <Progress
+                                        value={result.percentage}
                                         className="h-1.5 bg-slate-200 dark:bg-slate-700"
                                       />
                                       {result.feedbackVisibleToCandidate && feedbackAvailable ? (
@@ -602,6 +855,135 @@ export function CandidateDashboard({
         isLoading={false}
         details={feedbackModalDetails ?? undefined}
       />
+      <CareerTestModal
+        open={showCareerModal}
+        onClose={() => setShowCareerModal(false)}
+        questions={careerQuestions}
+        answers={answers}
+        setAnswers={setAnswers}
+        currentQuestion={currentQuestion}
+        setCurrentQuestion={setCurrentQuestion}
+        onSubmit={handleSubmitCareer}
+        isSubmitting={isSubmittingCareer}
+      />
+      <CareerPlanModal
+        open={showCareerPlanModal}
+        onClose={() => setShowCareerPlanModal(false)}
+        careerPlan={careerProfile}
+      />
     </div>
   )
+}
+
+function CareerTestModal({
+  open,
+  onClose,
+  questions,
+  answers,
+  setAnswers,
+  currentQuestion,
+  setCurrentQuestion,
+  onSubmit,
+  isSubmitting
+}: {
+  open: boolean;
+  onClose: () => void;
+  questions: { id: string; label: string; placeholder?: string }[];
+  answers: Record<string, string>;
+  setAnswers: (v: Record<string, string>) => void;
+  currentQuestion: number;
+  setCurrentQuestion: (n: number) => void;
+  onSubmit: () => Promise<void>;
+  isSubmitting: boolean;
+}) {
+  const q = questions[currentQuestion];
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm px-4 py-6">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full p-6 md:p-8 space-y-6 border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge className="bg-emerald-600 dark:bg-emerald-500 text-white">IA</Badge>
+              <p className="text-sm uppercase text-emerald-600 dark:text-emerald-400 font-semibold">Mini test IA</p>
+            </div>
+            <h3 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Profil de carrière</h3>
+            <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">Réponds brièvement, l'IA s'occupe du reste.</p>
+          </div>
+          <button
+            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors flex-shrink-0"
+            onClick={onClose}
+            aria-label="Fermer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Progress bar */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+            <span>Question {currentQuestion + 1} sur {questions.length}</span>
+            <span>{Math.round(((currentQuestion + 1) / questions.length) * 100)}%</span>
+          </div>
+          <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-500 to-green-500 transition-all duration-300"
+              style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <label className="text-sm font-semibold text-slate-700 dark:text-slate-200 block">
+            {q.label}
+          </label>
+          <textarea
+            className="w-full rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:focus:ring-emerald-900/30 transition-all min-h-[140px] resize-none"
+            placeholder={q.placeholder}
+            value={answers[q.id] || ""}
+            onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+          />
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            Tu peux passer ou revenir en arrière à tout moment.
+          </span>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => setCurrentQuestion(Math.max(0, currentQuestion - 1))}
+              disabled={currentQuestion === 0}
+              className="flex-1 sm:flex-none border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              Précédent
+            </Button>
+            {currentQuestion < questions.length - 1 ? (
+              <Button
+                onClick={() => setCurrentQuestion(Math.min(questions.length - 1, currentQuestion + 1))}
+                className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white"
+              >
+                Suivant
+              </Button>
+            ) : (
+              <Button
+                onClick={onSubmit}
+                disabled={isSubmitting}
+                className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Envoi...
+                  </>
+                ) : (
+                  "Envoyer"
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

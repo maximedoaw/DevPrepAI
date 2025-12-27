@@ -255,7 +255,7 @@ export default function Hero() {
       {/* Titre principal */}
       <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight mb-8">
         <span className="title-part block drop-shadow-2xl">
-          L'accélérateur de carrière
+          La plateforme de recrutement
         </span>
         <span className="title-part block mt-3">
           propulsé par{" "}
@@ -356,7 +356,7 @@ export default function Hero() {
             Préparation Ciblée
           </h3>
           <p className="dark:text-slate-300 text-slate-600 mb-5 leading-relaxed group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors duration-300">
-            Des exercices adaptés à ton domaine et niveau pour maximiser ton impact.
+            Des exercices, formations et bootcamps adaptés à ton domaine et niveau pour maximiser ton impact.
           </p>
           <div className="flex items-center text-emerald-600 dark:text-emerald-400 font-bold group-hover:gap-3 gap-2 transition-all group-hover:text-green-500 dark:group-hover:text-green-300">
             <span className="group-hover:drop-shadow-[0_0_8px_rgba(34,197,94,0.6)] transition-all duration-300">Commencer</span>

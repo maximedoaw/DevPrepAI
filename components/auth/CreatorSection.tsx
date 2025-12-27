@@ -185,7 +185,7 @@ export default function CreatorSection() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="absolute -bottom-2 -right-2 p-2 bg-emerald-500 rounded-full shadow-lg">
-                      <Target className="h-5 w-5 text-white" />
+                      <Award className="h-5 w-5 text-white" />
                     </div>
                   </div>
                   
