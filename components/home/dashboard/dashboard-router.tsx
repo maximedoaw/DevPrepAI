@@ -221,6 +221,7 @@ export function DashboardRouter({
         stats={renderHeaderStats()}
         onRefresh={() => refreshData.mutate()}
         isRefreshing={refreshData.isPending}
+        userRole={userRole}
       />
       {renderDashboard()}
     </div>

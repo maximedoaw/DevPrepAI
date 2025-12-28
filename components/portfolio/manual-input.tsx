@@ -36,15 +36,17 @@ import {
 
 // Import Uploadcare correct
 import { Widget } from '@uploadcare/react-widget'
+import { cn } from "@/lib/utils"
 
 interface ManualInputProps {
   portfolioData: any
   setPortfolioData: (data: any) => void
   onSave?: () => void
   isSaving?: boolean
+  className?: string
 }
 
-export default function ManualInput({ portfolioData, setPortfolioData, onSave, isSaving = false }: ManualInputProps) {
+export default function ManualInput({ portfolioData, setPortfolioData, onSave, isSaving = false, className }: ManualInputProps) {
   const [newSkill, setNewSkill] = useState("")
   const [newLanguage, setNewLanguage] = useState("")
   const [newInterest, setNewInterest] = useState("")
@@ -114,7 +116,7 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
     if (type === "project" && projectIndex !== undefined) {
       setCurrentProjectIndex(projectIndex)
     }
-    
+
     if (type === "profile" && widgetApiRef.current) {
       widgetApiRef.current.openDialog()
     } else if (type === "project" && projectWidgetApiRef.current) {
@@ -324,35 +326,8 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
   }
 
   return (
-    <Card className="h-full bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100">
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <User className="h-5 w-5 text-blue-600" />
-            <CardTitle className="text-lg">Saisie Manuelle</CardTitle>
-          </div>
-          <Button 
-            onClick={handleSave} 
-            disabled={isSaving}
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            {isSaving ? (
-              <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                <span>Sauvegarde...</span>
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                <span>Sauvegarder</span>
-              </>
-            )}
-          </Button>
-        </div>
-        <CardDescription className="text-sm">Ajoutez et modifiez votre contenu manuellement</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-6">
+    <div className={cn("space-y-6 h-full", className)}>
+      <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar max-h-[600px] lg:max-h-[calc(100vh-300px)]">
         {/* Photo de profil avec Uploadcare */}
         <div className="space-y-4">
           <label className="text-sm font-medium block">Photo de profil</label>
@@ -386,7 +361,7 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
                   ref={widgetApiRef}
                 />
               </div>
-              
+
               <div className="flex flex-col gap-2">
                 <Button
                   onClick={() => handleImageUpload("profile")}
@@ -1395,7 +1370,7 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
             </AccordionItem>
           </Accordion>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

@@ -18,7 +18,8 @@ import {
 
   ResponsiveContainer,
 } from "recharts"
-import { Target, Trophy, Brain, Sparkles, Play, Video, TrendingUp, Briefcase, Building, CheckCircle2, XCircle, Clock, Star, ArrowRight } from "lucide-react"
+import { Target, Trophy, Brain, Sparkles, Play, Video, TrendingUp, Briefcase, Building, CheckCircle2, XCircle, Clock, Star, ArrowRight, Wallet, Layout, PenTool } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { MissionCard } from "./mission-card"
 import { ActivityItem } from "./activity-item"
 import { AchievementBadge } from "./achievement-badge"
@@ -63,6 +64,7 @@ export function CandidateDashboard({
   const [isSubmittingCareer, setIsSubmittingCareer] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [isPendingCareer, startTransitionCareer] = useTransition();
+  const router = useRouter();
 
   // Query pour le profil de carrière avec cache
   const { data: careerProfileResult } = useQuery({
@@ -76,10 +78,17 @@ export function CandidateDashboard({
 
   const careerProfile = careerProfileResult?.careerProfile as any;
 
+  /* State for the portfolio proposal spotlight */
+  const [showPortfolioSpotlight, setShowPortfolioSpotlight] = useState(false);
+
   // Synchroniser l'état local avec les données du cache
   useEffect(() => {
     if (careerProfileResult) {
-      if (careerProfileResult.careerProfileTestStatus === "DONE") setTestStatus("done");
+      if (careerProfileResult.careerProfileTestStatus === "DONE") {
+        setTestStatus("done");
+        // We do NOT set showPortfolioSpotlight here to respect "juste une seule fois après qu'on est rediger"
+        // It will only be triggered by the submission action
+      }
       if (careerProfileResult.careerProfileTestStatus === "REFUSED") setTestStatus("refused");
     }
   }, [careerProfileResult]);
@@ -252,15 +261,11 @@ export function CandidateDashboard({
       onboardingDetails: (data as any)?.user?.onboardingDetails ?? null,
       onboardingGoals: (data as any)?.user?.onboardingGoals ?? null,
     }
-    console.log("👤 Contexte onboarding:", onboardingContext.role, onboardingContext.domains)
 
     try {
-      console.log("⏳ Appel du server action submitCareerTest...")
       const res = await submitCareerTest(formatted, onboardingContext)
-      console.log("✅ Réponse reçue:", res)
 
       if (res.success && res.data) {
-        console.log("🎉 Plan de carrière généré avec succès!")
         // Mise à jour du cache React Query
         queryClient.setQueryData(["career-profile", data.user.id], {
           careerProfile: res.data,
@@ -269,6 +274,7 @@ export function CandidateDashboard({
         });
 
         setTestStatus("done")
+        setShowPortfolioSpotlight(true) // Activate spotlight here only
         toast.success("Plan de carrière généré avec succès!")
       } else {
         console.error("❌ Erreur dans la réponse:", res.error)
@@ -282,7 +288,6 @@ export function CandidateDashboard({
     } finally {
       setIsSubmittingCareer(false)
       setIsGeneratingPlan(false)
-      console.log("🏁 Fin du processus de génération")
     }
   }
 
@@ -290,11 +295,23 @@ export function CandidateDashboard({
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Mini test IA : profil de carrière */}
       {/* Career Plan Premium Card */}
-      <div className="mb-8 relative overflow-hidden rounded-3xl border border-emerald-100 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-950/30 dark:via-slate-900 dark:to-teal-950/10 shadow-lg group">
+      {showPortfolioSpotlight && testStatus === "done" && careerProfile && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 transition-all duration-700 animate-in fade-in" onClick={() => setShowPortfolioSpotlight(false)} />
+      )}
+      <div className={cn(
+        "mb-8 relative overflow-hidden rounded-3xl border transition-all duration-700 group",
+        showPortfolioSpotlight && testStatus === "done" && careerProfile
+          ? "z-50 border-emerald-500/50 shadow-2xl shadow-emerald-500/20 scale-[1.02] bg-white dark:bg-slate-900"
+          : "border-emerald-100 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-950/30 dark:via-slate-900 dark:to-teal-950/10 shadow-lg"
+      )}>
 
         {/* Decorative Background Elements */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-400/10 rounded-full blur-3xl -mr-24 -mt-24 pointer-events-none group-hover:bg-emerald-400/20 transition-all duration-700"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-400/10 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
+        {!showPortfolioSpotlight && (
+          <>
+            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-400/10 rounded-full blur-3xl -mr-24 -mt-24 pointer-events-none group-hover:bg-emerald-400/20 transition-all duration-700"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-400/10 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
+          </>
+        )}
 
         <div className="relative p-6 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8">
 
@@ -357,7 +374,12 @@ export function CandidateDashboard({
               </div>
             ) : testStatus === "done" && careerProfile ? (
               <>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-100/80 dark:bg-green-900/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 text-xs font-bold uppercase tracking-wider mb-2">
+                <div className={cn(
+                  "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 transition-colors",
+                  showPortfolioSpotlight
+                    ? "bg-emerald-500 text-white border-transparent"
+                    : "bg-green-100/80 dark:bg-green-900/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300"
+                )}>
                   <CheckCircle2 className="w-3 h-3" />
                   Terminé
                 </div>
@@ -369,21 +391,64 @@ export function CandidateDashboard({
                     <span className="line-clamp-2">{careerProfile.summary}</span>
                   ) : "Votre stratégie de carrière personnalisée vous attend."}
                 </p>
-                <Button
-                  size="lg"
-                  onClick={() => setShowCareerPlanModal(true)}
-                  className="bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-50 dark:hover:bg-slate-700 rounded-full px-8 h-12 text-base font-bold shadow-sm transition-all"
-                >
-                  Consulter mon plan
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {showPortfolioSpotlight ? (
+                    <Button
+                      size="lg"
+                      onClick={() => {
+                        setShowPortfolioSpotlight(false);
+                        router.push('/portfolio');
+                      }}
+                      className="relative overflow-hidden bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-8 h-12 text-base font-bold shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] transition-all animate-pulse hover:animate-none scale-105"
+                    >
+                      <span className="relative z-10 flex items-center">
+                        <PenTool className="mr-2 h-5 w-5" />
+                        Rédiger mon portfolio
+                      </span>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="lg"
+                      onClick={() => router.push('/portfolio')}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-8 h-12 text-base font-bold shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 transition-all hover:-translate-y-0.5"
+                    >
+                      <PenTool className="mr-2 h-5 w-5" />
+                      Rédiger mon portfolio
+                    </Button>
+                  )}
+
+                  <Button
+                    variant={showPortfolioSpotlight ? "ghost" : "outline"}
+                    size="lg"
+                    onClick={() => {
+                      if (showPortfolioSpotlight) {
+                        setShowPortfolioSpotlight(false);
+                      } else {
+                        setShowCareerPlanModal(true);
+                      }
+                    }}
+                    className={cn(
+                      "rounded-full px-6 h-12 text-base font-medium transition-all",
+                      showPortfolioSpotlight
+                        ? "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                        : "bg-transparent text-emerald-700 dark:text-emerald-400 border-2 border-emerald-600/20 dark:border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                    )}
+                  >
+                    {showPortfolioSpotlight ? "Plus tard" : "Consulter mon plan"}
+                    {!showPortfolioSpotlight && <ArrowRight className="ml-2 h-5 w-5" />}
+                  </Button>
+                </div>
               </>
             ) : null}
           </div>
 
           {/* Right Visual / Illustration */}
           <div className="hidden md:flex flex-1 justify-end relative">
-            <div className="relative z-10 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 max-w-xs rotate-3 hover:rotate-0 transition-transform duration-500">
+            <div className={cn(
+              "relative z-10 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 max-w-xs rotate-3 hover:rotate-0 transition-transform duration-500",
+              showPortfolioSpotlight && "rotate-0 scale-105"
+            )}>
               <div className="flex items-center gap-3 mb-4 border-b border-slate-100 dark:border-slate-700 pb-3">
                 <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600">
                   <Target className="h-6 w-6" />
@@ -417,7 +482,7 @@ export function CandidateDashboard({
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Daily Missions */}
-          <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl">
+          <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-xl">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -432,8 +497,8 @@ export function CandidateDashboard({
                 Atteignez vos objectifs quotidiens pour optimiser votre progression
               </CardDescription>
             </CardHeader>
-            <CardContent className="overflow-x-auto pb-4 sm:pb-6 px-4 md:px-6 -mx-4 md:mx-0">
-              <div className="flex sm:flex-col gap-4 min-w-[300px] sm:min-w-0 px-4 sm:px-0">
+            <CardContent className="pb-6 px-4 md:px-6">
+              <div className="grid grid-cols-1 gap-4">
                 {isLoadingMissions ? (
                   <div className="space-y-4 w-full">
                     {[...Array(3)].map((_, i) => (
@@ -442,7 +507,7 @@ export function CandidateDashboard({
                   </div>
                 ) : missions.length > 0 ? (
                   missions.map((mission) => (
-                    <div key={mission.id} className="min-w-[85vw] sm:min-w-0">
+                    <div key={mission.id} className="w-full">
                       <MissionCard
                         icon={getTypeIcon(mission.type)}
                         title={mission.title}
@@ -466,7 +531,7 @@ export function CandidateDashboard({
 
           {/* Mes Candidatures - Nouvelle section */}
           {userApplications && userApplications.length > 0 && (
-            <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl">
+            <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-xl">
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Briefcase className="w-6 h-6 text-green-500" />
@@ -701,7 +766,7 @@ export function CandidateDashboard({
           )}
 
           {/* Recent Activity */}
-          <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl">
+          <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-xl">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Sparkles className="w-6 h-6 text-emerald-500" />
@@ -733,7 +798,7 @@ export function CandidateDashboard({
         {/* Right Column */}
         <div className="space-y-6">
           {/* Skills Radar */}
-          <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl">
+          <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-xl">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Brain className="w-6 h-6 text-emerald-500" />
@@ -766,7 +831,7 @@ export function CandidateDashboard({
           </Card>
 
           {/* Achievements */}
-          <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-xl">
+          <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-xl">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Trophy className="w-6 h-6 text-yellow-500" />

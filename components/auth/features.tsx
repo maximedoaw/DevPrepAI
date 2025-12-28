@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react"
 import gsap from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 import { timelineSteps } from "@/constants"
-import CareerIncubator from "../career-incubator"
+import CareerIncubator from "../CareerIncubator"
 
 // Enregistrer le plugin ScrollTrigger
 if (typeof window !== 'undefined') {

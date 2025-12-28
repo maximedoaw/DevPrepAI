@@ -168,7 +168,7 @@ export default function CreatorSection() {
                       Maxime Doaw
                     </h3>
                     <p className="text-emerald-600 dark:text-emerald-400 font-medium text-lg">
-                      Software Engineer & Co-Founder
+                      Software Engineer & Founder
                     </p>
                   </div>
                 </div>
@@ -194,7 +194,7 @@ export default function CreatorSection() {
                       Ayina Michel
                     </h3>
                     <p className="text-emerald-600 dark:text-emerald-400 font-medium text-lg">
-                      Directeur Marketing & Co-Founder
+                      Directeur Marketing
                     </p>
                   </div>
                 </div>

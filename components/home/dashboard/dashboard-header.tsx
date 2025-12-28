@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button"
 import { RefreshCw } from "lucide-react"
 import type { ReactNode } from "react"
 import { ProgressBar } from "./progress-bar"
+import type { UserRole } from "@/types/dashboard"
+import { cn } from "@/lib/utils"
 
 interface DashboardHeaderProps {
   firstName: string
@@ -15,6 +17,8 @@ interface DashboardHeaderProps {
   stats: ReactNode
   onRefresh?: () => void
   isRefreshing?: boolean
+  userRole?: UserRole
+  imageUrl?: string
 }
 
 export function DashboardHeader({
@@ -27,45 +31,73 @@ export function DashboardHeader({
   stats,
   onRefresh,
   isRefreshing,
+  userRole,
+  imageUrl
 }: DashboardHeaderProps) {
+  // Only display for candidates or career changers
+  if (userRole && userRole !== "CANDIDATE" && userRole !== "CAREER_CHANGER") {
+    return null;
+  }
+
   return (
-    <div className="border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl">
+    <div className="border-b border-emerald-100 dark:border-emerald-900/30 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl sticky top-0 z-30 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                {firstName[0]}
-                {lastName[0]}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+
+          {/* User Profile Section - Spans 12 cols on mobile, 5 on lg */}
+          <div className="lg:col-span-5 flex items-center gap-5">
+            <div className="relative flex-shrink-0 group cursor-pointer">
+              <div className="relative w-20 h-20 rounded-full p-1 bg-gradient-to-tr from-emerald-500 via-teal-500 to-green-400 shadow-xl overflow-hidden">
+                <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden relative">
+                  {imageUrl ? (
+                    <img src={imageUrl} alt={`${firstName} ${lastName}`} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-emerald-600 to-teal-600">
+                      {firstName[0]}{lastName[0]}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-lg border-2 border-white dark:border-slate-900">
-                <span className="text-xs font-bold text-white">{level}</span>
+              <div className="absolute -bottom-1 -right-1 flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 text-white text-xs font-bold border-4 border-white dark:border-slate-950 shadow-sm z-10">
+                {level}
               </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Bienvenue, {firstName}</h1>
-              <p className="text-slate-600 dark:text-slate-400">{subtitle}</p>
+
+            <div className="flex flex-col space-y-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                Bonjour, <span className="text-emerald-600 dark:text-emerald-400">{firstName}</span>
+              </h1>
+              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium leading-relaxed max-w-sm">
+                {subtitle}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          {/* Stats & Actions - Spans 12 cols on mobile, 7 on lg */}
+          <div className="lg:col-span-7 flex flex-col sm:flex-row items-start sm:items-center justify-start lg:justify-end gap-4 sm:gap-6 w-full overflow-x-auto pb-2 sm:pb-0">
+            <div className="flex gap-3 items-center min-w-max">
+              {stats}
+            </div>
+
             {onRefresh && (
               <Button
                 variant="outline"
-                size="sm"
+                size="icon"
                 onClick={onRefresh}
                 disabled={isRefreshing}
-                className="hidden sm:flex bg-transparent"
+                className="hidden sm:flex h-10 w-10 shrink-0 rounded-full border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-700 dark:hover:text-emerald-300 transition-all"
+                title="Actualiser les données"
               >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-                Actualiser
+                <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
               </Button>
             )}
-            <div className="flex gap-3">{stats}</div>
           </div>
         </div>
 
-        <ProgressBar level={level} progress={progress} label={progressLabel} />
+        {/* Progress Bar Row */}
+        <div className="mt-8">
+          <ProgressBar level={level} progress={progress} label={progressLabel} />
+        </div>
       </div>
     </div>
   )
