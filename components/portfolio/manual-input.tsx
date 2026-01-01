@@ -1,10 +1,9 @@
-// manual-input.tsx
 "use client"
 
 import type React from "react"
-
-import { useState, useRef } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useCallback } from "react"
+import { useDropzone } from "react-dropzone"
+import { useUploadThing } from "@/lib/uploadthing"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
@@ -23,20 +22,92 @@ import {
   Award,
   CalendarIcon,
   Upload,
-  ImageIcon,
   Trash2,
-  ExternalLink,
-  Github,
   Languages,
   Heart,
   Code,
-  Edit,
   Save,
+  Loader,
+  Image as ImageIcon,
 } from "lucide-react"
-
-// Import Uploadcare correct
-import { Widget } from '@uploadcare/react-widget'
 import { cn } from "@/lib/utils"
+
+// Reusable Image Upload Component
+interface ImageUploadProps {
+  value?: string | null
+  onChange: (url: string) => void
+  onRemove: () => void
+  disabled?: boolean
+  label?: string
+  className?: string
+}
+
+function ImageUpload({ value, onChange, onRemove, disabled, label = "Glissez ou cliquez pour uploader", className }: ImageUploadProps) {
+  const { startUpload, isUploading } = useUploadThing("mediaUploader", {
+    onClientUploadComplete: (res) => {
+      if (res && res[0]) {
+        onChange(res[0].url)
+      }
+    },
+    onUploadError: (error: Error) => {
+      console.error("Upload error:", error)
+    }
+  })
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      startUpload(acceptedFiles)
+    }
+  }, [startUpload])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'image/*': [] },
+    maxFiles: 1,
+    disabled: disabled || isUploading
+  })
+
+  if (value) {
+    return (
+      <div className={cn("relative rounded-xl overflow-hidden group border border-slate-200 dark:border-slate-800", className)}>
+        <img src={value} alt="Upload" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <Button
+            type="button"
+            variant="destructive"
+            size="icon"
+            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      {...getRootProps()}
+      className={cn(
+        "border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-200 text-center p-4",
+        isDragActive ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20" : "border-slate-200 dark:border-slate-700 hover:border-emerald-400 hover:bg-slate-50 dark:hover:bg-slate-800/50",
+        className
+      )}
+    >
+      <Input {...getInputProps()} />
+      {isUploading ? (
+        <Loader className="w-6 h-6 animate-spin text-emerald-500" />
+      ) : (
+        <>
+          <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-2">
+            <Upload className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium px-2">{label}</p>
+        </>
+      )}
+    </div>
+  )
+}
 
 interface ManualInputProps {
   portfolioData: any
@@ -47,13 +118,10 @@ interface ManualInputProps {
 }
 
 export default function ManualInput({ portfolioData, setPortfolioData, onSave, isSaving = false, className }: ManualInputProps) {
+  // State definitions
   const [newSkill, setNewSkill] = useState("")
   const [newLanguage, setNewLanguage] = useState("")
   const [newInterest, setNewInterest] = useState("")
-  const [uploadingImageType, setUploadingImageType] = useState<"profile" | "project">("profile")
-  const [currentProjectIndex, setCurrentProjectIndex] = useState<number | null>(null)
-  const widgetApiRef = useRef<any>(null)
-  const projectWidgetApiRef = useRef<any>(null)
 
   const [newExperience, setNewExperience] = useState({
     company: "",
@@ -72,15 +140,6 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
     endDate: new Date(),
     current: false,
     description: "",
-  })
-
-  const [newCertification, setNewCertification] = useState({
-    name: "",
-    issuer: "",
-    date: new Date(),
-    expiryDate: null as Date | null,
-    credentialId: "",
-    url: "",
   })
 
   const [newProject, setNewProject] = useState({
@@ -102,87 +161,47 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
   const interests = portfolioData.interests || []
   const experiences = portfolioData.experiences || []
   const education = portfolioData.education || []
-  const certifications = portfolioData.certifications || []
   const projects = portfolioData.projects || []
 
-  const validateDates = (startDate: Date, endDate: Date, current: boolean) => {
-    if (current) return true
-    return startDate <= endDate
+  // Helper function
+  const updateField = (field: string, value: any) => {
+    setPortfolioData({ ...portfolioData, [field]: value })
   }
 
-  // Gestion de l'upload avec Uploadcare
-  const handleImageUpload = (type: "profile" | "project", projectIndex?: number) => {
-    setUploadingImageType(type)
-    if (type === "project" && projectIndex !== undefined) {
-      setCurrentProjectIndex(projectIndex)
-    }
-
-    if (type === "profile" && widgetApiRef.current) {
-      widgetApiRef.current.openDialog()
-    } else if (type === "project" && projectWidgetApiRef.current) {
-      projectWidgetApiRef.current.openDialog()
+  // --- Handlers ---
+  const addSkill = () => {
+    if (newSkill.trim() && !skills.includes(newSkill.trim())) {
+      updateField("skills", [...skills, newSkill.trim()])
+      setNewSkill("")
     }
   }
-
-  const handleUploadComplete = (info: any) => {
-    if (info && info.cdnUrl) {
-      const imageUrl = info.cdnUrl
-
-      if (uploadingImageType === "profile") {
-        setPortfolioData({
-          ...portfolioData,
-          profileImage: imageUrl,
-        })
-      } else if (uploadingImageType === "project" && currentProjectIndex !== null) {
-        const updatedProjects = [...projects]
-        if (!updatedProjects[currentProjectIndex].images) {
-          updatedProjects[currentProjectIndex].images = []
-        }
-        updatedProjects[currentProjectIndex] = {
-          ...updatedProjects[currentProjectIndex],
-          images: [...updatedProjects[currentProjectIndex].images, imageUrl],
-        }
-        setPortfolioData({
-          ...portfolioData,
-          projects: updatedProjects,
-        })
-      }
-    }
-    setCurrentProjectIndex(null)
+  const removeSkill = (skillToRemove: string) => {
+    updateField("skills", skills.filter((skill: string) => skill !== skillToRemove))
   }
 
-  const addItem = (field: string, value: string, setter: (value: string) => void) => {
-    if (value.trim()) {
-      const currentItems = portfolioData[field] || []
-      if (!currentItems.includes(value.trim())) {
-        setPortfolioData({
-          ...portfolioData,
-          [field]: [...currentItems, value.trim()],
-        })
-        setter("")
-      }
+  const addLanguage = () => {
+    if (newLanguage.trim() && !languages.includes(newLanguage.trim())) {
+      updateField("languages", [...languages, newLanguage.trim()])
+      setNewLanguage("")
     }
   }
+  const removeLanguage = (langToRemove: string) => {
+    updateField("languages", languages.filter((lang: string) => lang !== langToRemove))
+  }
 
-  const removeItem = (field: string, index: number) => {
-    const currentItems = portfolioData[field] || []
-    const newItems = currentItems.filter((_: any, i: number) => i !== index)
-    setPortfolioData({
-      ...portfolioData,
-      [field]: newItems,
-    })
+  const addInterest = () => {
+    if (newInterest.trim() && !interests.includes(newInterest.trim())) {
+      updateField("interests", [...interests, newInterest.trim()])
+      setNewInterest("")
+    }
+  }
+  const removeInterest = (interestToRemove: string) => {
+    updateField("interests", interests.filter((int: string) => int !== interestToRemove))
   }
 
   const addExperience = () => {
-    if (newExperience.company.trim() && newExperience.position.trim()) {
-      if (!validateDates(newExperience.startDate, newExperience.endDate, newExperience.current)) {
-        alert("La date de fin ne peut pas être antérieure à la date de début")
-        return
-      }
-      setPortfolioData({
-        ...portfolioData,
-        experiences: [...experiences, { ...newExperience }],
-      })
+    if (newExperience.company && newExperience.position) {
+      updateField("experiences", [...experiences, newExperience])
       setNewExperience({
         company: "",
         position: "",
@@ -193,25 +212,13 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
       })
     }
   }
-
   const removeExperience = (index: number) => {
-    const newExperiences = experiences.filter((_: any, i: number) => i !== index)
-    setPortfolioData({
-      ...portfolioData,
-      experiences: newExperiences,
-    })
+    updateField("experiences", experiences.filter((_: any, i: number) => i !== index))
   }
 
   const addEducation = () => {
-    if (newEducation.institution.trim() && newEducation.degree.trim()) {
-      if (!validateDates(newEducation.startDate, newEducation.endDate, newEducation.current)) {
-        alert("La date de fin ne peut pas être antérieure à la date de début")
-        return
-      }
-      setPortfolioData({
-        ...portfolioData,
-        education: [...education, { ...newEducation }],
-      })
+    if (newEducation.institution && newEducation.degree) {
+      updateField("education", [...education, newEducation])
       setNewEducation({
         institution: "",
         degree: "",
@@ -223,50 +230,13 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
       })
     }
   }
-
   const removeEducation = (index: number) => {
-    const newEducationList = education.filter((_: any, i: number) => i !== index)
-    setPortfolioData({
-      ...portfolioData,
-      education: newEducationList,
-    })
-  }
-
-  const addCertification = () => {
-    if (newCertification.name.trim() && newCertification.issuer.trim()) {
-      setPortfolioData({
-        ...portfolioData,
-        certifications: [...certifications, { ...newCertification }],
-      })
-      setNewCertification({
-        name: "",
-        issuer: "",
-        date: new Date(),
-        expiryDate: null,
-        credentialId: "",
-        url: "",
-      })
-    }
-  }
-
-  const removeCertification = (index: number) => {
-    const newCertifications = certifications.filter((_: any, i: number) => i !== index)
-    setPortfolioData({
-      ...portfolioData,
-      certifications: newCertifications,
-    })
+    updateField("education", education.filter((_: any, i: number) => i !== index))
   }
 
   const addProject = () => {
-    if (newProject.title.trim()) {
-      if (!validateDates(newProject.startDate, newProject.endDate, newProject.current)) {
-        alert("La date de fin ne peut pas être antérieure à la date de début")
-        return
-      }
-      setPortfolioData({
-        ...portfolioData,
-        projects: [...projects, { ...newProject }],
-      })
+    if (newProject.title) {
+      updateField("projects", [...projects, newProject])
       setNewProject({
         title: "",
         description: "",
@@ -278,1098 +248,445 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
         endDate: new Date(),
         current: false,
       })
-      setNewTech("")
     }
   }
-
   const removeProject = (index: number) => {
-    const newProjects = projects.filter((_: any, i: number) => i !== index)
-    setPortfolioData({
-      ...portfolioData,
-      projects: newProjects,
-    })
+    updateField("projects", projects.filter((_: any, i: number) => i !== index))
   }
-
   const addTechToProject = () => {
-    if (newTech.trim()) {
-      setNewProject({
-        ...newProject,
-        technologies: [...newProject.technologies, newTech.trim()],
-      })
+    if (newTech.trim() && !newProject.technologies.includes(newTech.trim())) {
+      setNewProject({ ...newProject, technologies: [...newProject.technologies, newTech.trim()] })
       setNewTech("")
     }
   }
-
-  const removeTechFromProject = (techIndex: number) => {
+  const removeTechFromProject = (techToRemove: string) => {
     setNewProject({
       ...newProject,
-      technologies: newProject.technologies.filter((_, index) => index !== techIndex),
+      technologies: newProject.technologies.filter((t) => t !== techToRemove),
     })
-  }
-
-  const removeProjectImage = (projectIndex: number, imageIndex: number) => {
-    const updatedProjects = [...projects]
-    updatedProjects[projectIndex] = {
-      ...updatedProjects[projectIndex],
-      images: updatedProjects[projectIndex].images.filter((_: any, index: number) => index !== imageIndex),
-    }
-    setPortfolioData({
-      ...portfolioData,
-      projects: updatedProjects,
-    })
-  }
-
-  const handleSave = () => {
-    if (onSave) {
-      onSave()
-    }
   }
 
   return (
-    <div className={cn("space-y-6 h-full", className)}>
-      <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar max-h-[600px] lg:max-h-[calc(100vh-300px)]">
-        {/* Photo de profil avec Uploadcare */}
-        <div className="space-y-4">
-          <label className="text-sm font-medium block">Photo de profil</label>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50">
-            <div className="flex-shrink-0">
-              {portfolioData.profileImage ? (
-                <img
-                  src={portfolioData.profileImage}
-                  alt="Profile"
-                  className="w-20 h-20 rounded-full object-cover border-2 border-slate-200"
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-full bg-slate-200 flex items-center justify-center border-2 border-slate-200">
-                  <User className="h-8 w-8 text-slate-400" />
-                </div>
-              )}
-            </div>
-            <div className="flex-1 space-y-2 min-w-0">
-              {/* Widget Uploadcare caché pour la photo de profil */}
-              <div style={{ display: 'none' }}>
-                <Widget
-                  publicKey={process.env.NEXT_PUBLIC_UPLOADCARE_PUBLIC_KEY || 'demopublickey'}
-                  tabs="file camera url"
-                  previewStep={true}
-                  clearable={true}
-                  crop="1:1"
-                  imageShrink="800x600 60%"
-                  imagesOnly={true}
-                  multiple={false}
-                  onChange={handleUploadComplete}
-                  ref={widgetApiRef}
-                />
-              </div>
+    <div className={cn("space-y-6 pb-24 max-w-5xl mx-auto", className)}>
+      <Accordion type="single" collapsible defaultValue="profile" className="w-full space-y-4">
 
+        {/* --- PROFILE ITEM --- */}
+        <AccordionItem value="profile" className="border-none bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <User className="h-5 w-5" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-slate-900 dark:text-white text-base">Profil & Informations</h3>
+                <p className="text-xs text-slate-500 font-normal mt-0.5">Photo, nom, titre et bio</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-6 pb-8 pt-4">
+            <div className="space-y-6">
+
+              {/* Image Upload Area - Full Width Stack */}
               <div className="flex flex-col gap-2">
-                <Button
-                  onClick={() => handleImageUpload("profile")}
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                >
-                  {portfolioData.profileImage ? (
-                    <>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Mettre à jour la photo
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Choisir une photo
-                    </>
-                  )}
-                </Button>
-                {portfolioData.profileImage && (
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Photo de profil</label>
+                <div className="w-full h-40">
+                  <ImageUpload
+                    value={portfolioData.profileImage}
+                    onChange={(url) => updateField("profileImage", url)}
+                    onRemove={() => updateField("profileImage", null)}
+                    className="w-full h-full bg-slate-50 dark:bg-slate-800/50"
+                    label="Glissez votre photo ici"
+                  />
+                </div>
+              </div>
+
+              {/* Inputs Area - Stacked */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Nom complet</label>
+                  <Input
+                    value={portfolioData.name || ""}
+                    onChange={(e) => updateField("name", e.target.value)}
+                    placeholder="ex: Jean Dupont"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Titre / Headline</label>
+                  <Input
+                    value={portfolioData.headline || ""}
+                    onChange={(e) => updateField("headline", e.target.value)}
+                    placeholder="ex: Développeur Full-Stack"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Bio</label>
+                  <Textarea
+                    value={portfolioData.bio || ""}
+                    onChange={(e) => updateField("bio", e.target.value)}
+                    rows={6}
+                    placeholder="Racontez votre histoire en quelques lignes..."
+                    className="resize-none text-base"
+                  />
+                </div>
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* --- EXPERIENCE ITEM --- */}
+        <AccordionItem value="experiences" className="border-none bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                <Briefcase className="h-5 w-5" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-slate-900 dark:text-white text-base">Expériences</h3>
+                <p className="text-xs text-slate-500 font-normal mt-0.5">{experiences.length} ajoutée(s)</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-6 pb-8 pt-4 space-y-8">
+            {/* List */}
+            {experiences.length > 0 && (
+              <div className="space-y-3">
+                {experiences.map((exp: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 gap-4">
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-white">{exp.position}</h4>
+                      <div className="text-sm text-slate-500 flex flex-wrap gap-2 items-center mt-1">
+                        <span className="text-emerald-600 font-medium">{exp.company}</span>
+                        <span>•</span>
+                        <span>{new Date(exp.startDate).getFullYear()} - {exp.current ? "Présent" : new Date(exp.endDate).getFullYear()}</span>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => removeExperience(index)} className="text-slate-400 hover:text-red-500">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Form - Stacked */}
+            <div className="p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50/30 dark:bg-slate-800/10 space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Entreprise</label>
+                <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: Google" value={newExperience.company} onChange={(e) => setNewExperience({ ...newExperience, company: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Poste</label>
+                <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: Senior Product Designer" value={newExperience.position} onChange={(e) => setNewExperience({ ...newExperience, position: e.target.value })} />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Début</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full h-11 justify-start text-left font-normal bg-white dark:bg-slate-900", !newExperience.startDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newExperience.startDate ? format(newExperience.startDate, "MMM yyyy", { locale: fr }) : "Choisir"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newExperience.startDate} onSelect={(date) => date && setNewExperience({ ...newExperience, startDate: date })} initialFocus /></PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Fin</label>
+                <div className="flex gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("flex-1 h-11 justify-start text-left font-normal bg-white dark:bg-slate-900", !newExperience.endDate && "text-muted-foreground")} disabled={newExperience.current}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newExperience.current ? "Présent" : (newExperience.endDate ? format(newExperience.endDate, "MMM yyyy", { locale: fr }) : "Choisir")}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newExperience.endDate} onSelect={(date) => date && setNewExperience({ ...newExperience, endDate: date })} initialFocus /></PopoverContent>
+                  </Popover>
                   <Button
-                    onClick={() => setPortfolioData({ ...portfolioData, profileImage: null })}
-                    variant="outline"
-                    size="sm"
-                    className="w-full sm:w-auto text-red-600 hover:text-red-700"
+                    variant={newExperience.current ? "default" : "outline"}
+                    onClick={() => setNewExperience({ ...newExperience, current: !newExperience.current })}
+                    className={cn("h-11", newExperience.current ? "bg-emerald-500 hover:bg-emerald-600" : "bg-white dark:bg-slate-900")}
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Supprimer
+                    Présent
                   </Button>
-                )}
-              </div>
-              <p className="text-xs text-slate-500 break-words">
-                Format recommandé : JPG, PNG, WebP • Max 5MB • Photo carrée recommandée
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Informations de base */}
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Nom complet</label>
-            <Input
-              placeholder="Ex: John Doe"
-              value={portfolioData.name || ""}
-              onChange={(e) => setPortfolioData({ ...portfolioData, name: e.target.value })}
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-2 block">Phrase d'accroche</label>
-            <Input
-              placeholder="Ex: Développeur Full-Stack Passionné..."
-              value={portfolioData.headline || ""}
-              onChange={(e) => setPortfolioData({ ...portfolioData, headline: e.target.value })}
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-2 block">Biographie</label>
-            <Textarea
-              placeholder="Décrivez votre parcours professionnel, vos compétences et vos aspirations..."
-              rows={4}
-              value={portfolioData.bio || ""}
-              onChange={(e) => setPortfolioData({ ...portfolioData, bio: e.target.value })}
-              className="w-full resize-vertical min-h-[100px]"
-            />
-          </div>
-        </div>
-
-        {/* Expériences Professionnelles */}
-        <div className="border-t pt-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Briefcase className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold">Expériences Professionnelles</h3>
-          </div>
-
-          <div className="space-y-4 mb-4 p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Entreprise *</label>
-                <Input
-                  placeholder="Nom de l'entreprise"
-                  value={newExperience.company}
-                  onChange={(e) => setNewExperience({ ...newExperience, company: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Poste *</label>
-                <Input
-                  placeholder="Votre poste"
-                  value={newExperience.position}
-                  onChange={(e) => setNewExperience({ ...newExperience, position: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Date de début</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal bg-transparent">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newExperience.startDate
-                        ? format(newExperience.startDate, "PPP", { locale: fr })
-                        : "Sélectionner une date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={newExperience.startDate}
-                      onSelect={(date) => date && setNewExperience({ ...newExperience, startDate: date })}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Date de fin</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal bg-transparent"
-                      disabled={newExperience.current}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newExperience.endDate
-                        ? format(newExperience.endDate, "PPP", { locale: fr })
-                        : "Sélectionner une date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={newExperience.endDate}
-                      onSelect={(date) => date && setNewExperience({ ...newExperience, endDate: date })}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <div className="flex items-center gap-2 mt-2">
-                  <input
-                    type="checkbox"
-                    id="current-job"
-                    checked={newExperience.current}
-                    onChange={(e) =>
-                      setNewExperience({
-                        ...newExperience,
-                        current: e.target.checked,
-                        endDate: e.target.checked ? new Date() : newExperience.endDate,
-                      })
-                    }
-                    className="rounded border-slate-300"
-                  />
-                  <label htmlFor="current-job" className="text-sm text-slate-600 dark:text-slate-400">
-                    Poste actuel
-                  </label>
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Description</label>
+                <Textarea className="bg-white dark:bg-slate-900 min-h-[120px]" placeholder="Responsabilités..." value={newExperience.description} onChange={(e) => setNewExperience({ ...newExperience, description: e.target.value })} />
+              </div>
+
+              <Button onClick={addExperience} className="w-full bg-slate-900 text-white hover:bg-slate-800 h-11 mt-4">
+                <Plus className="w-4 h-4 mr-2" /> Ajouter
+              </Button>
             </div>
+          </AccordionContent>
+        </AccordionItem>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">Description</label>
-              <Textarea
-                placeholder="Décrivez vos responsabilités, réalisations et compétences acquises..."
-                rows={3}
-                value={newExperience.description}
-                onChange={(e) => setNewExperience({ ...newExperience, description: e.target.value })}
-              />
+        {/* --- EDUCATION ITEM --- */}
+        <AccordionItem value="education" className="border-none bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                <BookOpen className="h-5 w-5" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-slate-900 dark:text-white text-base">Formation</h3>
+                <p className="text-xs text-slate-500 font-normal mt-0.5">{education.length} ajoutée(s)</p>
+              </div>
             </div>
-
-            <Button
-              onClick={addExperience}
-              className="w-full"
-              disabled={!newExperience.company.trim() || !newExperience.position.trim()}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Ajouter l'expérience
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            {experiences.map((exp: any, index: number) => (
-              <div
-                key={index}
-                className="flex flex-col lg:flex-row lg:items-start lg:justify-between p-4 border rounded-lg bg-white dark:bg-slate-800 gap-4"
-              >
-                <div className="flex-1 space-y-2 min-w-0">
-                  <div className="font-semibold text-base break-words">{exp.position}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400 break-words">{exp.company}</div>
-                  <div className="text-xs text-slate-500">
-                    {format(exp.startDate, "MMM yyyy", { locale: fr })} -{" "}
-                    {exp.current ? "Présent" : format(exp.endDate, "MMM yyyy", { locale: fr })}
+          </AccordionTrigger>
+          <AccordionContent className="px-6 pb-8 pt-4 space-y-8">
+            {/* List */}
+            {education.length > 0 && (
+              <div className="space-y-3">
+                {education.map((edu: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 gap-4">
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-white">{edu.degree}</h4>
+                      <div className="text-sm text-slate-500 flex flex-wrap gap-2 items-center mt-1">
+                        <span className="text-purple-600 font-medium">{edu.institution}</span>
+                        {edu.field && <span className="text-slate-400 italic">({edu.field})</span>}
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => removeEducation(index)} className="text-slate-400 hover:text-red-500">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                  {exp.description && (
-                    <p className="text-sm text-slate-700 dark:text-slate-300 break-words mt-2">{exp.description}</p>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeExperience(index)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0 self-start"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            {experiences.length === 0 && (
-              <div className="text-center py-8 text-slate-500 text-sm border-2 border-dashed border-slate-200 rounded-lg">
-                <Briefcase className="h-8 w-8 mx-auto mb-2 text-slate-400" />
-                <p>Aucune expérience professionnelle ajoutée</p>
-                <p className="text-xs mt-1">Ajoutez votre première expérience professionnelle</p>
+                ))}
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Formations */}
-        <div className="border-t pt-6">
-          <div className="flex items-center gap-2 mb-4">
-            <BookOpen className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold">Formations</h3>
-          </div>
-
-          <div className="space-y-4 mb-4 p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Établissement *</label>
-                <Input
-                  placeholder="Nom de l'établissement"
-                  value={newEducation.institution}
-                  onChange={(e) => setNewEducation({ ...newEducation, institution: e.target.value })}
-                />
+            {/* Form - Stacked */}
+            <div className="p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50/30 dark:bg-slate-800/10 space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">École</label>
+                <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: HEC Paris" value={newEducation.institution} onChange={(e) => setNewEducation({ ...newEducation, institution: e.target.value })} />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Diplôme *</label>
-                <Input
-                  placeholder="Ex: Master, Licence..."
-                  value={newEducation.degree}
-                  onChange={(e) => setNewEducation({ ...newEducation, degree: e.target.value })}
-                />
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Diplôme</label>
+                <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: Master" value={newEducation.degree} onChange={(e) => setNewEducation({ ...newEducation, degree: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Domaine</label>
+                <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: Marketing" value={newEducation.field} onChange={(e) => setNewEducation({ ...newEducation, field: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Début</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full h-11 justify-start text-left font-normal bg-white dark:bg-slate-900", !newEducation.startDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newEducation.startDate ? format(newEducation.startDate, "yyyy", { locale: fr }) : "Année"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newEducation.startDate} onSelect={(date) => date && setNewEducation({ ...newEducation, startDate: date })} initialFocus /></PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Fin</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full h-11 justify-start text-left font-normal bg-white dark:bg-slate-900", !newEducation.endDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newEducation.endDate ? format(newEducation.endDate, "yyyy", { locale: fr }) : "Année"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newEducation.endDate} onSelect={(date) => date && setNewEducation({ ...newEducation, endDate: date })} initialFocus /></PopoverContent>
+                </Popover>
+              </div>
+
+              <Button onClick={addEducation} className="w-full bg-slate-900 text-white hover:bg-slate-800 h-11 mt-4">
+                <Plus className="w-4 h-4 mr-2" /> Ajouter
+              </Button>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* --- PROJECTS ITEM --- */}
+        <AccordionItem value="projects" className="border-none bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                <Code className="h-5 w-5" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-slate-900 dark:text-white text-base">Projets</h3>
+                <p className="text-xs text-slate-500 font-normal mt-0.5">{projects.length} ajoutée(s)</p>
               </div>
             </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-6 pb-8 pt-4 space-y-8">
+            <div className="space-y-4">
+              {projects.map((proj: any, index: number) => (
+                <div key={index} className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                  <div className="w-16 h-16 rounded-md bg-slate-200 overflow-hidden shrink-0">
+                    {proj.images?.[0] ? <img src={proj.images[0]} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="text-slate-400" /></div>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-slate-900 dark:text-white truncate">{proj.title}</h4>
+                    <p className="text-sm text-slate-500 line-clamp-1">{proj.description}</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => removeProject(index)} className="text-slate-400 hover:text-red-500 shrink-0">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">Domaine d'étude</label>
+            <div className="p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50/30 dark:bg-slate-800/10 space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Titre</label>
+                <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: E-commerce" value={newProject.title} onChange={(e) => setNewProject({ ...newProject, title: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Description</label>
+                <Textarea className="bg-white dark:bg-slate-900 min-h-[140px]" placeholder="Détails..." value={newProject.description} onChange={(e) => setNewProject({ ...newProject, description: e.target.value })} />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Technologies</label>
+                <div className="flex gap-2">
+                  <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: React" value={newTech} onChange={(e) => setNewTech(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTechToProject()} />
+                  <Button onClick={addTechToProject} className="h-11 w-11 p-0 shrink-0"><Plus className="w-5 h-5" /></Button>
+                </div>
+                <div className="flex flex-wrap gap-2 min-h-[30px] pt-1">
+                  {newProject.technologies.map((tech, i) => (
+                    <Badge key={i} variant="secondary" onClick={() => removeTechFromProject(tech)} className="cursor-pointer hover:bg-red-100 hover:text-red-600">{tech} <X className="ml-1 w-3 h-3" /></Badge>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Image de couverture</label>
+                <div className="h-40 w-full">
+                  <ImageUpload value={newProject.images[0]} onChange={(url) => setNewProject({ ...newProject, images: [url] })} onRemove={() => setNewProject({ ...newProject, images: [] })} className="h-full bg-white dark:bg-slate-900" label="Image du projet" />
+                </div>
+              </div>
+
+              <Button onClick={addProject} className="w-full bg-slate-900 text-white hover:bg-slate-800 h-11 mt-4">
+                <Plus className="w-4 h-4 mr-2" /> Ajouter Projet
+              </Button>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* --- SKILLS ITEM --- */}
+        <AccordionItem value="skills" className="border-none bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                <Award className="h-5 w-5" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-slate-900 dark:text-white text-base">Compétences</h3>
+                <p className="text-xs text-slate-500 font-normal mt-0.5">{skills.length} ajoutée(s)</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-6 pb-8 pt-4">
+            <div className="flex gap-3 mb-6">
               <Input
-                placeholder="Ex: Informatique, Marketing..."
-                value={newEducation.field}
-                onChange={(e) => setNewEducation({ ...newEducation, field: e.target.value })}
-              />
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Date de début</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal bg-transparent">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newEducation.startDate
-                        ? format(newEducation.startDate, "PPP", { locale: fr })
-                        : "Sélectionner une date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={newEducation.startDate}
-                      onSelect={(date) => date && setNewEducation({ ...newEducation, startDate: date })}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Date de fin</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal bg-transparent"
-                      disabled={newEducation.current}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newEducation.endDate
-                        ? format(newEducation.endDate, "PPP", { locale: fr })
-                        : "Sélectionner une date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={newEducation.endDate}
-                      onSelect={(date) => date && setNewEducation({ ...newEducation, endDate: date })}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <div className="flex items-center gap-2 mt-2">
-                  <input
-                    type="checkbox"
-                    id="current-education"
-                    checked={newEducation.current}
-                    onChange={(e) =>
-                      setNewEducation({
-                        ...newEducation,
-                        current: e.target.checked,
-                        endDate: e.target.checked ? new Date() : newEducation.endDate,
-                      })
-                    }
-                    className="rounded border-slate-300"
-                  />
-                  <label htmlFor="current-education" className="text-sm text-slate-600 dark:text-slate-400">
-                    Formation en cours
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium mb-2 block">Description</label>
-              <Textarea
-                placeholder="Décrivez votre formation, les matières principales, les projets réalisés..."
-                rows={3}
-                value={newEducation.description}
-                onChange={(e) => setNewEducation({ ...newEducation, description: e.target.value })}
-              />
-            </div>
-
-            <Button
-              onClick={addEducation}
-              className="w-full"
-              disabled={!newEducation.institution.trim() || !newEducation.degree.trim()}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Ajouter la formation
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            {education.map((edu: any, index: number) => (
-              <div
-                key={index}
-                className="flex flex-col lg:flex-row lg:items-start lg:justify-between p-4 border rounded-lg bg-white dark:bg-slate-800 gap-4"
-              >
-                <div className="flex-1 space-y-2 min-w-0">
-                  <div className="font-semibold text-base break-words">{edu.degree}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400 break-words">{edu.institution}</div>
-                  <div className="text-xs text-slate-500 break-words">{edu.field}</div>
-                  <div className="text-xs text-slate-500">
-                    {format(edu.startDate, "MMM yyyy", { locale: fr })} -{" "}
-                    {edu.current ? "Présent" : format(edu.endDate, "MMM yyyy", { locale: fr })}
-                  </div>
-                  {edu.description && (
-                    <p className="text-sm text-slate-700 dark:text-slate-300 break-words mt-2">{edu.description}</p>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeEducation(index)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0 self-start"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            {education.length === 0 && (
-              <div className="text-center py-8 text-slate-500 text-sm border-2 border-dashed border-slate-200 rounded-lg">
-                <BookOpen className="h-8 w-8 mx-auto mb-2 text-slate-400" />
-                <p>Aucune formation ajoutée</p>
-                <p className="text-xs mt-1">Ajoutez votre première formation</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Certifications */}
-        <div className="border-t pt-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Award className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold">Certifications</h3>
-          </div>
-
-          <div className="space-y-4 mb-4 p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Nom de la certification *</label>
-                <Input
-                  placeholder="Ex: AWS Certified Developer"
-                  value={newCertification.name}
-                  onChange={(e) => setNewCertification({ ...newCertification, name: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Organisme *</label>
-                <Input
-                  placeholder="Ex: Amazon Web Services"
-                  value={newCertification.issuer}
-                  onChange={(e) => setNewCertification({ ...newCertification, issuer: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Date d'obtention</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal bg-transparent">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newCertification.date
-                        ? format(newCertification.date, "PPP", { locale: fr })
-                        : "Sélectionner une date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={newCertification.date}
-                      onSelect={(date) => date && setNewCertification({ ...newCertification, date: date })}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Date d'expiration (optionnel)</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal bg-transparent">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newCertification.expiryDate
-                        ? format(newCertification.expiryDate, "PPP", { locale: fr })
-                        : "Sélectionner une date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={newCertification.expiryDate || undefined}
-                      onSelect={(date) => setNewCertification({ ...newCertification, expiryDate: date })}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">ID de certification</label>
-                <Input
-                  placeholder="Ex: AWS-DEV-12345"
-                  value={newCertification.credentialId}
-                  onChange={(e) => setNewCertification({ ...newCertification, credentialId: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">URL (optionnel)</label>
-                <Input
-                  placeholder="https://..."
-                  value={newCertification.url}
-                  onChange={(e) => setNewCertification({ ...newCertification, url: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <Button
-              onClick={addCertification}
-              className="w-full"
-              disabled={!newCertification.name.trim() || !newCertification.issuer.trim()}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Ajouter la certification
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            {certifications.map((cert: any, index: number) => (
-              <div
-                key={index}
-                className="flex flex-col lg:flex-row lg:items-start lg:justify-between p-4 border rounded-lg bg-white dark:bg-slate-800 gap-4"
-              >
-                <div className="flex-1 space-y-2 min-w-0">
-                  <div className="font-semibold text-base break-words">{cert.name}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400 break-words">{cert.issuer}</div>
-                  <div className="text-xs text-slate-500">
-                    Obtenu le {format(cert.date, "dd/MM/yyyy", { locale: fr })}
-                    {cert.expiryDate && ` • Expire le ${format(cert.expiryDate, "dd/MM/yyyy", { locale: fr })}`}
-                  </div>
-                  {cert.credentialId && (
-                    <div className="text-xs text-slate-500 break-words">ID: {cert.credentialId}</div>
-                  )}
-                  {cert.url && (
-                    <a
-                      href={cert.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline text-xs break-all"
-                    >
-                      Voir la certification
-                    </a>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeCertification(index)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0 self-start"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            {certifications.length === 0 && (
-              <div className="text-center py-8 text-slate-500 text-sm border-2 border-dashed border-slate-200 rounded-lg">
-                <Award className="h-8 w-8 mx-auto mb-2 text-slate-400" />
-                <p>Aucune certification ajoutée</p>
-                <p className="text-xs mt-1">Ajoutez votre première certification</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Compétences */}
-        <div className="border-t pt-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Code className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold">Compétences</h3>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Input
+                className="h-11 bg-slate-50 dark:bg-slate-800"
                 placeholder="Ajouter une compétence..."
                 value={newSkill}
                 onChange={(e) => setNewSkill(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    addItem("skills", newSkill, setNewSkill)
-                  }
-                }}
-                className="flex-1"
+                onKeyDown={(e) => e.key === 'Enter' && addSkill()}
               />
-              <Button
-                onClick={() => addItem("skills", newSkill, setNewSkill)}
-                className="flex-shrink-0"
-                disabled={!newSkill.trim()}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+              <Button onClick={addSkill} className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white"><Plus className="w-5 h-5" /></Button>
             </div>
-
-            <div className="flex flex-wrap gap-2">
-              {skills.map((skill: string, index: number) => (
-                <Badge
-                  key={index}
-                  variant="secondary"
-                  className="gap-1 pl-3 pr-2 py-1 text-sm group hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-default break-all"
-                >
-                  <span className="break-words">{skill}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeItem("skills", index)
-                    }}
-                    className="h-3 w-3 cursor-pointer text-slate-500 hover:text-red-600 hover:scale-110 transition-all duration-200 flex items-center justify-center flex-shrink-0"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+            <div className="flex flex-wrap gap-3">
+              {skills.map((skill: string, i: number) => (
+                <Badge key={i} className="pl-4 pr-2 py-2 text-sm gap-2 hover:bg-rose-50 hover:text-rose-600 cursor-pointer transition-all" variant="outline" onClick={() => removeSkill(skill)}>
+                  {skill} <X className="w-3.5 h-3.5 opacity-50 hover:opacity-100" />
                 </Badge>
               ))}
-              {skills.length === 0 && (
-                <div className="text-center w-full py-4 text-slate-500 text-sm border-2 border-dashed border-slate-200 rounded-lg">
-                  <Code className="h-6 w-6 mx-auto mb-1 text-slate-400" />
-                  <p>Aucune compétence ajoutée</p>
-                </div>
-              )}
             </div>
-          </div>
-        </div>
+          </AccordionContent>
+        </AccordionItem>
 
-        {/* Langues */}
-        <div className="border-t pt-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Languages className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold">Langues</h3>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-2">
+        {/* --- LANGUAGES --- */}
+        <AccordionItem value="languages" className="border-none bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400">
+                <Languages className="h-5 w-5" />
+              </div>
+              <h3 className="font-semibold text-slate-900 dark:text-white">Langues</h3>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-6 pb-6 pt-2">
+            <div className="flex gap-2 mb-4">
               <Input
-                placeholder="Ajouter une langue..."
+                className="h-11"
+                placeholder="Langue..."
                 value={newLanguage}
                 onChange={(e) => setNewLanguage(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    addItem("languages", newLanguage, setNewLanguage)
-                  }
-                }}
-                className="flex-1"
+                onKeyDown={(e) => e.key === 'Enter' && addLanguage()}
               />
-              <Button
-                onClick={() => addItem("languages", newLanguage, setNewLanguage)}
-                className="flex-shrink-0"
-                disabled={!newLanguage.trim()}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+              <Button onClick={addLanguage} className="h-11 px-4" variant="secondary"><Plus className="w-4 h-4" /></Button>
             </div>
-
             <div className="flex flex-wrap gap-2">
-              {languages.map((language: string, index: number) => (
-                <Badge
-                  key={index}
-                  variant="secondary"
-                  className="gap-1 pl-3 pr-2 py-1 text-sm group hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-default break-all"
-                >
-                  <span className="break-words">{language}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeItem("languages", index)
-                    }}
-                    className="h-3 w-3 cursor-pointer text-slate-500 hover:text-red-600 hover:scale-110 transition-all duration-200 flex items-center justify-center flex-shrink-0"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+              {languages.map((lang: string, i: number) => (
+                <Badge key={i} className="cursor-pointer py-1.5 px-3" variant="outline" onClick={() => removeLanguage(lang)}>
+                  {lang} <X className="w-3 h-3 ml-2 text-slate-400" />
                 </Badge>
               ))}
-              {languages.length === 0 && (
-                <div className="text-center w-full py-4 text-slate-500 text-sm border-2 border-dashed border-slate-200 rounded-lg">
-                  <Languages className="h-6 w-6 mx-auto mb-1 text-slate-400" />
-                  <p>Aucune langue ajoutée</p>
-                </div>
-              )}
             </div>
-          </div>
-        </div>
+          </AccordionContent>
+        </AccordionItem>
 
-        {/* Centres d'intérêt */}
-        <div className="border-t pt-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Heart className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold">Centres d'intérêt</h3>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-2">
+        {/* --- INTERESTS --- */}
+        <AccordionItem value="interests" className="border-none bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center text-pink-600 dark:text-pink-400">
+                <Heart className="h-5 w-5" />
+              </div>
+              <h3 className="font-semibold text-slate-900 dark:text-white">Intérêts</h3>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-6 pb-6 pt-2">
+            <div className="flex gap-2 mb-4">
               <Input
-                placeholder="Ajouter un centre d'intérêt..."
+                className="h-11"
+                placeholder="Passion..."
                 value={newInterest}
                 onChange={(e) => setNewInterest(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    addItem("interests", newInterest, setNewInterest)
-                  }
-                }}
-                className="flex-1"
+                onKeyDown={(e) => e.key === 'Enter' && addInterest()}
               />
-              <Button
-                onClick={() => addItem("interests", newInterest, setNewInterest)}
-                className="flex-shrink-0"
-                disabled={!newInterest.trim()}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+              <Button onClick={addInterest} className="h-11 px-4" variant="secondary"><Plus className="w-4 h-4" /></Button>
             </div>
-
             <div className="flex flex-wrap gap-2">
-              {interests.map((interest: string, index: number) => (
-                <Badge
-                  key={index}
-                  variant="secondary"
-                  className="gap-1 pl-3 pr-2 py-1 text-sm group hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-default break-all"
-                >
-                  <span className="break-words">{interest}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeItem("interests", index)
-                    }}
-                    className="h-3 w-3 cursor-pointer text-slate-500 hover:text-red-600 hover:scale-110 transition-all duration-200 flex items-center justify-center flex-shrink-0"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+              {interests.map((int: string, i: number) => (
+                <Badge key={i} className="cursor-pointer py-1.5 px-3" variant="outline" onClick={() => removeInterest(int)}>
+                  {int} <X className="w-3 h-3 ml-2 text-slate-400" />
                 </Badge>
               ))}
-              {interests.length === 0 && (
-                <div className="text-center w-full py-4 text-slate-500 text-sm border-2 border-dashed border-slate-200 rounded-lg">
-                  <Heart className="h-6 w-6 mx-auto mb-1 text-slate-400" />
-                  <p>Aucun centre d'intérêt ajouté</p>
-                </div>
-              )}
             </div>
-          </div>
-        </div>
+          </AccordionContent>
+        </AccordionItem>
 
-        {/* Projets */}
-        <div className="border-t pt-6">
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="projects" className="border rounded-lg px-4">
-              <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-2">
-                  <ImageIcon className="h-5 w-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold">Projets (Optionnel)</h3>
-                  <Badge variant="secondary" className="ml-2">
-                    {projects.length}
-                  </Badge>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="pt-4">
-                <div className="space-y-6">
-                  {/* Formulaire d'ajout de projet */}
-                  <div className="space-y-4 p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                    <div className="grid grid-cols-1 gap-4">
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Titre du projet *</label>
-                        <Input
-                          placeholder="Nom du projet"
-                          value={newProject.title}
-                          onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
-                          className="w-full"
-                        />
-                      </div>
+      </Accordion>
 
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Description</label>
-                        <Textarea
-                          placeholder="Décrivez le projet, ses fonctionnalités, vos contributions et les résultats obtenus..."
-                          rows={3}
-                          value={newProject.description}
-                          onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                          className="w-full resize-vertical min-h-[80px]"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">URL du projet (optionnel)</label>
-                          <Input
-                            placeholder="https://votre-projet.com"
-                            value={newProject.projectUrl}
-                            onChange={(e) => setNewProject({ ...newProject, projectUrl: e.target.value })}
-                            className="w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">GitHub (optionnel)</label>
-                          <Input
-                            placeholder="https://github.com/votre-repo"
-                            value={newProject.githubUrl}
-                            onChange={(e) => setNewProject({ ...newProject, githubUrl: e.target.value })}
-                            className="w-full"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Technologies utilisées</label>
-                        <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                          <Input
-                            placeholder="Ajouter une technologie..."
-                            value={newTech}
-                            onChange={(e) => setNewTech(e.target.value)}
-                            onKeyPress={(e) => {
-                              if (e.key === "Enter") {
-                                addTechToProject()
-                              }
-                            }}
-                            className="flex-1"
-                          />
-                          <Button size="sm" onClick={addTechToProject} className="flex-shrink-0">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {newProject.technologies.map((tech, index) => (
-                            <Badge
-                              key={index}
-                              variant="secondary"
-                              className="gap-1 pl-3 pr-2 py-1 text-xs group hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-default break-all"
-                            >
-                              <span className="break-words">{tech}</span>
-                              <button
-                                onClick={() => removeTechFromProject(index)}
-                                className="h-3 w-3 cursor-pointer text-slate-500 hover:text-red-600 hover:scale-110 transition-all duration-200 flex items-center justify-center flex-shrink-0"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">Date de début</label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="w-full justify-start text-left font-normal bg-transparent"
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {newProject.startDate
-                                  ? format(newProject.startDate, "PPP", { locale: fr })
-                                  : "Sélectionner une date"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar
-                                mode="single"
-                                selected={newProject.startDate}
-                                onSelect={(date) => date && setNewProject({ ...newProject, startDate: date })}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">Date de fin</label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="w-full justify-start text-left font-normal bg-transparent"
-                                disabled={newProject.current}
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {newProject.endDate
-                                  ? format(newProject.endDate, "PPP", { locale: fr })
-                                  : "Sélectionner une date"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar
-                                mode="single"
-                                selected={newProject.endDate}
-                                onSelect={(date) => date && setNewProject({ ...newProject, endDate: date })}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <div className="flex items-center gap-2 mt-2">
-                            <input
-                              type="checkbox"
-                              id="current-project"
-                              checked={newProject.current}
-                              onChange={(e) =>
-                                setNewProject({
-                                  ...newProject,
-                                  current: e.target.checked,
-                                  endDate: e.target.checked ? new Date() : newProject.endDate,
-                                })
-                              }
-                              className="rounded border-slate-300"
-                            />
-                            <label htmlFor="current-project" className="text-sm text-slate-600 dark:text-slate-400">
-                              Projet en cours
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <Button onClick={addProject} className="w-full" disabled={!newProject.title.trim()}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Ajouter le projet
-                    </Button>
-                  </div>
-
-                  {/* Liste des projets existants */}
-                  <div className="space-y-4">
-                    {projects.map((project: any, index: number) => (
-                      <div key={index} className="p-4 border rounded-lg bg-white dark:bg-slate-800 space-y-4">
-                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                          <div className="flex-1 space-y-2 min-w-0">
-                            <div className="font-semibold text-lg break-words">{project.title}</div>
-                            <div className="text-sm text-slate-600 dark:text-slate-400">
-                              {format(project.startDate, "MMM yyyy", { locale: fr })} -{" "}
-                              {project.current ? "Présent" : format(project.endDate, "MMM yyyy", { locale: fr })}
-                            </div>
-                            {project.description && (
-                              <p className="text-sm text-slate-700 dark:text-slate-300 break-words">
-                                {project.description}
-                              </p>
-                            )}
-                            {project.technologies && project.technologies.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {project.technologies.map((tech: string, techIndex: number) => (
-                                  <Badge key={techIndex} variant="secondary" className="text-xs break-words">
-                                    {tech}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                            {(project.projectUrl || project.githubUrl) && (
-                              <div className="flex flex-wrap gap-4 mt-2 text-sm">
-                                {project.projectUrl && (
-                                  <a
-                                    href={project.projectUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:underline flex items-center gap-1 break-all"
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                    Lien du projet
-                                  </a>
-                                )}
-                                {project.githubUrl && (
-                                  <a
-                                    href={project.githubUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:underline flex items-center gap-1 break-all"
-                                  >
-                                    <Github className="h-3 w-3" />
-                                    GitHub
-                                  </a>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeProject(index)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0 self-start"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        <div>
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                            <label className="text-sm font-medium">Images du projet</label>
-                            {/* Widget Uploadcare caché pour les projets */}
-                            <div style={{ display: 'none' }}>
-                              <Widget
-                                publicKey={process.env.NEXT_PUBLIC_UPLOADCARE_PUBLIC_KEY || 'demopublickey'}
-                                tabs="file camera url"
-                                previewStep={true}
-                                clearable={true}
-                                crop="free"
-                                imageShrink="800x600 60%"
-                                imagesOnly={true}
-                                multiple={true}
-                                onChange={handleUploadComplete}
-                                ref={projectWidgetApiRef}
-                              />
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleImageUpload("project", index)}
-                              className="flex-shrink-0"
-                            >
-                              <Plus className="h-3 w-3 mr-1" />
-                              Ajouter une image
-                            </Button>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                            {project.images?.map((image: string, imageIndex: number) => (
-                              <div key={imageIndex} className="relative group">
-                                <img
-                                  src={image}
-                                  alt={`${project.title} ${imageIndex + 1}`}
-                                  className="w-full h-20 object-cover rounded border"
-                                />
-                                <button
-                                  onClick={() => removeProjectImage(index, imageIndex)}
-                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </div>
-                            ))}
-                            {(!project.images || project.images.length === 0) && (
-                              <div className="col-span-full text-center py-4 text-slate-500 text-sm border-2 border-dashed border-slate-200 rounded-lg">
-                                Aucune image ajoutée
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {projects.length === 0 && (
-                      <div className="text-center py-8 text-slate-500 text-sm border-2 border-dashed border-slate-200 rounded-lg">
-                        <ImageIcon className="h-8 w-8 mx-auto mb-2 text-slate-400" />
-                        <p>Aucun projet ajouté</p>
-                        <p className="text-xs mt-1">Commencez par ajouter votre premier projet</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </div>
+      {/* Floating Save Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <Button
+          onClick={onSave}
+          disabled={isSaving}
+          size="lg"
+          className="rounded-full h-14 pl-6 pr-8 shadow-xl bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 transition-all hover:scale-105 active:scale-95 border border-slate-800 dark:border-slate-200"
+        >
+          {isSaving ? (
+            <Loader className="w-5 h-5 animate-spin mr-2" />
+          ) : (
+            <Save className="w-5 h-5 mr-2" />
+          )}
+          <span className="font-semibold text-base">Sauvegarder</span>
+        </Button>
       </div>
     </div>
   )
