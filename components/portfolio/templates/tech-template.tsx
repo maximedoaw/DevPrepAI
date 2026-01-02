@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { Terminal, Code, GitBranch, Database, Server, Cpu } from "lucide-react"
+import { Terminal, Code, GitBranch, Database, Server, Cpu, Globe, Heart } from "lucide-react"
 
 interface TechTemplateProps {
   portfolioData: any
@@ -12,9 +12,10 @@ interface TechTemplateProps {
 export default function TechTemplate({ portfolioData }: TechTemplateProps) {
   const terminalRef = useRef<HTMLPreElement>(null)
 
-  const isSectionEnabled = (sectionId: string) => {
-    return portfolioData.sections?.includes(sectionId) || false
-  }
+  // Get sections order from data, or default to a standard order if empty
+  const sectionsOrder = portfolioData.sections && portfolioData.sections.length > 0
+    ? portfolioData.sections
+    : ["skills", "projects", "experiences", "education", "languages", "interests"]
 
   useEffect(() => {
     // Typing animation for terminal
@@ -24,6 +25,7 @@ export default function TechTemplate({ portfolioData }: TechTemplateProps) {
       const text = `$ whoami\n> ${name}\n$ cat bio.txt\n> ${headline}`
       let index = 0
       const element = terminalRef.current
+      element.textContent = "" // Reset content
 
       const type = () => {
         if (index < text.length) {
@@ -36,57 +38,12 @@ export default function TechTemplate({ portfolioData }: TechTemplateProps) {
     }
   }, [portfolioData.name, portfolioData.headline])
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100 font-mono">
-      {/* Terminal Header */}
-      <header className="bg-slate-900 dark:bg-slate-950 text-green-400 py-12 border-b-2 border-green-500">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="bg-slate-800 dark:bg-slate-900 rounded-lg p-6 border border-green-500/30 shadow-lg shadow-green-500/20">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-3 h-3 rounded-full bg-red-500" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500" />
-              <div className="w-3 h-3 rounded-full bg-green-500" />
-              <span className="ml-4 text-sm text-slate-400">terminal — bash</span>
-            </div>
-            <div className="flex gap-6 items-start">
-              {portfolioData.profileImage && (
-                <img
-                  src={portfolioData.profileImage || "/placeholder.svg"}
-                  alt="Profile"
-                  className="w-24 h-24 rounded-lg object-cover border-2 border-green-500/50"
-                />
-              )}
-              <div className="flex-1">
-                <pre
-                  ref={terminalRef}
-                  className="text-green-400 text-sm leading-relaxed whitespace-pre-wrap min-h-[100px]"
-                />
-                <div className="inline-block w-2 h-4 bg-green-400 animate-pulse ml-1" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-6xl mx-auto px-6 py-16 space-y-16">
-        {/* Bio Section */}
-        {portfolioData.bio && (
-          <section>
-            <div className="flex items-center gap-3 mb-6">
-              <Terminal className="h-6 w-6 text-green-500" />
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                <span className="text-green-500">$</span> cat about.md
-              </h2>
-            </div>
-            <Card className="bg-slate-800/50 dark:bg-slate-900/50 border-green-500/30 p-6">
-              <p className="text-slate-300 dark:text-slate-400 leading-relaxed">{portfolioData.bio}</p>
-            </Card>
-          </section>
-        )}
-
-        {/* Skills */}
-        {isSectionEnabled("skills") && portfolioData.skills?.length > 0 && (
-          <section>
+  const renderSection = (sectionId: string) => {
+    switch (sectionId) {
+      case "skills":
+        if (!portfolioData.skills?.length) return null
+        return (
+          <section key="skills">
             <div className="flex items-center gap-3 mb-6">
               <Code className="h-6 w-6 text-green-500" />
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -107,11 +64,12 @@ export default function TechTemplate({ portfolioData }: TechTemplateProps) {
               ))}
             </div>
           </section>
-        )}
+        )
 
-        {/* Projects */}
-        {isSectionEnabled("projects") && portfolioData.projects?.length > 0 && (
-          <section>
+      case "projects":
+        if (!portfolioData.projects?.length) return null
+        return (
+          <section key="projects">
             <div className="flex items-center gap-3 mb-6">
               <GitBranch className="h-6 w-6 text-green-500" />
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -162,11 +120,12 @@ export default function TechTemplate({ portfolioData }: TechTemplateProps) {
               ))}
             </div>
           </section>
-        )}
+        )
 
-        {/* Experience */}
-        {isSectionEnabled("experiences") && portfolioData.experiences?.length > 0 && (
-          <section>
+      case "experiences":
+        if (!portfolioData.experiences?.length) return null
+        return (
+          <section key="experiences">
             <div className="flex items-center gap-3 mb-6">
               <Server className="h-6 w-6 text-green-500" />
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -195,11 +154,12 @@ export default function TechTemplate({ portfolioData }: TechTemplateProps) {
               ))}
             </div>
           </section>
-        )}
+        )
 
-        {/* Education */}
-        {isSectionEnabled("education") && portfolioData.education?.length > 0 && (
-          <section>
+      case "education":
+        if (!portfolioData.education?.length) return null
+        return (
+          <section key="education">
             <div className="flex items-center gap-3 mb-6">
               <Database className="h-6 w-6 text-green-500" />
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -207,12 +167,13 @@ export default function TechTemplate({ portfolioData }: TechTemplateProps) {
               </h2>
             </div>
             <Card className="bg-slate-800/50 dark:bg-slate-900/50 border-green-500/30 p-6">
-              <pre className="text-green-400 text-sm">
+              <pre className="text-green-400 text-sm whitespace-pre-wrap font-mono">
                 {JSON.stringify(
                   portfolioData.education.map((edu: any) => ({
                     degree: edu.degree,
                     institution: edu.institution,
                     field: edu.field,
+                    year: new Date(edu.endDate).getFullYear()
                   })),
                   null,
                   2,
@@ -220,15 +181,19 @@ export default function TechTemplate({ portfolioData }: TechTemplateProps) {
               </pre>
             </Card>
           </section>
-        )}
+        )
 
-        {/* Languages & Interests */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {isSectionEnabled("languages") && portfolioData.languages?.length > 0 && (
-            <Card className="bg-slate-800/50 dark:bg-slate-900/50 border-green-500/30 p-6">
-              <h3 className="text-lg font-bold text-green-400 mb-4">
+      case "languages":
+        if (!portfolioData.languages?.length) return null
+        return (
+          <section key="languages">
+            <div className="flex items-center gap-3 mb-6">
+              <Globe className="h-6 w-6 text-green-500" />
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                 <span className="text-green-500">$</span> echo $LANGUAGES
-              </h3>
+              </h2>
+            </div>
+            <Card className="bg-slate-800/50 dark:bg-slate-900/50 border-green-500/30 p-6">
               <div className="space-y-2">
                 {portfolioData.languages.map((language: string, index: number) => (
                   <div key={index} className="flex items-center gap-2">
@@ -238,13 +203,20 @@ export default function TechTemplate({ portfolioData }: TechTemplateProps) {
                 ))}
               </div>
             </Card>
-          )}
+          </section>
+        )
 
-          {isSectionEnabled("interests") && portfolioData.interests?.length > 0 && (
-            <Card className="bg-slate-800/50 dark:bg-slate-900/50 border-green-500/30 p-6">
-              <h3 className="text-lg font-bold text-green-400 mb-4">
+      case "interests":
+        if (!portfolioData.interests?.length) return null
+        return (
+          <section key="interests">
+            <div className="flex items-center gap-3 mb-6">
+              <Heart className="h-6 w-6 text-green-500" />
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                 <span className="text-green-500">$</span> cat interests.txt
-              </h3>
+              </h2>
+            </div>
+            <Card className="bg-slate-800/50 dark:bg-slate-900/50 border-green-500/30 p-6">
               <div className="space-y-2">
                 {portfolioData.interests.map((interest: string, index: number) => (
                   <div key={index} className="flex items-center gap-2">
@@ -254,8 +226,65 @@ export default function TechTemplate({ portfolioData }: TechTemplateProps) {
                 ))}
               </div>
             </Card>
-          )}
+          </section>
+        )
+
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100 font-mono">
+      {/* Terminal Header */}
+      <header className="bg-slate-900 dark:bg-slate-950 text-green-400 py-12 border-b-2 border-green-500">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="bg-slate-800 dark:bg-slate-900 rounded-lg p-6 border border-green-500/30 shadow-lg shadow-green-500/20">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-3 h-3 rounded-full bg-red-500" />
+              <div className="w-3 h-3 rounded-full bg-yellow-500" />
+              <div className="w-3 h-3 rounded-full bg-green-500" />
+              <span className="ml-4 text-sm text-slate-400">terminal — bash</span>
+            </div>
+            <div className="flex gap-6 items-start">
+              {portfolioData.profileImage && (
+                <img
+                  src={portfolioData.profileImage || "/placeholder.svg"}
+                  alt="Profile"
+                  className="w-24 h-24 rounded-lg object-cover border-2 border-green-500/50"
+                />
+              )}
+              <div className="flex-1">
+                <pre
+                  ref={terminalRef}
+                  className="text-green-400 text-sm leading-relaxed whitespace-pre-wrap min-h-[100px]"
+                />
+                <div className="inline-block w-2 h-4 bg-green-400 animate-pulse ml-1" />
+              </div>
+            </div>
+          </div>
         </div>
+      </header>
+
+      <div className="max-w-6xl mx-auto px-6 py-16 space-y-16">
+        {/* Bio Section */}
+        {portfolioData.bio && (
+          <section>
+            <div className="flex items-center gap-3 mb-6">
+              <Terminal className="h-6 w-6 text-green-500" />
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                <span className="text-green-500">$</span> cat about.md
+              </h2>
+            </div>
+            <Card className="bg-slate-800/50 dark:bg-slate-900/50 border-green-500/30 p-6">
+              <p className="text-slate-300 dark:text-slate-400 leading-relaxed">{portfolioData.bio}</p>
+            </Card>
+          </section>
+        )}
+
+        {/* Dynamic Sections */}
+        {sectionsOrder.map((sectionId: string) => renderSection(sectionId))}
+
       </div>
     </div>
   )

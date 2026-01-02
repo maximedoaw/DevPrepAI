@@ -284,41 +284,43 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-6 pb-8 pt-4">
-            <div className="space-y-6">
+            <div className="grid md:grid-cols-[240px_1fr] gap-8">
 
-              {/* Image Upload Area - Full Width Stack */}
+              {/* Image Upload Area */}
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Photo de profil</label>
-                <div className="w-full h-40">
+                <div className="w-full h-64 md:h-full">
                   <ImageUpload
                     value={portfolioData.profileImage}
                     onChange={(url) => updateField("profileImage", url)}
                     onRemove={() => updateField("profileImage", null)}
-                    className="w-full h-full bg-slate-50 dark:bg-slate-800/50"
+                    className="w-full h-full bg-slate-50 dark:bg-slate-800/50 min-h-[200px]"
                     label="Glissez votre photo ici"
                   />
                 </div>
               </div>
 
-              {/* Inputs Area - Stacked */}
+              {/* Inputs Area */}
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Nom complet</label>
-                  <Input
-                    value={portfolioData.name || ""}
-                    onChange={(e) => updateField("name", e.target.value)}
-                    placeholder="ex: Jean Dupont"
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Titre / Headline</label>
-                  <Input
-                    value={portfolioData.headline || ""}
-                    onChange={(e) => updateField("headline", e.target.value)}
-                    placeholder="ex: Développeur Full-Stack"
-                    className="h-11"
-                  />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Nom complet</label>
+                    <Input
+                      value={portfolioData.name || ""}
+                      onChange={(e) => updateField("name", e.target.value)}
+                      placeholder="ex: Jean Dupont"
+                      className="h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Titre / Headline</label>
+                    <Input
+                      value={portfolioData.headline || ""}
+                      onChange={(e) => updateField("headline", e.target.value)}
+                      placeholder="ex: Développeur Full-Stack"
+                      className="h-11"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Bio</label>
@@ -370,58 +372,62 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
               </div>
             )}
 
-            {/* Form - Stacked */}
+            {/* Form - Grid Layout */}
             <div className="p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50/30 dark:bg-slate-800/10 space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-500 uppercase">Entreprise</label>
-                <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: Google" value={newExperience.company} onChange={(e) => setNewExperience({ ...newExperience, company: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-500 uppercase">Poste</label>
-                <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: Senior Product Designer" value={newExperience.position} onChange={(e) => setNewExperience({ ...newExperience, position: e.target.value })} />
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Entreprise</label>
+                  <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: Google" value={newExperience.company} onChange={(e) => setNewExperience({ ...newExperience, company: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Poste</label>
+                  <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: Senior Product Designer" value={newExperience.position} onChange={(e) => setNewExperience({ ...newExperience, position: e.target.value })} />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-500 uppercase">Début</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full h-11 justify-start text-left font-normal bg-white dark:bg-slate-900", !newExperience.startDate && "text-muted-foreground")}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newExperience.startDate ? format(newExperience.startDate, "MMM yyyy", { locale: fr }) : "Choisir"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newExperience.startDate} onSelect={(date) => date && setNewExperience({ ...newExperience, startDate: date })} initialFocus /></PopoverContent>
-                </Popover>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-500 uppercase">Fin</label>
-                <div className="flex gap-2">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Début</label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("flex-1 h-11 justify-start text-left font-normal bg-white dark:bg-slate-900", !newExperience.endDate && "text-muted-foreground")} disabled={newExperience.current}>
+                      <Button variant="outline" className={cn("w-full h-11 justify-start text-left font-normal bg-white dark:bg-slate-900", !newExperience.startDate && "text-muted-foreground")}>
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {newExperience.current ? "Présent" : (newExperience.endDate ? format(newExperience.endDate, "MMM yyyy", { locale: fr }) : "Choisir")}
+                        {newExperience.startDate ? format(newExperience.startDate, "MMM yyyy", { locale: fr }) : "Choisir"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newExperience.endDate} onSelect={(date) => date && setNewExperience({ ...newExperience, endDate: date })} initialFocus /></PopoverContent>
+                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newExperience.startDate} onSelect={(date) => date && setNewExperience({ ...newExperience, startDate: date })} initialFocus /></PopoverContent>
                   </Popover>
-                  <Button
-                    variant={newExperience.current ? "default" : "outline"}
-                    onClick={() => setNewExperience({ ...newExperience, current: !newExperience.current })}
-                    className={cn("h-11", newExperience.current ? "bg-emerald-500 hover:bg-emerald-600" : "bg-white dark:bg-slate-900")}
-                  >
-                    Présent
-                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Fin</label>
+                  <div className="flex gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("flex-1 h-11 justify-start text-left font-normal bg-white dark:bg-slate-900", !newExperience.endDate && "text-muted-foreground")} disabled={newExperience.current}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {newExperience.current ? "Présent" : (newExperience.endDate ? format(newExperience.endDate, "MMM yyyy", { locale: fr }) : "Choisir")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newExperience.endDate} onSelect={(date) => date && setNewExperience({ ...newExperience, endDate: date })} initialFocus /></PopoverContent>
+                    </Popover>
+                    <Button
+                      variant={newExperience.current ? "default" : "outline"}
+                      onClick={() => setNewExperience({ ...newExperience, current: !newExperience.current })}
+                      className={cn("h-11 px-4", newExperience.current ? "bg-emerald-500 hover:bg-emerald-600" : "bg-white dark:bg-slate-900")}
+                    >
+                      Présent
+                    </Button>
+                  </div>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-slate-500 uppercase">Description</label>
-                <Textarea className="bg-white dark:bg-slate-900 min-h-[120px]" placeholder="Responsabilités..." value={newExperience.description} onChange={(e) => setNewExperience({ ...newExperience, description: e.target.value })} />
+                <Textarea className="bg-white dark:bg-slate-900 min-h-[120px] resize-none" placeholder="Responsabilités, réalisations..." value={newExperience.description} onChange={(e) => setNewExperience({ ...newExperience, description: e.target.value })} />
               </div>
 
               <Button onClick={addExperience} className="w-full bg-slate-900 text-white hover:bg-slate-800 h-11 mt-4">
-                <Plus className="w-4 h-4 mr-2" /> Ajouter
+                <Plus className="w-4 h-4 mr-2" /> Ajouter Expérience
               </Button>
             </div>
           </AccordionContent>
@@ -461,47 +467,53 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
               </div>
             )}
 
-            {/* Form - Stacked */}
+            {/* Form - Grid Layout */}
             <div className="p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50/30 dark:bg-slate-800/10 space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-500 uppercase">École</label>
-                <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: HEC Paris" value={newEducation.institution} onChange={(e) => setNewEducation({ ...newEducation, institution: e.target.value })} />
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">École</label>
+                  <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: HEC Paris" value={newEducation.institution} onChange={(e) => setNewEducation({ ...newEducation, institution: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Diplôme</label>
+                  <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: Master" value={newEducation.degree} onChange={(e) => setNewEducation({ ...newEducation, degree: e.target.value })} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-500 uppercase">Diplôme</label>
-                <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: Master" value={newEducation.degree} onChange={(e) => setNewEducation({ ...newEducation, degree: e.target.value })} />
-              </div>
+
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-slate-500 uppercase">Domaine</label>
                 <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: Marketing" value={newEducation.field} onChange={(e) => setNewEducation({ ...newEducation, field: e.target.value })} />
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-500 uppercase">Début</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full h-11 justify-start text-left font-normal bg-white dark:bg-slate-900", !newEducation.startDate && "text-muted-foreground")}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newEducation.startDate ? format(newEducation.startDate, "yyyy", { locale: fr }) : "Année"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newEducation.startDate} onSelect={(date) => date && setNewEducation({ ...newEducation, startDate: date })} initialFocus /></PopoverContent>
-                </Popover>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-500 uppercase">Fin</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full h-11 justify-start text-left font-normal bg-white dark:bg-slate-900", !newEducation.endDate && "text-muted-foreground")}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newEducation.endDate ? format(newEducation.endDate, "yyyy", { locale: fr }) : "Année"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newEducation.endDate} onSelect={(date) => date && setNewEducation({ ...newEducation, endDate: date })} initialFocus /></PopoverContent>
-                </Popover>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Début</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full h-11 justify-start text-left font-normal bg-white dark:bg-slate-900", !newEducation.startDate && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newEducation.startDate ? format(newEducation.startDate, "yyyy", { locale: fr }) : "Année"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newEducation.startDate} onSelect={(date) => date && setNewEducation({ ...newEducation, startDate: date })} initialFocus /></PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Fin</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full h-11 justify-start text-left font-normal bg-white dark:bg-slate-900", !newEducation.endDate && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newEducation.endDate ? format(newEducation.endDate, "yyyy", { locale: fr }) : "Année"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newEducation.endDate} onSelect={(date) => date && setNewEducation({ ...newEducation, endDate: date })} initialFocus /></PopoverContent>
+                  </Popover>
+                </div>
               </div>
 
               <Button onClick={addEducation} className="w-full bg-slate-900 text-white hover:bg-slate-800 h-11 mt-4">
-                <Plus className="w-4 h-4 mr-2" /> Ajouter
+                <Plus className="w-4 h-4 mr-2" /> Ajouter Formation
               </Button>
             </div>
           </AccordionContent>
@@ -539,13 +551,23 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
             </div>
 
             <div className="p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50/30 dark:bg-slate-800/10 space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-500 uppercase">Titre</label>
-                <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: E-commerce" value={newProject.title} onChange={(e) => setNewProject({ ...newProject, title: e.target.value })} />
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Titre</label>
+                  <Input className="bg-white dark:bg-slate-900 h-11" placeholder="ex: E-commerce" value={newProject.title} onChange={(e) => setNewProject({ ...newProject, title: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">Image de couverture</label>
+                  <div className="h-11 w-full">
+                    {/* Simplified uplad for grid */}
+                    <ImageUpload value={newProject.images[0]} onChange={(url) => setNewProject({ ...newProject, images: [url] })} onRemove={() => setNewProject({ ...newProject, images: [] })} className="h-full bg-white dark:bg-slate-900" label="Image (facultatif)" />
+                  </div>
+                </div>
               </div>
+
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-slate-500 uppercase">Description</label>
-                <Textarea className="bg-white dark:bg-slate-900 min-h-[140px]" placeholder="Détails..." value={newProject.description} onChange={(e) => setNewProject({ ...newProject, description: e.target.value })} />
+                <Textarea className="bg-white dark:bg-slate-900 min-h-[100px] resize-none" placeholder="Détails du projet..." value={newProject.description} onChange={(e) => setNewProject({ ...newProject, description: e.target.value })} />
               </div>
 
               <div className="space-y-2">
@@ -558,12 +580,6 @@ export default function ManualInput({ portfolioData, setPortfolioData, onSave, i
                   {newProject.technologies.map((tech, i) => (
                     <Badge key={i} variant="secondary" onClick={() => removeTechFromProject(tech)} className="cursor-pointer hover:bg-red-100 hover:text-red-600">{tech} <X className="ml-1 w-3 h-3" /></Badge>
                   ))}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-500 uppercase">Image de couverture</label>
-                <div className="h-40 w-full">
-                  <ImageUpload value={newProject.images[0]} onChange={(url) => setNewProject({ ...newProject, images: [url] })} onRemove={() => setNewProject({ ...newProject, images: [] })} className="h-full bg-white dark:bg-slate-900" label="Image du projet" />
                 </div>
               </div>
 

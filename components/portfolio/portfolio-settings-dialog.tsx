@@ -71,6 +71,7 @@ interface PortfolioSettingsDialogProps {
     onOpenChange: (open: boolean) => void
     portfolioData: any
     setPortfolioData: (data: any) => void
+    onSave?: (data: any) => void
 }
 
 export default function PortfolioSettingsDialog({
@@ -78,6 +79,7 @@ export default function PortfolioSettingsDialog({
     onOpenChange,
     portfolioData,
     setPortfolioData,
+    onSave
 }: PortfolioSettingsDialogProps) {
     const [activeTab, setActiveTab] = useState<"templates" | "style" | "options">("templates")
 
@@ -109,11 +111,13 @@ export default function PortfolioSettingsDialog({
 
     const handleSave = () => {
         setPortfolioData(tempData)
+        if (onSave) {
+            onSave(tempData)
+        }
         onOpenChange(false)
     }
 
     const handleCancel = () => {
-        // Reset temp data is handled by useEffect on re-open, but good to close
         onOpenChange(false)
     }
 

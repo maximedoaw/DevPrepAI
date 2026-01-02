@@ -13,7 +13,7 @@ import { getUserRoleAndDomains } from "@/actions/user.action";
 import { getReceivedInvitations } from "@/actions/bootcamp.action";
 
 // Logo personnalisé 
-import Logo from "./logo";
+import Logo from "@/components/logo";
 
 // Icônes
 import {
@@ -34,119 +34,124 @@ import {
   Handshake,
   Briefcase,
   Shield,
-  Settings,
   MessageSquare,
   User,
   LogOut,
   Menu,
   X,
-  ChevronRight,
-  Sparkles,
+  Bell,
+  ChevronDown,
+  Settings,
+  Palette,
   Sun,
   Moon,
-  Star,
-  Zap,
-  Rocket,
-  Leaf,
-  MonitorPlay,
-  Bell,
+  ChartNetwork,
 } from "lucide-react";
+
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-interface SidebarOption {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  color: string;
-  bgColor: string;
-  action: () => void;
-  badge?: string;
-  isNew?: boolean;
-  isAdmin?: boolean;
-  path?: string;
-}
-
+// Composant ModeToggle amélioré
 function ModeToggle() {
   const { setTheme, theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) return null;
 
   return (
     <button
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-800/40 transition-colors border border-emerald-200 dark:border-emerald-800"
+      className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group relative"
       aria-label="Toggle theme"
     >
-      <Sun className="h-4 w-4 text-emerald-700 dark:text-emerald-300 block dark:hidden" />
-      <Moon className="h-4 w-4 text-emerald-300 hidden dark:block" />
+      <div className="relative h-5 w-5">
+        <Sun className="absolute inset-0 h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-amber-500" />
+        <Moon className="absolute inset-0 h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-slate-400 dark:text-slate-200" />
+      </div>
     </button>
   );
 }
 
 // Composant pour le bouton d'invitations avec badge
-function NotificationsButton({ 
-  router, 
-  setSidebarOpen, 
-  sidebarOpen 
-}: { 
-  router: any; 
-  setSidebarOpen: (open: boolean) => void;
-  sidebarOpen: boolean;
-}) {
+function NotificationsButton({ router }: { router: any }) {
   const { data: notificationsData } = useQuery({
     queryKey: ["received-notifications"],
     queryFn: async () => {
       const result = await getReceivedInvitations();
       return result.success ? result.data : [];
     },
-    refetchInterval: 1000 * 60 * 2, // Refetch toutes les 2 minutes
+    refetchInterval: 1000 * 60 * 2,
   });
 
   const pendingCount = notificationsData?.filter((inv: any) => inv.status === 'PENDING').length || 0;
 
   return (
     <button
-      onClick={() => { 
-        router.push("/notifications"); 
-        if (window.innerWidth < 768) setSidebarOpen(false); 
-      }}
-      className="w-full text-left p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-colors hover:shadow-md relative"
+      onClick={() => router.push("/notifications")}
+      className="relative p-2 rounded-xl hover:bg-amber-50/80 dark:hover:bg-amber-900/20 transition-all duration-300 group"
     >
-      <div className="flex items-center gap-3">
-        <div className="p-2 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/50 dark:to-green-900/50 rounded-lg relative">
-          <Bell className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-          {pendingCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-emerald-500 dark:bg-emerald-400 text-white text-xs flex items-center justify-center font-bold">
-              {pendingCount > 9 ? '9+' : pendingCount}
+      <div className="relative h-6 w-6 flex items-center justify-center">
+        <Bell className="h-4 w-4 text-amber-600 dark:text-amber-400 transition-transform duration-300 group-hover:scale-110" />
+        {pendingCount > 0 && (
+          <>
+            <span className="animate-ping absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-400 opacity-75" />
+            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 ring-2 ring-white dark:ring-slate-900 shadow-sm">
+              <span className="absolute inset-0 rounded-full animate-pulse bg-amber-400/30" />
             </span>
-          )}
-        </div>
-        <div className="flex-1 min-w-0 z-10 relative">
-          <div className="font-semibold text-slate-700 dark:text-slate-300 bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100 bg-clip-text">
-            Notifications
-          </div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">
-            {pendingCount > 0 ? `${pendingCount} en attente` : 'Aucune notification'}
-          </div>
-        </div>
+          </>
+        )}
       </div>
+      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-amber-400 to-orange-400 group-hover:w-4 transition-all duration-300 rounded-full" />
     </button>
   );
 }
 
-function SidebarContent({ children }: { children: React.ReactNode }) {
+// Composant MessageButton amélioré
+function MessageButton({ router }: { router: any }) {
+  return (
+    <button
+      onClick={() => router.push("/messages")}
+      className="relative p-2 rounded-xl hover:bg-blue-50/80 dark:hover:bg-blue-900/20 transition-all duration-300 group"
+    >
+      <div className="relative h-6 w-6 flex items-center justify-center">
+        <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-400 transition-transform duration-300 group-hover:scale-110" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-indigo-400/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      </div>
+      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-blue-400 to-indigo-400 group-hover:w-4 transition-all duration-300 rounded-full" />
+    </button>
+  );
+}
+
+
+
+export default function AppSidebar({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [hoveredOption, setHoveredOption] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isAuthenticated, isLoading } = useKindeBrowserClient();
-  const { theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
-  // Routes où la sidebar doit être cachée
-  const hideSidebarRoutes = [
-    '/jobs/',
-    '/interviews/'
-  ];
+  useEffect(() => setMounted(true), []);
+
+  // Routes où la navigation doit être cachée
+  const hideSidebarRoutes = ['/jobs/apply'];
   const shouldHideSidebar = hideSidebarRoutes.some(route => pathname?.includes(route));
+
+  // Fermer la sidebar mobile lors du changement de route
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
 
   const { data: userData, isLoading: userDataLoading } = useQuery({
     queryKey: ["userRole", user?.id],
@@ -157,539 +162,75 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Ouvrir la sidebar sur desktop au chargement
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setSidebarOpen(false);
-      } else {
-        setSidebarOpen(true);
-      }
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
   const loadingOrUnauth = isLoading || !isAuthenticated;
-
-  // Utiliser le rôle par défaut seulement si userData est défini (pas pendant le chargement)
   const userRole = userData?.role || (userDataLoading ? undefined : "CANDIDATE");
-  const isAdmin =
-    userRole === "admin" ||
-    userData?.role === "admin" ||
-    user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+  const isAdmin = userRole === "admin" || userData?.role === "admin" || user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
-  let sidebarOptions: SidebarOption[] = [];
-  
-  // Ne pas initialiser les sidebarOptions si le rôle n'est pas encore chargé
-  if (!userDataLoading && userRole) {
-
-  // Configuration pour CANDIDATE
-  if (userRole === "CANDIDATE") {
-    sidebarOptions = [
-      {
-        id: "dashboard",
-        title: "Tableau de bord",
-        description: "Vue d'ensemble de votre parcours",
-        icon: Home,
-        color: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-500 dark:bg-emerald-600",
-        action: () => { 
-          router.push("/"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/",
-      },
-      {
-        id: "matching",
-        title: "Portail d'emploi",
-        description: "Offres correspondant à votre profil",
-        icon: Network,
-        color: "text-green-600 dark:text-green-400",
-        bgColor: "bg-green-500 dark:bg-green-600",
-        action: () => { 
-          router.push("/jobs"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        badge: "Nouvelles offres",
-        path: "/jobs",
-      },
-      {
-        id: "interviews",
-        title: "Interviews IA",
-        description: "Simulations pour vos futurs entretiens",
-        icon: BrainCircuit,
-        color: "text-teal-600 dark:text-teal-400",
-        bgColor: "bg-teal-500 dark:bg-teal-600",
-        action: () => { 
-          router.push("/interviews"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        badge: "IA",
-        isNew: true,
-        path: "/interviews",
-      },
-      {
-        id: "portfolio",
-        title: "Portfolio & CV",
-        description: "Mettez en lumière vos talents",
-        icon: Target,
-        color: "text-lime-600 dark:text-lime-400",
-        bgColor: "bg-lime-500 dark:bg-lime-600",
-        action: () => { 
-          router.push("/portfolio"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/portfolio",
-      },
-      {
-        id: "guides",
-        title: "Guides de progression",
-        description: "Formations et conseils personnalisés",
-        icon: BookOpen,
-        color: "text-amber-600 dark:text-amber-400",
-        bgColor: "bg-amber-500 dark:bg-amber-600",
-        action: () => { 
-          router.push("/guides"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/guides",
-      },
-      {
-        id: "meetings",
-        title: "Mes entretiens",
-        description: "Planification et suivi",
-        icon: Calendar,
-        color: "text-cyan-600 dark:text-cyan-400",
-        bgColor: "bg-cyan-500 dark:bg-cyan-600",
-        action: () => { 
-          router.push("/meetings"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        badge: "3 planifiés",
-        path: "/meetings",
-      },
-    ];
-  }
-
-  // Configuration pour CAREER_CHANGER
-  if (userRole === "CAREER_CHANGER") {
-    sidebarOptions = [
-      {
-        id: "dashboard",
-        title: "Mon parcours",
-        description: "Vue globale de votre reconversion",
-        icon: Home,
-        color: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-500 dark:bg-emerald-600",
-        action: () => { 
-          router.push("/"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/",
-      },
-      {
-        id: "interviews",
-        title: "Interviews",
-        description: "Simulations adaptées à votre nouveau métier",
-        icon: BrainCircuit,
-        color: "text-teal-600 dark:text-teal-400",
-        bgColor: "bg-teal-500 dark:bg-teal-600",
-        action: () => { 
-          router.push("/interviews"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        isNew: true,
-        path: "/interviews",
-      },
-      {
-        id: "plan",
-        title: "Plan de transition",
-        description: "Feuille de route personnalisée",
-        icon: TrendingUp,
-        color: "text-green-600 dark:text-green-400",
-        bgColor: "bg-green-500 dark:bg-green-600",
-        action: () => { 
-          router.push("/plan"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/plan",
-      },
-      {
-        id: "skills",
-        title: "Passerelles de compétences",
-        description: "Valorisez vos acquis",
-        icon: GitBranch,
-        color: "text-lime-600 dark:text-lime-400",
-        bgColor: "bg-lime-500 dark:bg-lime-600",
-        action: () => { 
-          router.push("/skills"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/skills",
-      },
-      {
-        id: "formations",
-        title: "Formations intensives",
-        description: "Programmes rapides pour votre transition",
-        icon: GraduationCap,
-        color: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-500 dark:bg-emerald-600",
-        action: () => { 
-          router.push("/formations"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/formations",
-      },
-    ];
-  }
-
-  // Configuration pour RECRUITER
-  if (userRole === "RECRUITER") {
-    sidebarOptions = [
-      {
-        id: "dashboard",
-        title: "Dashboard RH",
-        description: "Vue globale de vos recrutements",
-        icon: Home,
-        color: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-500 dark:bg-emerald-600",
-        action: () => { 
-          router.push("/"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/",
-      },
-      {
-        id: "talents",
-        title: "Marketplace de talents",
-        description: "Accédez à la base de candidats qualifiés",
-        icon: Users,
-        color: "text-teal-600 dark:text-teal-400",
-        bgColor: "bg-teal-500 dark:bg-teal-600",
-        action: () => { 
-          router.push("/talents"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/talents",
-      },
-      {
-        id: "matching",
-        title: "Matching candidats",
-        description: "IA pour trouver les meilleurs profils",
-        icon: Brain,
-        color: "text-green-600 dark:text-green-400",
-        bgColor: "bg-green-500 dark:bg-green-600",
-        action: () => { 
-          router.push("/matching"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/matching",
-      },
-      {
-        id: "interviews",
-        title: "Planification d'interviews",
-        description: "Organisez vos entretiens",
-        icon: Calendar,
-        color: "text-lime-600 dark:text-lime-400",
-        bgColor: "bg-lime-500 dark:bg-lime-600",
-        action: () => { 
-          router.push("/interviews"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/interviews",
-      },
-      {
-        id: "rapports",
-        title: "Analyse RH",
-        description: "Rapports et indicateurs clés",
-        icon: BarChart3,
-        color: "text-cyan-600 dark:text-cyan-400",
-        bgColor: "bg-cyan-500 dark:bg-cyan-600",
-        action: () => { 
-          router.push("/rapports"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/rapports",
-      },
-    ];
-  }
-
-  // Configuration pour ENTERPRISE
-  if (userRole === "ENTERPRISE") {
-    sidebarOptions = [
-      {
-        id: "dashboard",
-        title: "Espace entreprise",
-        description: "Pilotage de vos besoins en talents",
-        icon: Building,
-        color: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-500 dark:bg-emerald-600",
-        action: () => { 
-          router.push("/"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/",
-      },
-      {
-        id: "interview-planning",
-        title: "Planification d'entretiens",
-        description: "Organisez vos entretiens en interne",
-        icon: Calendar,
-        color: "text-teal-600 dark:text-teal-400",
-        bgColor: "bg-teal-500 dark:bg-teal-600",
-        action: () => { 
-          router.push("/enterprise-interviews"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        badge: "15 cette semaine",
-        path: "/enterprise-interviews",
-      },
-      {
-        id: "talent-matching",
-        title: "Matching de talents",
-        description: "Trouvez les profils parfaits",
-        icon: Network,
-        color: "text-green-600 dark:text-green-400",
-        bgColor: "bg-green-500 dark:bg-green-600",
-        action: () => { 
-          router.push("/talent-matching"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/talent-matching",
-      },
-      {
-        id: "workforce-planning",
-        title: "Planification RH",
-        description: "Anticipez vos besoins en compétences",
-        icon: Target,
-        color: "text-lime-600 dark:text-lime-400",
-        bgColor: "bg-lime-500 dark:bg-lime-600",
-        action: () => { 
-          router.push("/workforce-planning"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/workforce-planning",
-      },
-      {
-        id: "bulk-hiring",
-        title: "Recrutement en volume",
-        description: "Solutions pour recrutements massifs",
-        icon: UsersRound,
-        color: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-500 dark:bg-emerald-600",
-        action: () => { 
-          router.push("/bulk-hiring"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/bulk-hiring",
-      },
-      {
-        id: "training-programs",
-        title: "Programmes de formation",
-        description: "Formation sur-mesure pour vos équipes",
-        icon: GraduationCap,
-        color: "text-cyan-600 dark:text-cyan-400",
-        bgColor: "bg-cyan-500 dark:bg-cyan-600",
-        action: () => { 
-          router.push("/training-programs"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/training-programs",
-      },
-    ];
-  }
-
-  // Configuration pour BOOTCAMP
-  if (userRole === "BOOTCAMP") {
-    sidebarOptions = [
-      {
-        id: "dashboard",
-        title: "Espace bootcamp",
-        description: "Vue d'ensemble de la cohorte — KPIs, alertes et actions rapides",
-        icon: Home,
-        color: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-500 dark:bg-emerald-600",
-        action: () => { 
-          router.push("/"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/",
-      },
-      {
-        id: "learning-lab",
-        title: "Learning Lab",
-        description: "Concevez cours et tests techniques — modules, QCM, exercices et évaluations",
-        icon: BookOpen,
-        color: "text-green-600 dark:text-green-400",
-        bgColor: "bg-green-500 dark:bg-green-600",
-        action: () => { 
-          router.push("/learning-lab"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/learning-lab",
-      },
-      {
-        id: "rooms",
-        title: "Salles (Rooms)",
-        description: "Salons d'interview et environnements de test en direct — mock, live-coding, enregistrements",
-        icon: MonitorPlay,
-        color: "text-sky-600 dark:text-sky-400",
-        bgColor: "bg-sky-500 dark:bg-sky-600",
-        action: () => { 
-          router.push("/rooms"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/rooms",
-      },
-      {
-        id: "placement",
-        title: "Placement professionnel",
-        description: "Statistiques d'insertion, suivi des candidatures et rapports exportables",
-        icon: Briefcase,
-        color: "text-lime-600 dark:text-lime-400",
-        bgColor: "bg-lime-500 dark:bg-lime-600",
-        action: () => { 
-          router.push("/placement"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/placement",
-      },
-      {
-        id: "matching",
-        title: "Matching entreprises",
-        description: "Reliez vos apprenants aux recruteurs — listes triées, scores et propositions automatiques",
-        icon: Handshake,
-        color: "text-cyan-600 dark:text-cyan-400",
-        bgColor: "bg-cyan-500 dark:bg-cyan-600",
-        action: () => { 
-          router.push("/matching"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/matching",
-      },
-    ];
-    
-  }
-
-  // Configuration pour SCHOOL
-  if (userRole === "SCHOOL") {
-    sidebarOptions = [
-      {
-        id: "dashboard",
-        title: "Espace école",
-        description: "Vue globale de votre établissement",
-        icon: Home,
-        color: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-500 dark:bg-emerald-600",
-        action: () => { 
-          router.push("/"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/",
-      },
-      {
-        id: "pedagogie",
-        title: "Espace pédagogique",
-        description: "Gestion des cours et ressources",
-        icon: BookOpen,
-        color: "text-teal-600 dark:text-teal-400",
-        bgColor: "bg-teal-500 dark:bg-teal-600",
-        action: () => { 
-          router.push("/pedagogie"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/pedagogie",
-      },
-      {
-        id: "sessions",
-        title: "Sessions de travail",
-        description: "Calendrier et organisation",
-        icon: Calendar,
-        color: "text-green-600 dark:text-green-400",
-        bgColor: "bg-green-500 dark:bg-green-600",
-        action: () => { 
-          router.push("/sessions"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/sessions",
-      },
-      {
-        id: "etudiants",
-        title: "Suivi étudiant",
-        description: "Progression et résultats",
-        icon: Users,
-        color: "text-lime-600 dark:text-lime-400",
-        bgColor: "bg-lime-500 dark:bg-lime-600",
-        action: () => { 
-          router.push("/etudiants"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/etudiants",
-      },
-      {
-        id: "carriere",
-        title: "Services carrière",
-        description: "Accompagnement professionnel",
-        icon: Briefcase,
-        color: "text-cyan-600 dark:text-cyan-400",
-        bgColor: "bg-cyan-500 dark:bg-cyan-600",
-        action: () => { 
-          router.push("/carriere"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/carriere",
-      },
-      {
-        id: "visibilite",
-        title: "Visibilité & partenariats",
-        description: "Mettez en avant vos étudiants",
-        icon: Handshake,
-        color: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-500 dark:bg-emerald-600",
-        action: () => { 
-          router.push("/visibilite"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        path: "/visibilite",
-      },
-    ];
-  }
-
-    // Ajouter l'option admin si nécessaire
-    if (isAdmin) {
-      sidebarOptions.push({
-        id: "admin",
-        title: "Administration",
-        description: "Gestion de la plateforme",
-        icon: Shield,
-        color: "text-red-600 dark:text-red-400",
-        bgColor: "bg-red-500 dark:bg-red-600",
-        action: () => { 
-          router.push("/admin"); 
-          if (window.innerWidth < 768) setSidebarOpen(false); 
-        },
-        badge: "Admin",
-        isAdmin: true,
-        path: "/admin",
-      });
-    }
-  }
-
-  const commonAccessibleRoutes = useMemo(
-    () => [
-      "/",
-      "/profile",
-      "/settings",
-      "/messages",
-      "/notifications",
-      "/help",
-      "/support",
-      // /rooms est réservé au rôle BOOTCAMP uniquement
-      // /rooms/[id] est accessible aux CANDIDATE et CAREER_CHANGER invités (vérification dans la page)
+  // Configuration des options par rôle avec des descriptions plus humaines
+  const sidebarConfig = {
+    CANDIDATE: [
+      { id: "dashboard", title: "Tableau de bord", description: "Votre espace personnel", icon: Home, color: "from-emerald-400 to-teal-500", path: "/" },
+      { id: "matching", title: "Portail d'emploi", description: "Trouvez votre voie", icon: Network, color: "from-green-400 to-emerald-500", path: "/jobs", badge: "New" },
+      { id: "interviews", title: "Interviews IA", description: "Préparez-vous sereinement", icon: BrainCircuit, color: "from-teal-400 to-cyan-500", path: "/interviews", badge: "IA" },
+      { id: "portfolio", title: "Portfolio & CV", description: "Montrez votre talent", icon: Target, color: "from-lime-400 to-emerald-500", path: "/portfolio" },
+      { id: "guides", title: "Guides", description: "Apprenez et grandissez", icon: BookOpen, color: "from-amber-400 to-orange-500", path: "/guides" },
+      { id: "meetings", title: "Mes entretiens", description: "Vos rendez-vous", icon: Calendar, color: "from-cyan-400 to-blue-500", path: "/meetings" },
     ],
+    CAREER_CHANGER: [
+      { id: "dashboard", title: "Mon parcours", description: "Votre transformation", icon: Home, color: "from-emerald-400 to-teal-500", path: "/" },
+      { id: "interviews", title: "Interviews", description: "Simulations bienveillantes", icon: BrainCircuit, color: "from-teal-400 to-cyan-500", path: "/interviews" },
+      { id: "plan", title: "Plan de transition", description: "Votre feuille de route", icon: TrendingUp, color: "from-green-400 to-emerald-500", path: "/plan" },
+      { id: "skills", title: "Passerelles", description: "Vos compétences transférables", icon: GitBranch, color: "from-lime-400 to-emerald-500", path: "/skills" },
+      { id: "formations", title: "Formations", description: "Développez votre potentiel", icon: GraduationCap, color: "from-emerald-400 to-teal-500", path: "/formations" },
+    ],
+    RECRUITER: [
+      { id: "dashboard", title: "Dashboard RH", description: "Vue d'ensemble", icon: Home, color: "from-emerald-400 to-teal-500", path: "/" },
+      { id: "talents", title: "Marketplace", description: "Découvrez les talents", icon: Users, color: "from-teal-400 to-cyan-500", path: "/talents" },
+      { id: "matching", title: "Matching", description: "L'intelligence au service du recrutement", icon: Brain, color: "from-green-400 to-emerald-500", path: "/matching" },
+      { id: "interviews", title: "Planification", description: "Organisez vos entretiens", icon: Calendar, color: "from-lime-400 to-emerald-500", path: "/interviews" },
+      { id: "rapports", title: "Analyse RH", description: "Data & Insights", icon: BarChart3, color: "from-cyan-400 to-blue-500", path: "/rapports" },
+    ],
+    ENTERPRISE: [
+      { id: "dashboard", title: "Espace entreprise", description: "Votre hub RH", icon: Building, color: "from-emerald-400 to-teal-500", path: "/" },
+      { id: "interview-planning", title: "Planification", description: "Gestion des entretiens", icon: Calendar, color: "from-teal-400 to-cyan-500", path: "/enterprise-interviews" },
+      { id: "talent-matching", title: "Matching", description: "Trouvez vos futurs talents", icon: Network, color: "from-green-400 to-emerald-500", path: "/talent-matching" },
+      { id: "workforce-planning", title: "Planification RH", description: "Anticipez l'avenir", icon: Target, color: "from-lime-400 to-emerald-500", path: "/workforce-planning" },
+      { id: "bulk-hiring", title: "Recrutement masse", description: "Scalez votre équipe", icon: UsersRound, color: "from-emerald-400 to-teal-500", path: "/bulk-hiring" },
+      { id: "training-programs", title: "Programmes", description: "Formez vos équipes", icon: GraduationCap, color: "from-cyan-400 to-blue-500", path: "/training-programs" },
+    ],
+    BOOTCAMP: [
+      { id: "dashboard", title: "Espace bootcamp", description: "Votre centre de formation", icon: Home, color: "from-emerald-400 to-teal-500", path: "/" },
+      { id: "learning-lab", title: "Learning Lab", description: "Apprentissage actif", icon: BookOpen, color: "from-green-400 to-emerald-500", path: "/learning-lab" },
+      { id: "placement", title: "Placement", description: "Votre réussite professionnelle", icon: Briefcase, color: "from-lime-400 to-emerald-500", path: "/placement" },
+      { id: "matching", title: "Matching", description: "Connectez-vous aux entreprises", icon: Handshake, color: "from-cyan-400 to-blue-500", path: "/matching" },
+    ],
+    SCHOOL: [
+      { id: "dashboard", title: "Espace école", description: "Votre écosystème éducatif", icon: Home, color: "from-emerald-400 to-teal-500", path: "/" },
+      { id: "pedagogie", title: "Espace pédagogique", description: "Ressources éducatives", icon: BookOpen, color: "from-teal-400 to-cyan-500", path: "/pedagogie" },
+      { id: "etudiants", title: "Suivi étudiant", description: "Accompagnez vos étudiants", icon: Users, color: "from-lime-400 to-emerald-500", path: "/etudiants" },
+      { id: "carriere", title: "Services carrière", description: "Orientation professionnelle", icon: Briefcase, color: "from-cyan-400 to-blue-500", path: "/carriere" },
+      { id: "visibilite", title: "Visibilité", description: "Développez votre réseau", icon: ChartNetwork, color: "from-emerald-400 to-teal-500", path: "/visibilite" },
+    ],
+  };
+
+  let sidebarOptions = userRole ? sidebarConfig[userRole as keyof typeof sidebarConfig] || [] : [];
+
+  if (isAdmin && userRole !== "admin") {
+    sidebarOptions.push({
+      id: "admin",
+      title: "Administration",
+      description: "Gestion de la plateforme",
+      icon: Shield,
+      color: "from-red-400 to-rose-500",
+      path: "/admin",
+      badge: "Admin",
+    });
+  }
+
+  // Logique de redirection et vérification des routes
+  const [hasCheckedRoutes, setHasCheckedRoutes] = useState(false);
+  const commonAccessibleRoutes = useMemo(
+    () => ["/", "/profile", "/settings", "/messages", "/notifications", "/help", "/support"],
     []
   );
 
@@ -697,454 +238,300 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     const routes = new Set<string>();
     commonAccessibleRoutes.forEach((route) => routes.add(route));
     sidebarOptions.forEach((option) => {
-      if (option.path) {
-        routes.add(option.path);
-      }
+      if (option.path) routes.add(option.path);
     });
     return Array.from(routes);
   }, [sidebarOptions, commonAccessibleRoutes]);
 
-  // Éviter les redirections pendant le chargement initial
-  const [hasCheckedRoutes, setHasCheckedRoutes] = useState(false);
-
   useEffect(() => {
-    // Attendre que les données utilisateur soient complètement chargées
-    if (userDataLoading || loadingOrUnauth) {
-      setHasCheckedRoutes(false);
-      return;
-    }
-
-    // Attendre que les sidebarOptions soient initialisées pour ce rôle
-    if (sidebarOptions.length === 0 || !userRole) {
-      setHasCheckedRoutes(false);
-      return;
-    }
-
-    // Si on est admin, ne pas rediriger automatiquement
-    if (isAdmin) {
+    if (userDataLoading || loadingOrUnauth || sidebarOptions.length === 0 || !userRole || isAdmin) {
       setHasCheckedRoutes(true);
       return;
     }
 
     const normalizedPath = pathname?.split("?")[0] || "/";
-
-    // Permettre l'accès à /rooms/[id] pour CANDIDATE et CAREER_CHANGER
-    // La vérification des permissions se fait dans la page elle-même
-    if ((userRole === "CANDIDATE" || userRole === "CAREER_CHANGER") && normalizedPath.startsWith("/rooms/")) {
-      setHasCheckedRoutes(true);
-      return;
-    }
-
-    // Bloquer l'accès à /rooms (sans ID) pour les non-BOOTCAMP
-    if (normalizedPath === "/rooms" && userRole !== "BOOTCAMP") {
-      if (!hasCheckedRoutes) {
-        setHasCheckedRoutes(true);
-        const fallbackRoute = sidebarOptions.find((option) => option.path)?.path || "/";
-        router.replace(fallbackRoute);
-      }
-      return;
-    }
-
     const isAllowed = allowedRoutePrefixes.some((route) => {
       if (!route) return false;
-      if (route === "/") {
-        return normalizedPath === "/";
-      }
-      return (
-        normalizedPath === route ||
-        normalizedPath.startsWith(`${route}/`)
-      );
+      if (route === "/") return normalizedPath === "/";
+      return normalizedPath === route || normalizedPath.startsWith(`${route}/`);
     });
 
-    // Si la route est autorisée, marquer comme vérifié et ne rien faire
-    if (isAllowed) {
-      setHasCheckedRoutes(true);
-      return;
+    if (!isAllowed && !hasCheckedRoutes) {
+      const fallbackRoute = sidebarOptions.find((option) => option.path)?.path || "/";
+      router.replace(fallbackRoute);
     }
 
-    // Ne rediriger que si on n'a pas encore vérifié les routes (éviter les boucles)
-    if (!hasCheckedRoutes) {
-      // Trouver une route de fallback valide pour ce rôle
-      const fallbackRoute =
-        sidebarOptions.find((option) => option.path)?.path ||
-        commonAccessibleRoutes[0] ||
-        "/";
-
-      // Ne rediriger que si on n'est pas déjà sur la route de fallback
-      if (fallbackRoute && normalizedPath !== fallbackRoute) {
-        setHasCheckedRoutes(true);
-        router.replace(fallbackRoute);
-      } else {
-        setHasCheckedRoutes(true);
-      }
-    }
-  }, [
-    pathname,
-    allowedRoutePrefixes,
-    sidebarOptions,
-    router,
-    isAdmin,
-    loadingOrUnauth,
-    userDataLoading,
-    commonAccessibleRoutes,
-    hasCheckedRoutes,
-    userRole,
-  ]);
+    setHasCheckedRoutes(true);
+  }, [pathname, allowedRoutePrefixes, sidebarOptions, router, isAdmin, loadingOrUnauth, userDataLoading, userRole, hasCheckedRoutes]);
 
   if (loadingOrUnauth) return null;
 
-  // Fonction pour obtenir le titre et la description du rôle
-  const getRoleInfo = () => {
-    switch (userRole) {
-      case "CANDIDATE":
-        return {
-          title: "Accélérateur Carrière",
-          subtitle: "Votre tremplin professionnel",
-        };
-      case "CAREER_CHANGER":
-        return {
-          title: "Reconversion Pro",
-          subtitle: "Votre nouvelle carrière",
-        };
-      case "RECRUITER":
-        return {
-          title: "Espace Recruteur",
-          subtitle: "Trouvez les meilleurs talents",
-        };
-      case "ENTERPRISE":
-        return {
-          title: "Solutions Entreprise",
-          subtitle: "Talents à grande échelle",
-        };
-      case "BOOTCAMP":
-        return {
-          title: "Bootcamp Manager",
-          subtitle: "Excellence pédagogique",
-        };
-      case "SCHOOL":
-        return {
-          title: "École & Université",
-          subtitle: "Insertion professionnelle",
-        };
-      default:
-        return {
-          title: "Accélérateur Carrière",
-          subtitle: "Développez votre potentiel",
-        };
-    }
-  };
-
-  const roleInfo = getRoleInfo();
-
-  // Composant pour le logo compact (sidebar fermée)
-  const CompactLogo = () => (
-    <div className="flex items-center justify-center p-2">
-      <div className="relative">
-        <div className="bg-gradient-to-r from-emerald-600 to-green-600 rounded-full p-2 shadow-lg">
-          <Leaf className="h-6 w-6 text-white" />
-        </div>
-      </div>
-    </div>
-  );
-
   return (
-    <>
-      {/* Sidebar - Cachée pour certaines routes */}
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 flex flex-col font-sans antialiased">
+      {/* Navbar élégante */}
       {!shouldHideSidebar && (
-      <div
-        className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-emerald-100 dark:border-emerald-900/50 transition-all duration-300 ease-in-out flex flex-col ${
-          sidebarOpen ? "w-80 translate-x-0" : "-translate-x-full md:translate-x-0 md:w-20"
-        }`}
-      >
-        {/* Header Sidebar */}
-        <div className="flex items-center justify-between p-4 border-b border-emerald-100 dark:border-emerald-900/50">
-          {sidebarOpen ? (
-            <Link href="/" className="flex items-center gap-3 min-w-0 flex-1">
-              <Logo />
+        <header className="fixed top-0 left-0 right-0 h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 mb-10 z-50 px-4 md:px-6 flex items-center justify-between transition-all duration-300">
+
+          {/* Logo & Menu Mobile */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              <Menu className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+            </button>
+
+            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <div className="scale-75 origin-left">
+                <Logo />
+              </div>
+              <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 bg-clip-text text-transparent hidden sm:block">
+                SkillWokz
+              </span>
             </Link>
-          ) : (
-            <Link href="/" className="flex justify-center w-full">
-              <CompactLogo />
-            </Link>
-          )}
-          
-          {/* Bouton menu pour ouvrir/fermer */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors border border-emerald-200 dark:border-emerald-800"
-          >
-            {sidebarOpen ? (
-              <X className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            ) : (
-              <Menu className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            )}
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
-          <div className="px-3 space-y-1">
-            {sidebarOptions.map((option) => {
-              const isActive =
-                option.path &&
-                (pathname === option.path ||
-                  (option.path !== "/" && pathname.startsWith(option.path)));
-              
-              return (
-                <div key={option.id} className="relative group">
-                  <button
-                    onClick={option.action}
-                    onMouseEnter={() => setHoveredOption(option.id)}
-                    onMouseLeave={() => setHoveredOption(null)}
-                    className={`w-full text-left p-3 rounded-xl transition-all duration-200 group ${
-                      isActive
-                        ? "bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border border-emerald-200 dark:border-emerald-800 shadow-sm"
-                        : "hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 hover:shadow-md"
-                    } ${option.isAdmin ? "border-l-4 border-red-500" : ""}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`p-2 rounded-lg ${option.bgColor} flex-shrink-0 transition-transform duration-200 group-hover:scale-110 ${
-                          option.isAdmin ? "ring-2 ring-red-200 dark:ring-red-800" : ""
-                        }`}
-                      >
-                        <option.icon className="h-5 w-5 text-white" />
-                      </div>
-
-                      {sidebarOpen && (
-                        <div className="flex-1 min-w-0 z-10 relative">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span
-                              className={`font-semibold truncate bg-gradient-to-r bg-clip-text text-transparent ${
-                                option.isAdmin
-                                  ? "from-red-600 to-red-800 dark:from-red-400 dark:to-red-600"
-                                  : isActive
-                                  ? "from-emerald-600 to-green-600 dark:from-emerald-400 dark:to-green-400"
-                                  : "from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100"
-                              }`}
-                            >
-                              {option.title}
-                            </span>
-                            {option.isNew && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs bg-gradient-to-r from-amber-100 to-amber-200 text-amber-800 dark:from-amber-900/30 dark:to-amber-800/30 dark:text-amber-300 border border-amber-200 dark:border-amber-700 z-20 relative">
-                                <Sparkles className="h-3 w-3" />
-                                Nouveau
-                              </span>
-                            )}
-                            {option.badge && !option.isNew && !option.isAdmin && (
-                              <span className="inline-flex px-1.5 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 z-20 relative">
-                                {option.badge}
-                              </span>
-                            )}
-                            {option.isAdmin && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs bg-gradient-to-r from-red-100 to-red-200 text-red-800 dark:from-red-900/30 dark:to-red-800/30 dark:text-red-300 border border-red-200 dark:border-red-700 z-20 relative">
-                                <Shield className="h-3 w-3" />
-                                Admin
-                              </span>
-                            )}
-                          </div>
-                          {sidebarOpen && (
-                            <p className="text-sm text-slate-500 dark:text-slate-400 truncate z-10 relative">
-                              {option.description}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {sidebarOpen && (
-                        <ChevronRight
-                          className={`h-4 w-4 text-emerald-400 transition-transform duration-200 flex-shrink-0 ${
-                            hoveredOption === option.id ? "translate-x-1" : ""
-                          }`}
-                        />
-                      )}
-                    </div>
-                  </button>
-
-                  {/* Tooltip pour les icônes lorsque la sidebar est fermée */}
-                  {!sidebarOpen && (
-                    <div className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-3 py-2 bg-emerald-900 dark:bg-emerald-100 text-white dark:text-emerald-900 text-sm font-medium rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 whitespace-nowrap">
-                      <div className="font-semibold">{option.title}</div>
-                      <div className="text-xs text-emerald-300 dark:text-emerald-600 mt-1">
-                        {option.description}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
           </div>
 
-          {/* Section Outils */}
-          {sidebarOpen && (
-            <div className="mt-6 px-3">
-              <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2 px-3">
-                Outils
-              </div>
-              <div className="space-y-1">
-                  <button
-                    onClick={() => { 
-                      router.push("/messages"); 
-                      if (window.innerWidth < 768) setSidebarOpen(false); 
-                    }}
-                    className="w-full text-left p-3 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-colors hover:shadow-md"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/50 dark:to-green-900/50 rounded-lg">
-                        <MessageSquare className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                      </div>
-                      <div className="flex-1 min-w-0 z-10 relative">
-                        <div className="font-semibold text-slate-700 dark:text-slate-300 bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100 bg-clip-text">
-                          Messages
-                        </div>
-                        <div className="text-sm text-slate-500 dark:text-slate-400">
-                          Communications
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                    <NotificationsButton 
-                      router={router} 
-                      setSidebarOpen={setSidebarOpen}
-                      sidebarOpen={sidebarOpen}
-                    />
-              </div>
-            </div>
-          )}
-        </div>
+          {/* Navigation Desktop - Icônes avec tooltips personnalisés */}
+          <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
+            {sidebarOptions.map((option) => {
+              const isActive = pathname === option.path || (option.path !== "/" && pathname?.startsWith(option.path || ""));
+              return (
+                <Link
+                  key={option.id}
+                  href={option.path || "#"}
+                  className={cn(
+                    "relative p-2.5 rounded-xl transition-all duration-200 group",
+                    isActive
+                      ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
+                      : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200"
+                  )}
+                >
+                  <option.icon className="h-5 w-5" />
 
-        {/* Footer */}
-        <div className="border-t border-emerald-100 dark:border-emerald-900/50 p-4">
-          {sidebarOpen && user ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                <Avatar className="w-10 h-10 flex-shrink-0 shadow-md border-2 border-emerald-200 dark:border-emerald-800">
-                  <AvatarImage src={userData?.imageUrl || user.picture || undefined} alt={userData?.username || `${user.given_name} ${user.family_name}`} />
-                  <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-green-600 text-white font-medium">
-                    {(userData?.username?.[0] || user.given_name?.[0] || "U").toUpperCase()}
+                  {/* Tooltip personnalisé avec animation */}
+                  <span className="absolute left-1/2 -translate-x-1/2 top-full mt-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-1 group-hover:translate-y-0 bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg z-50">
+                    {option.title}
+                    <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 bg-slate-900 dark:bg-white" />
+                  </span>
+
+                  {/* Badge indicateur */}
+                  {(option as any).badge && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-slate-900" />
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Actions Utilisateur */}
+          <div className="flex items-center gap-2 md:gap-3">
+            <ModeToggle />
+            <div className="hidden sm:flex items-center gap-2">
+              <MessageButton router={router} />
+              <NotificationsButton router={router} />
+            </div>
+
+            {/* Avatar avec menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 pl-3 sm:border-l border-slate-200 dark:border-slate-800 outline-none">
+                  <Avatar className="h-8 w-8 ring-2 ring-white dark:ring-slate-900 shadow-sm">
+                    <AvatarImage src={userData?.imageUrl || user?.picture || undefined} />
+                    <AvatarFallback className="bg-emerald-600 text-white font-medium text-sm">
+                      {(user?.given_name?.[0] || user?.email?.[0] || "U").toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <ChevronDown className="h-4 w-4 text-slate-400 hidden sm:block" />
+                </button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent
+                align="end"
+                className="w-56 p-1.5 rounded-xl border-slate-200 dark:border-slate-800 shadow-lg"
+              >
+                <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-1">
+                  <p className="font-medium text-slate-900 dark:text-white text-sm">
+                    {user?.given_name || "Utilisateur"}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    {user?.email}
+                  </p>
+                </div>
+
+                <DropdownMenuItem
+                  onClick={() => router.push("/profile")}
+                  className="rounded-lg cursor-pointer p-2 gap-2"
+                >
+                  <User className="h-4 w-4 text-slate-500" />
+                  <span>Mon Profil</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => router.push("/settings")}
+                  className="rounded-lg cursor-pointer p-2 gap-2"
+                >
+                  <Settings className="h-4 w-4 text-slate-500" />
+                  <span>Paramètres</span>
+                </DropdownMenuItem>
+
+                <div className="sm:hidden border-t border-slate-100 dark:border-slate-800 pt-1 mt-1">
+                  <DropdownMenuItem onClick={() => router.push("/notifications")} className="rounded-lg cursor-pointer p-2 gap-2">
+                    <Bell className="h-4 w-4 text-slate-500" />
+                    <span>Notifications</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push("/messages")} className="rounded-lg cursor-pointer p-2 gap-2">
+                    <MessageSquare className="h-4 w-4 text-slate-500" />
+                    <span>Messages</span>
+                  </DropdownMenuItem>
+                </div>
+
+                <DropdownMenuSeparator className="my-1" />
+
+                <LogoutLink>
+                  <DropdownMenuItem className="rounded-lg cursor-pointer p-2 gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                    <LogOut className="h-4 w-4" />
+                    <span>Déconnexion</span>
+                  </DropdownMenuItem>
+                </LogoutLink>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
+      )}
+
+      {/* Sidebar Mobile - Design épuré */}
+      {!shouldHideSidebar && (
+        <>
+          <div
+            className={cn(
+              "fixed inset-0 bg-black/50 z-50 md:hidden transition-opacity duration-300",
+              sidebarOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
+            )}
+            onClick={() => setSidebarOpen(false)}
+          />
+
+          <div className={cn(
+            "fixed inset-y-0 left-0 w-[80%] max-w-xs bg-white dark:bg-slate-900 shadow-2xl z-50 md:hidden transform transition-transform duration-300 flex flex-col",
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          )}>
+            {/* En-tête */}
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="scale-75 origin-left">
+                  <Logo />
+                </div>
+                <span className="font-semibold text-lg text-slate-800 dark:text-white">SkillWokz</span>
+              </div>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="h-5 w-5 text-slate-500" />
+              </button>
+            </div>
+
+            {/* User Info */}
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={userData?.imageUrl || user?.picture || undefined} />
+                  <AvatarFallback className="bg-emerald-600 text-white font-medium">
+                    {(user?.given_name?.[0] || "U").toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 min-w-0 z-10 relative">
-                  <div className="font-semibold text-slate-900 dark:text-white truncate">
-                    {userData?.username || `${userData?.firstName || user.given_name || ""} ${userData?.lastName || user.family_name || ""}`.trim() || "Utilisateur"}
-                  </div>
-                  <div className="text-sm text-emerald-600 dark:text-emerald-400 truncate">
-                    {userRole === "CANDIDATE"
-                      ? "Candidat"
-                      : userRole === "CAREER_CHANGER"
-                      ? "En reconversion"
-                      : userRole === "RECRUITER"
-                      ? "Recruteur"
-                      : userRole === "ENTERPRISE"
-                      ? "Entreprise"
-                      : userRole === "BOOTCAMP"
-                      ? "Bootcamp"
-                      : userRole === "SCHOOL"
-                      ? "École"
-                      : "Utilisateur"}
-                  </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-900 dark:text-white truncate">
+                    {userData?.username || user?.given_name || "Utilisateur"}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    {userData?.email || user?.email}
+                  </p>
                 </div>
-                <ModeToggle />
+              </div>
+            </div>
+
+            {/* Navigation */}
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="space-y-1">
+                {sidebarOptions.map((option) => {
+                  const isActive = pathname === option.path || (option.path !== "/" && pathname?.startsWith(option.path || ""));
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => {
+                        router.push(option.path || "#");
+                        setSidebarOpen(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                        isActive
+                          ? "bg-emerald-500 text-white"
+                          : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      )}
+                    >
+                      <option.icon className="h-5 w-5" />
+                      <span className="font-medium">{option.title}</span>
+                      {(option as any).badge && (
+                        <span className={cn(
+                          "ml-auto text-xs px-1.5 py-0.5 rounded-full",
+                          isActive ? "bg-white/20" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                        )}>
+                          {(option as any).badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
-              <div className="flex gap-2">
+              <div className="border-t border-slate-100 dark:border-slate-800 my-4" />
+
+              {/* Actions secondaires */}
+              <div className="space-y-1">
                 <button
-                  onClick={() => { 
-                    router.push("/profile"); 
-                    if (window.innerWidth < 768) setSidebarOpen(false); 
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors shadow-sm hover:shadow-md text-emerald-700 dark:text-emerald-300"
+                  onClick={() => { router.push('/profile'); setSidebarOpen(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
-                  <User className="h-4 w-4" />
-                  <span className="font-medium">Profil</span>
+                  <User className="h-5 w-5" />
+                  <span>Mon Profil</span>
                 </button>
-                <LogoutLink>
-                  <button
-                    className="p-2 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shadow-sm hover:shadow-md"
-                    title="Déconnexion"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </button>
-                </LogoutLink>
+                <button
+                  onClick={() => { router.push('/settings'); setSidebarOpen(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <Settings className="h-5 w-5" />
+                  <span>Paramètres</span>
+                </button>
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-slate-700 dark:text-slate-300">
+                  <div className="flex items-center gap-3">
+                    <Palette className="h-5 w-5" />
+                    <span>Thème</span>
+                  </div>
+                  <ModeToggle />
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="flex justify-center">
-              <Avatar className="w-10 h-10 shadow-md border-2 border-emerald-200 dark:border-emerald-800">
-                <AvatarImage src={user?.picture || undefined} alt={user ? `${user.given_name} ${user.family_name}` : "User"} />
-                <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-green-600 text-white">
-                  <User className="h-5 w-5" />
-                </AvatarFallback>
-              </Avatar>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800">
+              <LogoutLink>
+                <Button variant="outline" className="w-full justify-center text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-slate-300 dark:border-slate-700">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Déconnexion
+                </Button>
+              </LogoutLink>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        </>
       )}
 
-      {/* Overlay pour mobile - Caché pour certaines routes */}
-      {!shouldHideSidebar && sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden transition-opacity duration-300"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Bouton menu pour mobile */}
-      {!sidebarOpen && (
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="fixed top-4 left-4 z-40 p-2 rounded-lg bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 shadow-lg hover:shadow-xl transition-all duration-300 md:hidden"
-        >
-          <Menu className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-        </button>
-      )}
-
-      {/* Main content */}
-      <div
-        className={`min-h-screen bg-white dark:bg-slate-950 transition-all duration-300 ${
-          sidebarOpen ? "md:ml-80" : "md:ml-20"
-        }`}
-      >
-        {/* Page content */}
-        <main className="p-4 md:p-6 pt-16 md:pt-6 overflow-auto">
-          {children}
-        </main>
-      </div>
-
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(16, 185, 129, 0.3);
-          border-radius: 2px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(16, 185, 129, 0.5);
-        }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(16, 185, 129, 0.2);
-        }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(16, 185, 129, 0.4);
-        }
-      `}</style>
-    </>
+      {/* Contenu Principal */}
+      <main className={cn(
+        "flex-1 transition-all duration-500",
+        !shouldHideSidebar && "pt-16"
+      )}>
+        {children}
+      </main>
+    </div>
   );
-}
-
-export default function AppSidebar({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const { isAuthenticated, isLoading } = useKindeBrowserClient();
-
-  if (isLoading || !isAuthenticated) return null;
-
-  return <SidebarContent>{children}</SidebarContent>;
 }

@@ -15,6 +15,9 @@ import {
   ArrowUpRight,
   Cpu,
   Network,
+  BookOpen,
+  Languages,
+  Heart
 } from "lucide-react"
 
 interface CorporateTemplateProps {
@@ -23,11 +26,11 @@ interface CorporateTemplateProps {
 
 export default function CorporateTemplate({ portfolioData }: CorporateTemplateProps) {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
-  const gridRef = useRef<HTMLDivElement>(null)
 
-  const isSectionEnabled = (sectionId: string) => {
-    return portfolioData.sections?.includes(sectionId) || false
-  }
+  // Get sections order from data, or default to a standard order if empty
+  const sectionsOrder = portfolioData.sections && portfolioData.sections.length > 0
+    ? portfolioData.sections
+    : ["skills", "projects", "experiences", "education", "languages", "interests"]
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -36,6 +39,227 @@ export default function CorporateTemplate({ portfolioData }: CorporateTemplatePr
     window.addEventListener("mousemove", handleMouseMove)
     return () => window.removeEventListener("mousemove", handleMouseMove)
   }, [])
+
+  const renderSection = (sectionId: string) => {
+    switch (sectionId) {
+      case "skills":
+        if (!portfolioData.skills?.length) return null
+        return (
+          <section className="py-24 px-6 relative">
+            <div className="max-w-7xl mx-auto">
+              <div className="text-center mb-16">
+                <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
+                  Stack Technologique
+                </h2>
+                <p className="text-xl text-slate-600 dark:text-slate-400">
+                  Technologies de pointe pour des solutions robustes
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {portfolioData.skills.map((skill: string, index: number) => (
+                  <div
+                    key={index}
+                    className="group relative bg-white/80 dark:bg-slate-800/80 backdrop-blur border-2 border-slate-200 dark:border-slate-700 rounded-xl p-6 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/20"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-cyan-500/0 group-hover:from-blue-500/10 group-hover:to-cyan-500/10 rounded-xl transition-all duration-300" />
+                    <Terminal className="h-8 w-8 mx-auto mb-3 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform" />
+                    <div className="text-center font-semibold text-slate-900 dark:text-white text-sm">{skill}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )
+
+      case "projects":
+        if (!portfolioData.projects?.length) return null
+        return (
+          <section className="py-24 px-6 bg-slate-100/50 dark:bg-slate-900/50 relative">
+            <div className="max-w-7xl mx-auto">
+              <div className="text-center mb-16">
+                <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
+                  Projets d'Entreprise
+                </h2>
+                <p className="text-xl text-slate-600 dark:text-slate-400">Solutions scalables et performantes</p>
+              </div>
+
+              <div className="space-y-8">
+                {portfolioData.projects.map((project: any, index: number) => (
+                  <Card
+                    key={index}
+                    className="group overflow-hidden border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300 hover:shadow-2xl"
+                  >
+                    <div className="grid md:grid-cols-2 gap-0">
+                      {project.images?.[0] && (
+                        <div className="relative h-80 overflow-hidden">
+                          <img
+                            src={project.images[0] || "/placeholder.svg"}
+                            alt={project.title}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent" />
+                        </div>
+                      )}
+                      <div className="p-8 flex flex-col justify-center">
+                        <Badge className="w-fit mb-4 bg-blue-600 text-white">
+                          <TrendingUp className="h-3 w-3 mr-1" />
+                          Enterprise
+                        </Badge>
+                        <h3 className="text-3xl font-bold mb-4 text-slate-900 dark:text-white">{project.title}</h3>
+                        <p className="text-lg text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
+                          {project.description}
+                        </p>
+                        {project.technologies?.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-6">
+                            {project.technologies.map((tech: string, techIndex: number) => (
+                              <Badge
+                                key={techIndex}
+                                variant="outline"
+                                className="border-blue-500/50 text-blue-600 dark:text-blue-400"
+                              >
+                                {tech}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex gap-3">
+                          <Button className="bg-blue-600 hover:bg-blue-700">
+                            Voir le projet
+                            <ArrowUpRight className="ml-2 h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" className="border-2 bg-transparent">
+                            <Database className="mr-2 h-4 w-4" />
+                            Architecture
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </section>
+        )
+
+      case "experiences":
+        if (!portfolioData.experiences?.length) return null
+        return (
+          <section className="py-24 px-6 relative">
+            <div className="max-w-7xl mx-auto">
+              <div className="text-center mb-16">
+                <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
+                  Expérience Professionnelle
+                </h2>
+                <p className="text-xl text-slate-600 dark:text-slate-400">Leadership et innovation technologique</p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {portfolioData.experiences.map((exp: any, index: number) => (
+                  <Card
+                    key={index}
+                    className="p-8 border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300 hover:shadow-xl group"
+                  >
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                        <Cloud className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{exp.position}</h3>
+                        <p className="text-lg text-blue-600 dark:text-blue-400 font-medium">{exp.company}</p>
+                      </div>
+                      <Badge className="bg-blue-600 text-white">
+                        {exp.current ? "Actuel" : new Date(exp.endDate).getFullYear()}
+                      </Badge>
+                    </div>
+                    {exp.description && (
+                      <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{exp.description}</p>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </section>
+        )
+
+      case "education":
+        if (!portfolioData.education?.length) return null
+        return (
+          <section className="py-24 px-6 bg-slate-100/50 dark:bg-slate-900/50 relative">
+            <div className="max-w-7xl mx-auto">
+              <div className="text-center mb-16">
+                <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
+                  Formation & Certifications
+                </h2>
+                <p className="text-xl text-slate-600 dark:text-slate-400">Excellence académique et continue</p>
+              </div>
+              <div className="grid md:grid-cols-2 gap-6">
+                {portfolioData.education.map((edu: any, index: number) => (
+                  <Card key={index} className="p-8 border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300 hover:shadow-xl group">
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <BookOpen className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">{edu.degree}</h3>
+                        <p className="text-blue-600 dark:text-blue-400 font-medium">{edu.institution}</p>
+                        {edu.field && <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{edu.field}</p>}
+                      </div>
+                      <Badge variant="outline" className="border-blue-200 text-blue-600 dark:border-blue-800 dark:text-blue-400">
+                        {new Date(edu.endDate).getFullYear()}
+                      </Badge>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </section>
+        )
+
+      case "languages":
+        if (!portfolioData.languages?.length) return null
+        return (
+          <section className="py-24 px-6 relative">
+            <div className="max-w-7xl mx-auto">
+              <div className="text-center mb-16">
+                <h2 className="text-3xl font-bold mb-4 text-slate-900 dark:text-white">Langues</h2>
+              </div>
+              <div className="flex flex-wrap justify-center gap-6">
+                {portfolioData.languages.map((lang: string, index: number) => (
+                  <div key={index} className="flex items-center gap-3 bg-white dark:bg-slate-800 px-8 py-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <Languages className="w-5 h-5 text-blue-500" />
+                    <span className="font-bold text-slate-900 dark:text-white text-lg">{lang}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )
+
+      case "interests":
+        if (!portfolioData.interests?.length) return null
+        return (
+          <section className="py-24 px-6 bg-slate-100/50 dark:bg-slate-900/50 relative">
+            <div className="max-w-7xl mx-auto">
+              <div className="text-center mb-16">
+                <h2 className="text-3xl font-bold mb-4 text-slate-900 dark:text-white">Intérêts</h2>
+              </div>
+              <div className="flex flex-wrap justify-center gap-6">
+                {portfolioData.interests.map((interest: string, index: number) => (
+                  <div key={index} className="flex items-center gap-3 bg-white dark:bg-slate-800 px-8 py-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <Heart className="w-5 h-5 text-cyan-500" />
+                    <span className="font-bold text-slate-900 dark:text-white text-lg">{interest}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )
+
+      default:
+        return null
+    }
+  }
 
   return (
     <div className="bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100 relative overflow-hidden">
@@ -144,142 +368,8 @@ export default function CorporateTemplate({ portfolioData }: CorporateTemplatePr
         </div>
       </section>
 
-      {/* Tech Stack */}
-      {isSectionEnabled("skills") && portfolioData.skills?.length > 0 && (
-        <section className="py-24 px-6 relative">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
-                Stack Technologique
-              </h2>
-              <p className="text-xl text-slate-600 dark:text-slate-400">
-                Technologies de pointe pour des solutions robustes
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {portfolioData.skills.map((skill: string, index: number) => (
-                <div
-                  key={index}
-                  className="group relative bg-white/80 dark:bg-slate-800/80 backdrop-blur border-2 border-slate-200 dark:border-slate-700 rounded-xl p-6 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/20"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-cyan-500/0 group-hover:from-blue-500/10 group-hover:to-cyan-500/10 rounded-xl transition-all duration-300" />
-                  <Terminal className="h-8 w-8 mx-auto mb-3 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform" />
-                  <div className="text-center font-semibold text-slate-900 dark:text-white text-sm">{skill}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Projects */}
-      {isSectionEnabled("projects") && portfolioData.projects?.length > 0 && (
-        <section className="py-24 px-6 bg-slate-100/50 dark:bg-slate-900/50 relative">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
-                Projets d'Entreprise
-              </h2>
-              <p className="text-xl text-slate-600 dark:text-slate-400">Solutions scalables et performantes</p>
-            </div>
-
-            <div className="space-y-8">
-              {portfolioData.projects.map((project: any, index: number) => (
-                <Card
-                  key={index}
-                  className="group overflow-hidden border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300 hover:shadow-2xl"
-                >
-                  <div className="grid md:grid-cols-2 gap-0">
-                    {project.images?.[0] && (
-                      <div className="relative h-80 overflow-hidden">
-                        <img
-                          src={project.images[0] || "/placeholder.svg"}
-                          alt={project.title}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent" />
-                      </div>
-                    )}
-                    <div className="p-8 flex flex-col justify-center">
-                      <Badge className="w-fit mb-4 bg-blue-600 text-white">
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        Enterprise
-                      </Badge>
-                      <h3 className="text-3xl font-bold mb-4 text-slate-900 dark:text-white">{project.title}</h3>
-                      <p className="text-lg text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
-                        {project.description}
-                      </p>
-                      {project.technologies?.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-6">
-                          {project.technologies.map((tech: string, techIndex: number) => (
-                            <Badge
-                              key={techIndex}
-                              variant="outline"
-                              className="border-blue-500/50 text-blue-600 dark:text-blue-400"
-                            >
-                              {tech}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex gap-3">
-                        <Button className="bg-blue-600 hover:bg-blue-700">
-                          Voir le projet
-                          <ArrowUpRight className="ml-2 h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" className="border-2 bg-transparent">
-                          <Database className="mr-2 h-4 w-4" />
-                          Architecture
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Experience */}
-      {isSectionEnabled("experiences") && portfolioData.experiences?.length > 0 && (
-        <section className="py-24 px-6 relative">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
-                Expérience Professionnelle
-              </h2>
-              <p className="text-xl text-slate-600 dark:text-slate-400">Leadership et innovation technologique</p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              {portfolioData.experiences.map((exp: any, index: number) => (
-                <Card
-                  key={index}
-                  className="p-8 border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300 hover:shadow-xl group"
-                >
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                      <Cloud className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{exp.position}</h3>
-                      <p className="text-lg text-blue-600 dark:text-blue-400 font-medium">{exp.company}</p>
-                    </div>
-                    <Badge className="bg-blue-600 text-white">
-                      {exp.current ? "Actuel" : new Date(exp.endDate).getFullYear()}
-                    </Badge>
-                  </div>
-                  {exp.description && (
-                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{exp.description}</p>
-                  )}
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Dynamic Sections */}
+      {sectionsOrder.map((sectionId: string) => renderSection(sectionId))}
 
       {/* CTA */}
       <section className="py-24 px-6">
