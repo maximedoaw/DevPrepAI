@@ -13,20 +13,18 @@ export interface AnswerValidation {
   result: ValidationResult
 }
 
-/**
- * Valide une réponse pour une question QCM
- * - Supporte correctAnswer en index (number) ou en texte (string)
- * - Utilise options pour convertir le texte en index si nécessaire
- */
 export function validateMultipleChoiceAnswer(
   answer: any,
   correctAnswer: any,
   options?: string[]
 ): ValidationResult {
-  // Déterminer l'index attendu
+  // Normalisation pour comparaison
+  const normalize = (val: any) => String(val).trim().toLowerCase()
+
   let expectedIndex: number | null = null
   let expectedText: string | null = null
 
+  // 1. Déterminer la réponse attendue (Index ET Texte si possible)
   if (typeof correctAnswer === "number") {
     expectedIndex = correctAnswer
     expectedText = options && correctAnswer >= 0 && correctAnswer < options.length
@@ -34,18 +32,56 @@ export function validateMultipleChoiceAnswer(
       : null
   } else if (typeof correctAnswer === "string") {
     expectedText = correctAnswer
+    // Tenter de trouver l'index si c'est un texte
     if (Array.isArray(options)) {
-      const idx = options.findIndex(opt => opt === correctAnswer)
-      expectedIndex = idx >= 0 ? idx : null
+      const idx = options.findIndex(opt => normalize(opt) === normalize(correctAnswer))
+      if (idx >= 0) expectedIndex = idx
+    }
+    // Tenter de voir si la réponse est un index sous forme de string ("0", "1"...)
+    if (expectedIndex === null && !isNaN(Number(correctAnswer))) {
+       const parsedIndices = parseInt(correctAnswer, 10)
+       if (options && parsedIndices >= 0 && parsedIndices < options.length) {
+         expectedIndex = parsedIndices
+       }
     }
   }
 
-  // Comparer avec la réponse utilisateur (index ou texte)
+  // 2. Analyser la réponse utilisateur
+  let userIndex: number | null = null
+  let userText: string | null = null
+
+  if (typeof answer === "number") {
+    userIndex = answer
+    if (options && answer >= 0 && answer < options.length) {
+      userText = options[answer]
+    }
+  } else if (typeof answer === "string") {
+    userText = answer
+    // Est-ce un index ?
+    if (!isNaN(Number(answer))) {
+      userIndex = parseInt(answer, 10)
+    }
+    // Est-ce que ça match un texte d'option ?
+    if (Array.isArray(options)) {
+      const idx = options.findIndex(opt => normalize(opt) === normalize(answer))
+      if (idx >= 0) userIndex = idx
+    }
+  }
+
+  // 3. Comparaison croisée
   let isValid = false
-  if (typeof answer === "number" && expectedIndex !== null) {
-    isValid = answer === expectedIndex
-  } else if (typeof answer === "string" && expectedText !== null) {
-    isValid = answer === expectedText
+  
+  // Comparer par index si disponible
+  if (expectedIndex !== null && userIndex !== null) {
+    isValid = expectedIndex === userIndex
+  } 
+  // Sinon comparer par texte normalisé
+  else if (expectedText && userText) {
+    isValid = normalize(expectedText) === normalize(userText)
+  }
+  // Cas fallback : comparaison directe brute
+  else {
+    isValid = normalize(answer) === normalize(correctAnswer)
   }
 
   return {
@@ -53,7 +89,7 @@ export function validateMultipleChoiceAnswer(
     score: isValid ? 100 : 0,
     feedback: isValid
       ? "Correct !"
-      : "Incorrect. Réponse attendue : " + (expectedText ?? String(correctAnswer))
+      : "Incorrect. Réponse attendue : " + (expectedText ?? options?.[expectedIndex ?? -1] ?? String(correctAnswer))
   }
 }
 

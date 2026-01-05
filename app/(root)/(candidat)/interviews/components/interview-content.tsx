@@ -4,6 +4,7 @@ import { DiscreteTimer } from "./discrete-timer"
 import { InterviewInfo } from "./interview-info"
 import { ProgressCard } from "./progress-card"
 import { QuestionCard } from "./question-card"
+import { QuizView } from "./quiz-view"
 import { NavigationControls } from "./navigation-controls"
 import { CompletionScreen } from "./completion-screen"
 import { quizSaveAnswer } from "@/actions/interview.action"
@@ -92,7 +93,7 @@ export function InterviewContent({
     // Mapping des technologies vers les domaines
     const techToDomain: Record<string, string> = {
       'JavaScript': 'DEVELOPMENT',
-      'TypeScript': 'DEVELOPMENT', 
+      'TypeScript': 'DEVELOPMENT',
       'React': 'DEVELOPMENT',
       'Next.js': 'DEVELOPMENT',
       'Node.js': 'DEVELOPMENT',
@@ -156,7 +157,7 @@ export function InterviewContent({
     // Fallback basé sur le titre ou la description
     const titleLower = interview.title.toLowerCase()
     const descLower = interview.description?.toLowerCase() || ''
-    
+
     if (titleLower.includes('data') || descLower.includes('data')) return 'DATA_SCIENCE'
     if (titleLower.includes('mobile') || descLower.includes('mobile')) return 'MOBILE'
     if (titleLower.includes('web') || descLower.includes('web')) return 'WEB'
@@ -172,7 +173,7 @@ export function InterviewContent({
     if (titleLower.includes('cybersecurity') || descLower.includes('cybersecurity')) return 'CYBERSECURITY'
     if (titleLower.includes('architecture') || descLower.includes('architecture')) return 'ARCHITECTURE'
     if (titleLower.includes('communication') || descLower.includes('communication')) return 'COMMUNICATION'
-    
+
     return 'DEVELOPMENT' // Default
   }
 
@@ -208,7 +209,13 @@ export function InterviewContent({
   // Completion screen
   if (isCompleted) {
     return (
-      <CompletionScreen interview={interview} score={calculateScore()} timeLeft={timeLeft} formatTime={formatTime} />
+      <CompletionScreen
+        interview={interview}
+        score={calculateScore()}
+        timeLeft={timeLeft}
+        formatTime={formatTime}
+        answers={answers}
+      />
     )
   }
 
@@ -224,7 +231,7 @@ export function InterviewContent({
     return (
       <div className="min-h-screen bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50 to-slate-100">
         <div className="max-w-7xl mx-auto px-6 py-8">
-          <AIVocalInterview 
+          <AIVocalInterview
             interviewData={{
               id: interview.id,
               title: interview.title,
@@ -235,7 +242,6 @@ export function InterviewContent({
               duration: interview.duration,
               difficulty: interview.difficulty
             }}
-            questions={mockQuestions}
             onComplete={(score: number, answers: Record<string, any>) => {
               // Sauvegarder les résultats de l'interview vocal
               const payload = {
@@ -257,10 +263,10 @@ export function InterviewContent({
   // Fonction pour vérifier les réponses de codage
   const validateCodeAnswer = (code: string, expectedOutput?: string): number => {
     if (!code.trim()) return 0
-    
+
     // Vérifications basiques
     let score = 0
-    
+
     // Vérifier la syntaxe basique (pas de parenthèses/accolades non fermées)
     const openParens = (code.match(/\(/g) || []).length
     const closeParens = (code.match(/\)/g) || []).length
@@ -268,30 +274,30 @@ export function InterviewContent({
     const closeBraces = (code.match(/\}/g) || []).length
     const openBrackets = (code.match(/\[/g) || []).length
     const closeBrackets = (code.match(/\]/g) || []).length
-    
+
     if (openParens === closeParens && openBraces === closeBraces && openBrackets === closeBrackets) {
       score += 20 // Syntaxe correcte
     }
-    
+
     // Vérifier la longueur du code (indique un effort)
     if (code.length > 50) score += 10
     if (code.length > 100) score += 10
-    
+
     // Vérifier la présence de mots-clés communs
     const keywords = ['function', 'const', 'let', 'var', 'if', 'else', 'for', 'while', 'return']
     const foundKeywords = keywords.filter(keyword => code.toLowerCase().includes(keyword)).length
     score += foundKeywords * 5
-    
+
     // Vérifier si le code contient une fonction ou une logique
     if (code.includes('function') || code.includes('=>') || code.includes('class')) {
       score += 20
     }
-    
+
     // Si une sortie attendue est fournie, vérifier si elle est présente dans le code
     if (expectedOutput && code.toLowerCase().includes(expectedOutput.toLowerCase())) {
       score += 30
     }
-    
+
     return Math.min(100, score)
   }
 
@@ -323,18 +329,18 @@ export function InterviewContent({
   return (
     <div className={`min-h-screen ${isTechnicalInterview && currentQuestion.type === "coding" ? "fixed inset-0 z-50" : ""} bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-emerald-50 to-slate-100`}>
       {/* Timer discret en haut à droite */}
-      {!isTechnicalInterview && <DiscreteTimer 
+      {!isTechnicalInterview && <DiscreteTimer
         timeLeft={timeLeft}
         isRunning={isRunning}
       />}
-      
+
       <div className={`${isTechnicalInterview && currentQuestion.type === "coding" ? "h-full flex flex-col" : "max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8"}`}>
         {/* Header avec retour pour TECHNICAL coding */}
         {isTechnicalInterview && currentQuestion.type === "coding" && (
           <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
             <div className="flex items-center gap-4">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={() => window.history.back()}
                 className="flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors rounded-lg"
@@ -363,7 +369,7 @@ export function InterviewContent({
 
         {/* Informations sur l'interview - seulement si pas TECHNICAL coding */}
         {(!isTechnicalInterview || currentQuestion.type !== "coding") && (
-          <InterviewInfo 
+          <InterviewInfo
             interview={interview}
             currentQuestionIndex={currentQuestionIndex}
             totalQuestions={interview.questions.length}
@@ -391,7 +397,7 @@ export function InterviewContent({
                     {interview.difficulty?.toLowerCase() || "medium"}
                   </Badge>
                 </div>
-                
+
                 <div className="prose dark:prose-invert max-w-none">
                   <div className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 leading-relaxed">
                     {currentQuestion.question}
@@ -439,7 +445,7 @@ export function InterviewContent({
                   />
                 </div>
               </div>
-              
+
               {/* Header avec bouton Run */}
               <div className="px-4 py-2 border-t border-slate-300 dark:border-slate-700 bg-slate-800 dark:bg-slate-950 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -457,10 +463,10 @@ export function InterviewContent({
                       toast.warning("Veuillez écrire du code avant de le tester")
                       return
                     }
-                    
+
                     setIsExecutingCode(true)
                     setShowConsole(true)
-                    
+
                     try {
                       const detectedLang = detectLanguage(currentCode, interview.technology?.[0]?.toLowerCase() || 'javascript')
                       const result = await executeCodeWithPiston(currentCode, detectedLang)
@@ -492,7 +498,7 @@ export function InterviewContent({
                   )}
                 </Button>
               </div>
-              
+
               {/* Console */}
               {showConsole && (
                 <div className="h-64 border-t border-slate-700 bg-slate-900 dark:bg-black overflow-hidden flex flex-col">
@@ -570,7 +576,7 @@ export function InterviewContent({
                   />
                 </div>
               </div>
-              
+
               {/* Bouton Run et Console */}
               <div className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-3">
                 <Button
@@ -580,10 +586,10 @@ export function InterviewContent({
                       toast.warning("Veuillez écrire du code avant de le tester")
                       return
                     }
-                    
+
                     setIsExecutingCode(true)
                     setShowConsole(true)
-                    
+
                     try {
                       const detectedLang = detectLanguage(currentCode, interview.technology?.[0]?.toLowerCase() || 'javascript')
                       const result = await executeCodeWithPiston(currentCode, detectedLang)
@@ -614,7 +620,7 @@ export function InterviewContent({
                     </>
                   )}
                 </Button>
-                
+
                 {/* Console */}
                 {showConsole && (
                   <div className="border-t border-slate-300 dark:border-slate-700 bg-slate-900 dark:bg-black rounded-lg overflow-hidden">
@@ -668,6 +674,22 @@ export function InterviewContent({
               </div>
             )}
           </div>
+        ) : currentQuestion.type === "multiple-choice" ? (
+          <QuizView
+            question={{
+              id: currentQuestion.id,
+              question: currentQuestion.question,
+              options: currentQuestion.options,
+              type: currentQuestion.type,
+            }}
+            answer={answers[currentQuestion.id]}
+            onAnswer={(answer) => onAnswerChange(currentQuestion.id, answer)}
+            currentIndex={currentQuestionIndex}
+            totalQuestions={interview.questions.length}
+            onNext={onNextQuestion}
+            onPrevious={onPreviousQuestion}
+            isSaving={isSaving || saving}
+          />
         ) : (
           <QuestionCard
             question={currentQuestion}

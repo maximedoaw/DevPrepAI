@@ -2,10 +2,11 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Building2, Target, Clock, Trophy } from "lucide-react"
+import { ArrowLeft, Building2, Target, Clock, Trophy, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { formatDuration } from "@/lib/time-utils"
+import { motion } from "framer-motion"
 
 interface InterviewInfoProps {
   interview: {
@@ -26,74 +27,76 @@ export function InterviewInfo({ interview, currentQuestionIndex, totalQuestions 
   const progress = ((currentQuestionIndex + 1) / totalQuestions) * 100
 
   return (
-    <Card className="border-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-lg mb-4 sm:mb-6">
-      <CardContent className="p-4 sm:p-6">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 lg:gap-6">
-          {/* Left Section - Back Button & Title */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full lg:w-auto">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => router.push("/interviews")} 
-              className="hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 w-full sm:w-auto"
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mb-8"
+    >
+      <div className="relative overflow-hidden rounded-3xl bg-emerald-600 dark:bg-emerald-900/40 p-6 md:p-8 text-white shadow-xl shadow-emerald-500/10">
+        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+          <Target className="w-48 h-48 rotate-12" />
+        </div>
+
+        <div className="relative z-10 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
+          <div className="space-y-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/interviews")}
+              className="text-emerald-100 hover:text-white hover:bg-emerald-500/20 -ml-2 h-auto py-1 px-3"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Retour
+              Retour au Hub
             </Button>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <div className="p-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 shadow-lg flex-shrink-0">
-                <span className="text-base sm:text-lg text-white">💼</span>
+            <div>
+              <div className="flex items-center gap-2 text-emerald-100 font-medium text-sm mb-1">
+                <Building2 className="w-4 h-4" />
+                <span>{interview.company}</span>
+                <span className="text-emerald-400">•</span>
+                <Badge variant="outline" className="text-emerald-50 border-emerald-400/30 bg-emerald-500/20">
+                  {interview.difficulty}
+                </Badge>
               </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-white truncate">{interview.title}</h1>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                  <div className="flex items-center gap-1">
-                    <Building2 className="h-3 w-3" />
-                    <span className="truncate">{interview.company}</span>
-                  </div>
-                  <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                    <Badge className="border-0 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 shadow-sm">
-                      {interview.difficulty}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs border-slate-300 dark:border-slate-600">
-                      {interview.type.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                </div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white mb-2">
+                {interview.title}
+              </h1>
+              <div className="flex items-center gap-4 text-sm text-emerald-100/80">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" />
+                  {formatDuration(interview.duration)}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Trophy className="w-4 h-4" />
+                  {interview.questions.length} questions
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Right Section - Progress & Stats */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 lg:gap-6 w-full lg:w-auto">
-            {/* Progress */}
-            <div className="text-center w-full sm:w-auto">
-              <div className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Question {currentQuestionIndex + 1} sur {totalQuestions}
-              </div>
-              <div className="w-full sm:w-24 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600 dark:text-gray-400 w-full sm:w-auto justify-center lg:justify-end">
-              <div className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                <span>{formatDuration(interview.duration)}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Trophy className="h-3 w-3" />
-                <span>{interview.questions.length} questions</span>
-              </div>
-            </div>
+          {/* Progress Circle (Simplified) */}
+          <div className="hidden md:flex flex-col items-center bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
+            <span className="text-3xl font-bold">{currentQuestionIndex + 1}<span className="text-lg text-emerald-200/60 font-medium">/{totalQuestions}</span></span>
+            <span className="text-xs text-emerald-100 font-medium uppercase tracking-wide">Question</span>
           </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Linear Progress for Mobile */}
+        <div className="md:hidden mt-6">
+          <div className="flex justify-between text-xs text-emerald-100/80 mb-2">
+            <span>Progression</span>
+            <span>{Math.round(progress)}%</span>
+          </div>
+          <div className="h-1.5 bg-emerald-900/30 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-white"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
+        </div>
+      </div>
+    </motion.div>
   )
 }
