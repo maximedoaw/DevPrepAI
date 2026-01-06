@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { getInterviewById, quizSaveAnswer } from "@/actions/interview.action"
+import { getVoiceInterviewById } from "@/actions/ai.action"
 import { validateInterviewAnswers, calculateTotalScore } from "@/lib/interview-validation"
 import { formatTimeDetailed } from "@/lib/time-utils"
 import { InterviewContent } from "./interview-content"
@@ -43,7 +44,7 @@ interface InterviewContainerProps {
 }
 
 export function InterviewContainer({ interviewId }: InterviewContainerProps) {
-  
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, any>>({})
   const [timeLeft, setTimeLeft] = useState(0)
@@ -59,14 +60,40 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
   } = useQuery({
     queryKey: ["interview", interviewId],
     queryFn: async () => {
+      // 1. Try fetching standard Quiz Interview
       const result = await getInterviewById(interviewId)
-      if (result && typeof result.questions === "string") {
+      if (result) {
+        if (typeof result.questions === "string") {
+          return {
+            ...result,
+            questions: JSON.parse(result.questions),
+          }
+        }
+        return result
+      }
+
+      // 2. If not found, try fetching Voice Interview
+      const voiceResult = await getVoiceInterviewById(interviewId)
+      if (voiceResult.success && voiceResult.voiceInterview) {
+        const vi = voiceResult.voiceInterview;
+        // Map VoiceInterview to Interview interface
         return {
-          ...result,
-          questions: JSON.parse(result.questions),
+          id: vi.id,
+          title: `Entretien Vocal - ${vi.technologies[0] || "Custom"}`,
+          company: "DevPrepAI",
+          duration: vi.duration,
+          difficulty: "MID", // Default or stored in context string?
+          type: "MOCK_INTERVIEW", // Force type to trigger VocalInterview
+          questions: [], // Voice interview questions are dynamic
+          totalPoints: 100,
+          description: vi.context,
+          technology: vi.technologies,
+          // Custom fields for Voice
+          isVoiceInterview: true
         }
       }
-      return result
+
+      return null
     },
   })
 
@@ -182,14 +209,14 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
     // Utiliser la nouvelle fonction de validation
     const validations = validateInterviewAnswers(interview.questions, answers)
     const scoreResult = calculateTotalScore(validations)
-    
+
     return scoreResult.percentage
   }
 
 
   // Loading state
   if (isLoading) {
-    return <DevLoader/>
+    return <DevLoader />
   }
 
   // Error state
@@ -206,8 +233,8 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
     )
   }
 
-  // Validate questions
-  if (!interview.questions || !Array.isArray(interview.questions) || interview.questions.length === 0) {
+  // Validate questions (Skip for Voice Interviews which generate questions dynamically)
+  if ((!interview.questions || !Array.isArray(interview.questions) || interview.questions.length === 0) && interview.type !== "MOCK_INTERVIEW") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <Card className="p-8 text-center">
@@ -223,7 +250,7 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
   // Affichage spécifique pour MOCK_INTERVIEW (vocal)
   if (interview.type === "MOCK_INTERVIEW") {
     return (
-      <VocalInterview 
+      <VocalInterview
         interviewData={{
           id: interview.id,
           title: interview.title,

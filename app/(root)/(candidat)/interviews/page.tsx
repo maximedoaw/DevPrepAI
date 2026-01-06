@@ -246,13 +246,6 @@ export default function InterviewsHubPage() {
               )}
             </div>
 
-            <div className="hidden md:block">
-              <CustomizeInterviewDialog />
-            </div>
-          </div>
-
-          <div className="md:hidden mt-6 w-full">
-            <CustomizeInterviewDialog />
           </div>
         </motion.div>
 
@@ -340,6 +333,11 @@ export default function InterviewsHubPage() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Customization CTA - Below widgets */}
+          <div className="flex justify-end">
+            <CustomizeInterviewDialog />
           </div>
         </div>
 
