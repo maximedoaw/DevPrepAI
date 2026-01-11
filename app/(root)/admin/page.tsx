@@ -1,28 +1,30 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table'
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select'
-import { 
+import {
   Plus,
   Search,
   Eye,
@@ -32,14 +34,38 @@ import {
   CreditCard,
   FileText,
   Filter,
-  ChevronDown
+  ChevronDown,
+  Users,
+  LayoutDashboard,
+  Zap,
+  Trash2,
+  Sparkles,
+  ArrowRight,
+  Target,
+  Clock,
+  Settings2,
+  Mic,
+  MicOff,
+  Wand2,
+  Loader2,
+  MinusCircle,
+  PlusCircle,
+  CheckCircle2,
+  X,
+  ChevronRight
 } from 'lucide-react'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { toast } from 'sonner'
-import { 
-  getAdminStats, 
-  getUsers, 
-  getQuizzes, 
-  getSubscriptions, 
+import {
+  getAdminStats,
+  getUsers,
+  getQuizzes,
+  getSubscriptions,
   getQuizResults,
   updateSubscription,
   createQuiz,
@@ -47,26 +73,44 @@ import {
   deleteQuizResult,
   getMonthlySubscriptionRevenue
 } from '@/actions/admin.action'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
-import dynamic from 'next/dynamic';
-import { useRef } from 'react';
-import { EditorView, basicSetup } from 'codemirror';
-import { EditorState } from '@codemirror/state';
-import { javascript } from '@codemirror/lang-javascript';
-import { python } from '@codemirror/lang-python';
-
-
-// Import des composants
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
+import { motion, AnimatePresence } from 'framer-motion'
 import { AdminHeader } from '@/components/admin/admin-header'
 import DevLoader from '@/components/dev-loader'
 import StatsCards from './components/stats-cards'
 import { OverviewTab } from '@/components/admin/overview-tab'
-import { DuolingoCard } from '@/components/admin/duolingo-card'
-import { DuolingoBadge } from '@/components/admin/duolingo-badge'
 
+// Constants
+const DOMAINS = [
+  "MACHINE_LEARNING",
+  "DEVELOPMENT",
+  "DATA_SCIENCE",
+  "FINANCE",
+  "BUSINESS",
+  "ENGINEERING",
+  "DESIGN",
+  "DEVOPS",
+  "CYBERSECURITY",
+  "MARKETING",
+  "PRODUCT",
+  "ARCHITECTURE",
+  "MOBILE",
+  "WEB",
+  "COMMUNICATION",
+  "MANAGEMENT",
+  "EDUCATION",
+  "HEALTH"
+]
 
+const QUIZ_TYPES = [
+  { id: "TECHNICAL", label: "Technique", icon: FileText, color: "text-blue-500" },
+  { id: "QCM", label: "QCM", icon: Target, color: "text-emerald-500" },
+  { id: "SOFT_SKILLS", label: "Soft Skills", icon: Users, color: "text-amber-500" },
+  { id: "MOCK_INTERVIEW", label: "Entretien Vocal", icon: Sparkles, color: "text-purple-500" },
+]
 
-// Types et interfaces
+// Types
 interface AdminStats {
   totalUsers: number
   totalQuizzes: number
@@ -76,745 +120,790 @@ interface AdminStats {
   recentQuizResults: any[]
   subscriptionStats: any[]
   quizTypeStats: any[]
-  monthlyRevenue?: any // <-- optionnel
+  monthlyRevenue?: any
 }
 
-interface User {
-  id: string
-  email: string
-  firstName: string
-  lastName: string
-  createdAt: string
-  credits: number
-  subscription?: {
-    id: string
-    tier: string
-    isActive: boolean
-  }
-  _count: {
-    quizResults: number
-    skillAnalyses: number
-  }
-}
+// --- Dynamic Form Components ---
 
-interface Quiz {
-  id: string
-  title: string
-  type: string
-  difficulty: string
-  company: string
-  technology: string[]
-  duration: number
-  totalPoints: number
-  _count: {
-    results: number
-  }
-}
+const DictaphoneControl = ({ onTranscript, className }: { onTranscript: (t: string) => void, className?: string }) => {
+  const [isListening, setIsListening] = useState(false)
 
-// Composant pour l'affichage mobile des utilisateurs
-function MobileUserCard({ user }: { user: any }) {
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-      <div className="flex items-center gap-3">
-        <Avatar className="h-12 w-12 border-2 border-green-300">
-          <AvatarFallback className="bg-gradient-to-r from-green-400 to-blue-400 text-white font-bold">
-            {user.firstName?.[0]}{user.lastName?.[0]}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-gray-900 truncate">{user.firstName} {user.lastName}</h3>
-          <p className="text-sm text-gray-500 truncate">{user.email}</p>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex items-center gap-2">
-          <CreditCard className="h-4 w-4 text-green-500" />
-          <span className="text-sm font-medium">{user.credits.toLocaleString()} crédits</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-blue-500" />
-          <span className="text-sm font-medium">{user._count.quizResults} quiz</span>
-        </div>
-      </div>
-      
-      <div className="flex items-center justify-between">
-        {user.subscription ? (
-          <DuolingoBadge 
-            variant={user.subscription.tier === 'EXPERT' ? 'premium' : user.subscription.tier === 'PREMIUM' ? 'success' : 'default'}
-          >
-            {user.subscription.tier}
-          </DuolingoBadge>
-        ) : (
-          <DuolingoBadge variant="default">Aucun abonnement</DuolingoBadge>
-        )}
-        
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <Edit className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Composant pour l'affichage mobile des quiz
-function MobileQuizCard({ quiz }: { quiz: any }) {
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-      <div className="flex items-start gap-3">
-        <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex-shrink-0">
-          <FileText className="h-5 w-5 text-white" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-gray-900 truncate">{quiz.title}</h3>
-          <p className="text-sm text-gray-600">{quiz.company}</p>
-          <p className="text-xs text-gray-500 truncate">{quiz.technology.join(', ')}</p>
-        </div>
-      </div>
-      
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <DuolingoBadge variant="premium">{quiz.type}</DuolingoBadge>
-          <span className="text-sm text-gray-600">{quiz.duration} min</span>
-        </div>
-        <div className="text-right">
-          <p className="text-sm font-bold text-purple-600">{quiz._count.results} résultats</p>
-        </div>
-      </div>
-      
-      <div className="flex justify-end">
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function CodingEditor({ value, onChange, language }: { value: string; onChange: (v: string) => void; language: string }) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
-
-  useEffect(() => {
-    if (!editorRef.current) return;
-    let langExt = javascript();
-    if (language === 'python') langExt = python();
-    const extensions = [
-      basicSetup,
-      langExt,
-      EditorView.updateListener.of((update) => {
-        if (update.docChanged) {
-          onChange(update.state.doc.toString());
-        }
-      }),
-      EditorView.theme({
-        '&': { fontSize: '14px', fontFamily: "'JetBrains Mono', 'Fira Code', 'Monaco', monospace" },
-        '.cm-content': { padding: '20px', minHeight: '120px', lineHeight: '1.6' },
-        '.cm-editor': { border: '2px solid #E5E7EB', borderRadius: '12px', backgroundColor: '#FAFAFA' },
-        '.cm-editor.cm-focused': { borderColor: '#3B82F6', backgroundColor: '#FFFFFF' },
-      }),
-    ];
-    const state = EditorState.create({ doc: value, extensions });
-    const view = new EditorView({ state, parent: editorRef.current });
-    viewRef.current = view;
-    return () => { view.destroy(); };
-  }, []);
-  useEffect(() => {
-    if (viewRef.current && viewRef.current.state.doc.toString() !== value) {
-      viewRef.current.dispatch({
-        changes: { from: 0, to: viewRef.current.state.doc.length, insert: value },
-      });
+  const toggleListen = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      toast.error("Dictée vocale non supportée")
+      return
     }
-  }, [value]);
-  return <div ref={editorRef} className="rounded-xl overflow-hidden shadow-lg" />;
+
+    if (isListening) {
+      setIsListening(false)
+      return
+    }
+
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'fr-FR'
+    recognition.continuous = false
+    recognition.onstart = () => setIsListening(true)
+    recognition.onend = () => setIsListening(false)
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript
+      onTranscript(transcript)
+    }
+    recognition.start()
+  }, [isListening, onTranscript])
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={toggleListen}
+      className={cn("h-8 w-8 rounded-full", isListening ? "bg-red-50 text-red-500 animate-pulse" : "text-slate-400 hover:text-emerald-500", className)}
+    >
+      {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+    </Button>
+  )
 }
 
-// Composant principal
+// --- Page Component ---
+
 export default function AdminPage() {
-  const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedType, setSelectedType] = useState('')
-  const [selectedFilter, setSelectedFilter] = useState('all')
-  const [isUpdating, setIsUpdating] = useState(false)
-  const [showQuizForm, setShowQuizForm] = useState(false)
-  const [quizForm, setQuizForm] = useState({
-    title: '',
-    description: '',
-    type: '',
-    difficulty: '',
-    company: '',
-    technology: '',
-    duration: '',
-    totalPoints: '',
-    questions: ''
-  })
-  const [creatingQuiz, setCreatingQuiz] = useState(false)
+  const [selectedType, setSelectedType] = useState('all')
+  const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [users, setUsers] = useState<any[]>([])
   const [quizzes, setQuizzes] = useState<any[]>([])
-  const [results, setResults] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [quizType, setQuizType] = useState('');
-  // QCM : structure manuelle
-  const [qcmQuestions, setQcmQuestions] = useState([
-    { title: '', choices: ['', '', '', ''], answer: 1 }
-  ]);
-  const [codingTech, setCodingTech] = useState('javascript');
-  const [codingQuestions, setCodingQuestions] = useState([
-    { title: '', starterCode: '', solution: '' }
-  ]);
-  const [softQuestions, setSoftQuestions] = useState(['']);
-  const [generating, setGenerating] = useState(false);
-  const dialogContentRef = useRef<HTMLDivElement>(null);
-  // Ajout d'une variable pour la durée personnalisée
-  const [durationMode, setDurationMode] = useState<'select' | 'custom'>('select');
-  const durationOptions = Array.from({length: 12}, (_, i) => (i+1)*10); // [10, 20, ..., 120]
 
+  // Quiz Form State
+  const [showQuizForm, setShowQuizForm] = useState(false)
+  const [creatingQuiz, setCreatingQuiz] = useState(false)
+  const [generatingAI, setGeneratingAI] = useState(false)
 
-  // Charger les données au montage
+  const [quizForm, setQuizForm] = useState({
+    title: '',
+    description: '',
+    type: 'QCM',
+    difficulty: 'JUNIOR',
+    company: '',
+    technology: [] as string[],
+    domain: 'DEVELOPMENT',
+    duration: '30',
+    totalPoints: '100',
+    questions: [] as any[]
+  })
+  const [techInput, setTechInput] = useState('')
+  const [numAIQuestions, setNumAIQuestions] = useState('5')
+
+  // Load Initial Data
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true)
         const [statsData, usersData, quizzesData, resultsData, monthlyRevenue] = await Promise.all([
           getAdminStats(),
-          getUsers(1, 20),
-          getQuizzes(1, 20),
-          getQuizResults(1, 20),
+          getUsers(1, 100),
+          getQuizzes(1, 100),
+          getQuizResults(1, 100),
           getMonthlySubscriptionRevenue(),
         ])
-        const statsWithRevenue = { ...statsData, monthlyRevenue };
-        setStats(statsWithRevenue)
+        setStats({ ...statsData, monthlyRevenue })
         setUsers(usersData.users)
         setQuizzes(quizzesData.quizzes)
-        setResults(resultsData.results)
       } catch (error) {
-        console.error('Erreur lors du chargement des données:', error)
-        toast.error('Erreur lors du chargement des données')
+        console.error('Data loading error:', error)
+        toast.error('Erreur de chargement des données')
       } finally {
         setLoading(false)
       }
     }
-
     loadData()
   }, [])
 
-  // Fonction pour mettre à jour un abonnement
-  const handleUpdateSubscription = async (subscriptionId: string, tier: string, isActive: boolean) => {
-    setIsUpdating(true)
-    try {
-      await updateSubscription(subscriptionId, { tier, isActive })
-      toast.success('Abonnement mis à jour avec succès')
-      // Recharger les données
-      const [statsData, usersData] = await Promise.all([
-        getAdminStats(),
-        getUsers(1, 20)
-      ])
-      setStats(statsData)
-      setUsers(usersData.users)
-    } catch (error) {
-      toast.error('Erreur lors de la mise à jour')
-    } finally {
-      setIsUpdating(false)
-    }
-  }
-
-  async function handleCreateQuiz(e: React.FormEvent) {
+  const handleCreateQuiz = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (quizForm.questions.length === 0) {
+      toast.error("Veuillez ajouter au moins une question")
+      return
+    }
+
     setCreatingQuiz(true)
     try {
-      // On suppose que les technologies sont séparées par des virgules
-      const techArray = quizForm.technology.split(',').map(t => t.trim()).filter(Boolean)
-      const questionsJson = JSON.parse(quizForm.questions)
-      await (await import('@/actions/admin.action')).createQuiz({
+      await createQuiz({
         title: quizForm.title,
         description: quizForm.description,
         type: quizForm.type,
-        questions: questionsJson,
+        questions: quizForm.questions,
         difficulty: quizForm.difficulty,
         company: quizForm.company,
-        technology: techArray,
+        technology: quizForm.technology,
+        domain: quizForm.domain,
         duration: Number(quizForm.duration),
         totalPoints: Number(quizForm.totalPoints)
       })
-      toast.success('Quiz créé avec succès !')
+
+      toast.success('Quiz créé avec succès')
       setShowQuizForm(false)
-      setQuizForm({ title: '', description: '', type: '', difficulty: '', company: '', technology: '', duration: '', totalPoints: '', questions: '' })
-      // Recharger les quiz
-      const quizzesData = await (await import('@/actions/admin.action')).getQuizzes(1, 20)
-      setQuizzes(quizzesData.quizzes)
+      const updated = await getQuizzes(1, 100)
+      setQuizzes(updated.quizzes)
     } catch (err: any) {
-      toast.error(err?.message || 'Erreur lors de la création du quiz')
+      toast.error(err?.message || 'Erreur lors de la création')
     } finally {
       setCreatingQuiz(false)
     }
   }
 
-  async function handleGenerateAI() {
-    setGenerating(true);
+  const handleDeleteQuiz = async (id: string) => {
+    if (!confirm("Supprimer ce quiz définitivement ?")) return
     try {
-      let prompt = '';
-      if (quizType === 'QCM') {
-        prompt = `Génère-moi 3 questions QCM niveau ${quizForm.difficulty || 'junior'} sur le thème "${quizForm.title}". Pour chaque question, donne un titre, 4 propositions (choices) et le numéro (1 à 4) de la bonne réponse. Format JSON : [{title, choices: ["", "", "", ""], answer: 1}]`;
-      } else if (quizType === 'CODING') {
-        prompt = `Génère-moi 2 exercices de code niveau junior sur ${codingTech}, format JSON [{title, starterCode, solution}]`;
-      } else if (quizType === 'SOFT_SKILLS') {
-        prompt = `Génère-moi 3 questions d'entretien soft skills pour un poste de développeur junior, format JSON ["question1", "question2", ...]`;
-      }
-      const res = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
-      });
-      const data = await res.json();
-      // Ajout du console.log ici
-      console.log('Résultat Gemini:', data.text);
-      if (quizType === 'QCM') {
-        try {
-          const parsed = JSON.parse(data.text);
-          const valid = Array.isArray(parsed) && parsed.every(q =>
-            typeof q.title === 'string' &&
-            Array.isArray(q.choices) && q.choices.length === 4 &&
-            q.choices.every((c: any) => typeof c === 'string') &&
-            typeof q.answer === 'number' && q.answer >= 1 && q.answer <= 4
-          );
-          if (!valid) {
-            toast.error('Format des questions QCM générées invalide.');
-            return;
-          }
-          setQcmQuestions(parsed);
-        } catch (err) {
-          toast.error('Erreur de parsing JSON pour les questions QCM.');
-        }
-      } else if (quizType === 'CODING') {
-        setCodingQuestions(JSON.parse(data.text));
-      } else if (quizType === 'SOFT_SKILLS') { 
-        setSoftQuestions(JSON.parse(data.text));
-      }
+      await deleteQuiz(id)
+      toast.success("Quiz supprimé")
+      setQuizzes(prev => prev.filter(q => q.id !== id))
     } catch (e) {
-      toast.error('Erreur lors de la génération IA');
-    } finally {
-      setGenerating(false);
+      toast.error("Erreur de suppression")
     }
   }
 
-  if (loading) return <DevLoader/>
+  // --- AI Logic ---
+  const generateWithAI = async () => {
+    if (!quizForm.domain || quizForm.technology.length === 0) {
+      toast.error("Veuillez remplir le domaine et au moins une technologie")
+      return
+    }
 
-  if (!stats) {
-    return (
-      <div className="container mx-auto p-4 sm:p-6">
-        <div className="text-center">
-          <h1 className="text-xl sm:text-2xl font-bold text-red-600">Erreur de chargement</h1>
-          <p className="text-gray-600">Impossible de charger les données d'administration</p>
-        </div>
-      </div>
-    )
+    setGeneratingAI(true)
+    try {
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'generate-interview',
+          quizType: quizForm.type,
+          domain: quizForm.domain,
+          difficulty: quizForm.difficulty,
+          numberOfQuestions: Number(numAIQuestions),
+          technology: quizForm.technology,
+          totalPoints: Number(quizForm.totalPoints),
+          description: quizForm.description
+        })
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        setQuizForm(f => ({
+          ...f,
+          title: result.data.title,
+          description: result.data.description,
+          questions: result.data.questions
+        }))
+        toast.success("Contenu généré par l'IA !")
+      } else {
+        throw new Error(result.error)
+      }
+    } catch (e: any) {
+      toast.error("Échec de la génération IA : " + e.message)
+    } finally {
+      setGeneratingAI(false)
+    }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
-        <AdminHeader />
-        
-        <StatsCards stats={stats as AdminStats} />
+  // --- Dynamic Question Logic ---
+  const addQuestion = () => {
+    const newQuestion = quizForm.type === 'QCM'
+      ? { text: '', options: ['', '', '', ''], correctAnswer: 0, type: 'multiple_choice' }
+      : { text: '', correctAnswer: '', explanation: '', type: 'open_ended' }
 
-        {/* Navigation par onglets responsive */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
-          <div className="overflow-x-auto">
-            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 bg-gradient-to-r from-blue-50 to-purple-50 p-1 rounded-xl min-w-[600px] sm:min-w-0">
-              <TabsTrigger 
-                value="overview" 
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white rounded-lg transition-all duration-300 text-xs sm:text-sm"
+    setQuizForm(prev => ({
+      ...prev,
+      questions: [...prev.questions, newQuestion]
+    }))
+  }
+
+  const removeQuestion = (index: number) => {
+    setQuizForm(prev => ({
+      ...prev,
+      questions: prev.questions.filter((_, i) => i !== index)
+    }))
+  }
+
+  const updateQuestion = (index: number, data: any) => {
+    setQuizForm(prev => {
+      const newQs = [...prev.questions]
+      newQs[index] = { ...newQs[index], ...data }
+      return { ...prev, questions: newQs }
+    })
+  }
+
+  const handleAddTech = (e?: React.KeyboardEvent) => {
+    if (e && e.key !== 'Enter' && e.key !== ' ') return
+    if (e) e.preventDefault()
+
+    const val = techInput.trim()
+    if (!val) return
+    if (quizForm.technology.includes(val)) {
+      setTechInput('')
+      return
+    }
+
+    setQuizForm(f => ({ ...f, technology: [...f.technology, val] }))
+    setTechInput('')
+  }
+
+  const handleRemoveTech = (tech: string) => {
+    setQuizForm(f => ({ ...f, technology: f.technology.filter(t => t !== tech) }))
+  }
+
+  const filteredQuizzes = useMemo(() => {
+    return quizzes.filter(q => {
+      const matchSearch = q.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        q.company.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchType = selectedType === 'all' || q.type === selectedType
+      return matchSearch && matchType
+    })
+  }, [quizzes, searchTerm, selectedType])
+
+  if (loading) return <DevLoader />
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <AdminHeader />
+
+        {stats && <StatsCards stats={stats} />}
+
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+
+          <div className="w-full lg:w-64 space-y-2">
+            {[
+              { id: 'overview', label: 'Vue d\'ensemble', icon: LayoutDashboard },
+              { id: 'users', label: 'Utilisateurs', icon: Users },
+              { id: 'quizzes', label: 'Entretiens & Quiz', icon: Target },
+              { id: 'subscriptions', label: 'Abonnements', icon: CreditCard },
+              { id: 'results', label: 'Résultats', icon: FileText },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 text-sm font-bold uppercase tracking-wider",
+                  activeTab === tab.id
+                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
+                    : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900 dark:text-slate-400"
+                )}
               >
-                Vue d'ensemble
-              </TabsTrigger>
-              <TabsTrigger 
-                value="users"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-blue-500 data-[state=active]:text-white rounded-lg transition-all duration-300 text-xs sm:text-sm"
-              >
-                Utilisateurs
-              </TabsTrigger>
-              <TabsTrigger 
-                value="quizzes"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg transition-all duration-300 text-xs sm:text-sm"
-              >
-                Quiz
-              </TabsTrigger>
-              <TabsTrigger 
-                value="subscriptions"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-orange-500 data-[state=active]:text-white rounded-lg transition-all duration-300 text-xs sm:text-sm"
-              >
-                Abonnements
-              </TabsTrigger>
-              <TabsTrigger 
-                value="results"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg transition-all duration-300 text-xs sm:text-sm"
-              >
-                Résultats
-              </TabsTrigger>
-              <TabsTrigger 
-                value="analytics"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-500 data-[state=active]:text-white rounded-lg transition-all duration-300 text-xs sm:text-sm"
-              >
-                Analytics
-              </TabsTrigger>
-            </TabsList>
+                <tab.icon className="h-5 w-5" />
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          <TabsContent value="overview">
-            <OverviewTab stats={stats} />
-          </TabsContent>
+          <div className="flex-1 w-full space-y-6">
 
-          {/* Onglet Utilisateurs */}
-          <TabsContent value="users" className="space-y-4 sm:space-y-6">
-            <DuolingoCard gradient="from-green-500 to-blue-500">
-              <div className="p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <div className="p-2 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg">
-                      <div className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                    </div>
-                    Gestion des utilisateurs
-                  </h2>
-                </div>
-                
-                <div className="space-y-4">
-                  {/* Filtres et recherche */}
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <AnimatePresence mode="wait">
+              {activeTab === 'overview' && (
+                <motion.div
+                  key="overview"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <OverviewTab stats={stats!} />
+                </motion.div>
+              )}
+
+              {activeTab === 'users' && (
+                <motion.div
+                  key="users"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden"
+                >
+                  <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                      <Users className="h-5 w-5 text-emerald-500" />
+                      Gestion Utilisateurs
+                    </h2>
+                    <div className="relative max-w-sm w-full">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <Input
-                        placeholder="Rechercher un utilisateur..."
+                        placeholder="Rechercher..."
+                        className="pl-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-none"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 border-2 focus:border-green-500"
                       />
                     </div>
-                    <Select value={selectedFilter} onValueChange={setSelectedFilter}>
-                      <SelectTrigger className="w-full sm:w-48 border-2 focus:border-green-500">
-                        <SelectValue placeholder="Filtrer par type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tous</SelectItem>
-                        <SelectItem value="free">Gratuit</SelectItem>
-                        <SelectItem value="premium">Premium</SelectItem>
-                        <SelectItem value="expert">Expert</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
-                  
-                  {/* Affichage desktop */}
-                  <div className="hidden lg:block">
-                    <div className="rounded-xl border-2 border-green-200 overflow-hidden">
-                      <Table>
-                        <TableHeader className="bg-gradient-to-r from-green-50 to-blue-50">
-                          <TableRow>
-                            <TableHead className="font-bold text-gray-800">Utilisateur</TableHead>
-                            <TableHead className="font-bold text-gray-800">Email</TableHead>
-                            <TableHead className="font-bold text-gray-800">Abonnement</TableHead>
-                            <TableHead className="font-bold text-gray-800">Crédits</TableHead>
-                            <TableHead className="font-bold text-gray-800">Quiz complétés</TableHead>
-                            <TableHead className="font-bold text-gray-800">Actions</TableHead>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-slate-100 dark:border-slate-800 hover:bg-transparent">
+                          <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest pl-6">Utilisateur</TableHead>
+                          <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Abonnement</TableHead>
+                          <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Crédits</TableHead>
+                          <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Date</TableHead>
+                          <TableHead className="text-right pr-6 uppercase text-[10px] tracking-widest">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {users.map((user) => (
+                          <TableRow key={user.id} className="border-slate-50 dark:border-slate-900 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                            <TableCell className="pl-6">
+                              <div className="flex items-center gap-3 py-1">
+                                <Avatar className="h-9 w-9 ring-2 ring-slate-100 dark:ring-slate-800">
+                                  <AvatarFallback className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 font-bold text-xs uppercase">
+                                    {user.firstName?.[0]}{user.lastName?.[0]}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-bold text-sm text-slate-700 dark:text-slate-200">{user.firstName} {user.lastName}</p>
+                                  <p className="text-[11px] text-slate-400 font-medium">{user.email}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={cn(
+                                "rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider",
+                                user.subscription?.tier === 'EXPERT' ? "bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800" :
+                                  user.subscription?.tier === 'PREMIUM' ? "bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800" :
+                                    "bg-slate-50 text-slate-400 border-slate-100 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700"
+                              )}>
+                                {user.subscription?.tier || 'FREE'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5">
+                                <Zap className="h-3.5 w-3.5 text-amber-500" />
+                                <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{user.credits}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-xs text-slate-400 font-medium">
+                              {new Date(user.createdAt).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="text-right pr-6">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-emerald-500">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {users.map((user) => (
-                            <TableRow key={user.id} className="hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 transition-all duration-300">
-                              <TableCell>
-                                <div className="flex items-center gap-3">
-                                  <Avatar className="h-10 w-10 border-2 border-green-300">
-                                    <AvatarFallback className="bg-gradient-to-r from-green-400 to-blue-400 text-white font-bold">
-                                      {user.firstName?.[0]}{user.lastName?.[0]}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div>
-                                    <div className="font-bold text-gray-800">{user.firstName} {user.lastName}</div>
-                                    <div className="text-sm text-gray-500">ID: {user.id.slice(0, 8)}...</div>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'quizzes' && (
+                <motion.div
+                  key="quizzes"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-6"
+                >
+                  <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <Target className="h-5 w-5 text-emerald-500" />
+                        Banque d'Entretiens
+                      </h2>
+                      <Dialog open={showQuizForm} onOpenChange={setShowQuizForm}>
+                        <DialogTrigger asChild>
+                          <Button className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl px-6 font-bold shadow-lg shadow-emerald-500/20 transition-all">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Créer un Entretien
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0 rounded-3xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                          <DialogHeader className="p-6 md:p-8 flex flex-row items-center justify-between border-b bg-white dark:bg-slate-900/50 backdrop-blur-xl z-20">
+                            <div>
+                              <DialogTitle className="text-2xl font-bold text-slate-800 dark:text-slate-100">Nouvel Entretien</DialogTitle>
+                              <DialogDescription>Concevoir une nouvelle session d'entraînement IA.</DialogDescription>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <Label className="text-[9px] font-black uppercase text-slate-400 px-2 leading-none cursor-default">Questions</Label>
+                                <Input
+                                  type="number"
+                                  value={numAIQuestions}
+                                  onChange={e => setNumAIQuestions(e.target.value)}
+                                  className="w-12 h-8 bg-white dark:bg-slate-950 border-none text-center font-bold text-xs p-0 rounded-lg focus-visible:ring-0"
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                onClick={generateWithAI}
+                                disabled={generatingAI}
+                                className="bg-emerald-600 dark:bg-emerald-600 text-white font-bold px-4 h-11 rounded-xl hover:bg-emerald-500 shadow-lg shadow-emerald-500/20"
+                              >
+                                {generatingAI ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wand2 className="h-4 w-4 mr-2" />}
+                                Générer avec l'IA
+                              </Button>
+                            </div>
+                          </DialogHeader>
+
+                          <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-10 custom-scrollbar">
+                            <form onSubmit={handleCreateQuiz} className="space-y-10 pb-8">
+                              {/* Meta Info Section - GRID 1 */}
+                              <div className="grid grid-cols-1 gap-8 bg-slate-50 dark:bg-slate-800/10 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
+                                <div className="space-y-6">
+                                  <div className="space-y-6">
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Titre de la session</label>
+                                      <div className="relative group">
+                                        <Input
+                                          placeholder="Entretien Fullstack React..."
+                                          value={quizForm.title}
+                                          onChange={e => setQuizForm(f => ({ ...f, title: e.target.value }))}
+                                          className="h-12 rounded-2xl border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-950 pr-10 shadow-sm focus:ring-2 focus:ring-emerald-500/20 transition-all font-medium"
+                                          required
+                                        />
+                                        <DictaphoneControl onTranscript={(t) => setQuizForm(f => ({ ...f, title: t }))} className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100" />
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Type de Test</label>
+                                      <Select value={quizForm.type} onValueChange={v => setQuizForm(f => ({ ...f, type: v, questions: [] }))}>
+                                        <SelectTrigger className="h-12 rounded-2xl bg-white dark:bg-slate-950 border-slate-200/60 dark:border-slate-800 shadow-sm font-medium">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-2xl shadow-2xl border-slate-200 dark:border-slate-800">
+                                          {QUIZ_TYPES.map(t => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Description / Contexte</label>
+                                    <div className="relative group">
+                                      <Textarea
+                                        placeholder="Précisez le contexte du test pour guider l'IA ou le candidat..."
+                                        value={quizForm.description}
+                                        onChange={e => setQuizForm(f => ({ ...f, description: e.target.value }))}
+                                        className="rounded-2xl border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-950 min-h-[100px] shadow-sm font-medium pr-10"
+                                      />
+                                      <DictaphoneControl onTranscript={(t) => setQuizForm(f => ({ ...f, description: f.description + " " + t }))} className="absolute right-2 top-2 opacity-0 group-hover:opacity-100" />
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-6">
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Difficulté</label>
+                                      <Select value={quizForm.difficulty} onValueChange={v => setQuizForm(f => ({ ...f, difficulty: v }))}>
+                                        <SelectTrigger className="h-12 rounded-2xl border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-950 font-medium">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="JUNIOR">Junior</SelectItem>
+                                          <SelectItem value="MID">Intermédiaire</SelectItem>
+                                          <SelectItem value="SENIOR">Senior</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Points Totaux</label>
+                                      <Input type="number" value={quizForm.totalPoints} onChange={e => setQuizForm(f => ({ ...f, totalPoints: e.target.value }))} className="h-12 rounded-2xl bg-white dark:bg-slate-950 border-slate-200/60 dark:border-slate-800 font-medium" />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Expertise (Domaine)</label>
+                                      <Select value={quizForm.domain} onValueChange={v => setQuizForm(f => ({ ...f, domain: v }))}>
+                                        <SelectTrigger className="h-12 rounded-2xl bg-white dark:bg-slate-950 border-slate-200/60 dark:border-slate-800 font-medium">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {DOMAINS.map(d => <SelectItem key={d} value={d} className="text-xs uppercase font-bold">{d.replace(/_/g, ' ')}</SelectItem>)}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Entreprise Cible</label>
+                                      <Input placeholder="Google, Startup..." value={quizForm.company} onChange={e => setQuizForm(f => ({ ...f, company: e.target.value }))} className="h-12 rounded-2xl bg-white dark:bg-slate-950 border-slate-200/60 dark:border-slate-800 font-medium" required />
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Technologies/Outils (Entrée ou Espace pour ajouter)</label>
+                                    <div className="flex flex-wrap gap-2 p-3 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 rounded-2xl min-h-[56px] focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+                                      {quizForm.technology.map(tech => (
+                                        <Badge key={tech} className="bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/50 rounded-lg px-2.5 py-1 flex items-center gap-1.5 font-bold text-xs group/badge">
+                                          {tech}
+                                          <button type="button" onClick={() => handleRemoveTech(tech)} className="hover:text-red-500">
+                                            <X className="h-3 w-3" />
+                                          </button>
+                                        </Badge>
+                                      ))}
+                                      <input
+                                        type="text"
+                                        value={techInput}
+                                        onChange={e => setTechInput(e.target.value)}
+                                        onKeyDown={handleAddTech}
+                                        placeholder={quizForm.technology.length === 0 ? "Ex: React, Next.js, Figma..." : ""}
+                                        className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm font-medium"
+                                      />
+                                    </div>
                                   </div>
                                 </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Mail className="h-4 w-4 text-green-500" />
-                                  <span className="font-medium">{user.email}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {user.subscription ? (
-                                  <DuolingoBadge 
-                                    variant={user.subscription.tier === 'EXPERT' ? 'premium' : user.subscription.tier === 'PREMIUM' ? 'success' : 'default'}
-                                  >
-                                    {user.subscription.tier}
-                                  </DuolingoBadge>
-                                ) : (
-                                  <DuolingoBadge variant="default">Aucun</DuolingoBadge>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <CreditCard className="h-4 w-4 text-green-500" />
-                                  <span className="font-bold">{user.credits.toLocaleString()}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <DuolingoBadge variant="warning">{user._count.quizResults}</DuolingoBadge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Button variant="ghost" size="sm" className="hover:bg-green-100">
-                                    <Eye className="h-4 w-4 text-green-600" />
-                                  </Button>
-                                  <Button variant="ghost" size="sm" className="hover:bg-blue-100">
-                                    <Edit className="h-4 w-4 text-blue-600" />
-                                  </Button>
-                                  <Button variant="ghost" size="sm" className="hover:bg-red-100">
-                                    <MoreHorizontal className="h-4 w-4 text-red-600" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
+                              </div>
 
-                  {/* Affichage mobile */}
-                  <div className="lg:hidden space-y-3">
-                    {users.map((user) => (
-                      <MobileUserCard key={user.id} user={user} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </DuolingoCard>
-          </TabsContent>
+                              {/* Dynamic Questions Section - ACCORDION */}
+                              <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                  <h3 className="text-xl font-bold flex items-center gap-3">
+                                    <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl">
+                                      <FileText className="h-5 w-5 text-emerald-500" />
+                                    </div>
+                                    Structure des Questions
+                                    <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-md font-black text-xs h-6">{quizForm.questions.length}</Badge>
+                                  </h3>
+                                  <Button type="button" onClick={addQuestion} className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-10 px-5 font-bold transition-all shadow-md">
+                                    <PlusCircle className="h-4 w-4 mr-2" />
+                                    Ajouter une question
+                                  </Button>
+                                </div>
 
-          {/* Onglet Quiz */}
-          <TabsContent value="quizzes" className="space-y-4 sm:space-y-6">
-            <DuolingoCard gradient="from-purple-500 to-pink-500">
-              <div className="p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
-                      <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                    </div>
-                    Gestion des quiz
-                  </h2>
-                  <Dialog open={showQuizForm} onOpenChange={setShowQuizForm}>
-                    <DialogTrigger asChild>
-                      <Button className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 w-full sm:w-auto">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Créer un quiz
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent ref={dialogContentRef} className="max-h-[90vh] overflow-y-auto w-full max-w-2xl p-4 md:p-8">
-                      <DialogHeader>
-                        <DialogTitle>Créer un nouveau quiz</DialogTitle>
-                        <DialogDescription>Remplis les champs pour créer un quiz personnalisé.</DialogDescription>
-                      </DialogHeader>
-                      <form onSubmit={handleCreateQuiz} className="space-y-3">
-                        <Input placeholder="Titre" value={quizForm.title} onChange={e => setQuizForm(f => ({ ...f, title: e.target.value }))} required />
-                        <Textarea placeholder="Description" value={quizForm.description} onChange={e => setQuizForm(f => ({ ...f, description: e.target.value }))} />
-                        <Select value={quizType} onValueChange={v => { setQuizType(v); setQuizForm(f => ({ ...f, type: v })); }} required>
-                          <SelectTrigger><SelectValue placeholder="Type de quiz" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="CODING">Coding</SelectItem>
-                            <SelectItem value="QCM">QCM</SelectItem>
-                            <SelectItem value="SOFT_SKILLS">Soft Skills</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select value={quizForm.difficulty} onValueChange={v => setQuizForm(f => ({ ...f, difficulty: v }))} required>
-                          <SelectTrigger><SelectValue placeholder="Difficulté" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="JUNIOR">Junior</SelectItem>
-                            <SelectItem value="MID">Mid</SelectItem>
-                            <SelectItem value="SENIOR">Senior</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Input placeholder="Entreprise" value={quizForm.company} onChange={e => setQuizForm(f => ({ ...f, company: e.target.value }))} required />
-                        <Input placeholder="Technologies (séparées par des virgules)" value={quizForm.technology} onChange={e => setQuizForm(f => ({ ...f, technology: e.target.value }))} required />
-                        <Select value={durationMode === 'select' ? quizForm.duration : ''} onValueChange={v => {
-                          if (v === 'custom') {
-                            setDurationMode('custom');
-                            setQuizForm(f => ({ ...f, duration: '' }));
-                          } else {
-                            setDurationMode('select');
-                            setQuizForm(f => ({ ...f, duration: v }));
-                          }
-                        }} required>
-                          <SelectTrigger><SelectValue placeholder="Durée (minutes)" /></SelectTrigger>
-                          <SelectContent>
-                            {durationOptions.map(opt => (
-                              <SelectItem key={opt} value={String(opt)}>{opt} min</SelectItem>
-                            ))}
-                            <SelectItem value="custom">Personnalisé</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {durationMode === 'custom' && (
-                          <Input type="number" min={0} placeholder="Durée personnalisée (minutes)" value={quizForm.duration} onChange={e => setQuizForm(f => ({ ...f, duration: e.target.value }))} required />
-                        )}
-                        <Input type="number" min={0} placeholder="Total de points" value={quizForm.totalPoints} onChange={e => setQuizForm(f => ({ ...f, totalPoints: e.target.value }))} required />
-                        {quizType === 'QCM' && (
-                          <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                              <span className="font-semibold">Questions QCM</span>
-                            </div>
-                            {qcmQuestions.map((q, qi) => (
-                              <div key={qi} className="border rounded-lg p-3 bg-gray-50 space-y-2">
-                                <Input placeholder="Titre de la question" value={q.title} onChange={e => setQcmQuestions(arr => arr.map((qq, i) => i === qi ? { ...qq, title: e.target.value } : qq))} />
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                  {q.choices.map((choice, ci) => (
-                                    <Input key={ci} placeholder={`Proposition ${ci+1}`} value={choice} onChange={e => setQcmQuestions(arr => arr.map((qq, i) => i === qi ? { ...qq, choices: qq.choices.map((c, j) => j === ci ? e.target.value : c) } : qq))} />
+                                <Accordion type="multiple" defaultValue={["q-0"]} className="space-y-4">
+                                  {quizForm.questions.map((q, idx) => (
+                                    <AccordionItem key={idx} value={`q-${idx}`} className="border border-slate-100 dark:border-slate-800 rounded-[1.5rem] bg-white dark:bg-slate-900 overflow-hidden shadow-sm group/q">
+                                      <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-slate-50 dark:hover:bg-slate-800/20 group">
+                                        <div className="flex items-center gap-4 text-left">
+                                          <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-black">
+                                            {idx + 1}
+                                          </div>
+                                          <div className="space-y-0.5">
+                                            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 line-clamp-1">
+                                              {q.text || "Nouvelle question..."}
+                                            </p>
+                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider text-left">
+                                              {quizForm.type} • {q.points || 0} pts
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </AccordionTrigger>
+
+                                      <AccordionContent className="px-8 pb-8 pt-2">
+                                        <div className="grid grid-cols-1 gap-6 pt-4 border-t border-slate-50 dark:border-slate-800/50">
+                                          <div className="space-y-2">
+                                            <div className="flex items-center justify-between mb-2">
+                                              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Énoncé de la question</label>
+                                              <Button type="button" variant="ghost" size="icon" onClick={() => removeQuestion(idx)} className="h-7 w-7 text-slate-300 hover:text-red-500 rounded-lg">
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                              </Button>
+                                            </div>
+                                            <div className="relative group/field">
+                                              <Textarea
+                                                value={q.text}
+                                                onChange={e => updateQuestion(idx, { text: e.target.value })}
+                                                placeholder="Ex: Quelle est la différence entre un état et une propriété en React ?"
+                                                className="rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 min-h-[100px] text-sm font-medium pr-10 focus-visible:ring-0"
+                                                required
+                                              />
+                                              <DictaphoneControl onTranscript={(t) => updateQuestion(idx, { text: q.text + " " + t })} className="absolute right-2 top-2 opacity-0 group-hover/field:opacity-100" />
+                                            </div>
+                                          </div>
+
+                                          {quizForm.type === 'QCM' ? (
+                                            <div className="grid grid-cols-1 gap-6 mt-2">
+                                              {q.options.map((opt: string, optIdx: number) => (
+                                                <div key={optIdx} className="space-y-2">
+                                                  <div className="flex items-center gap-3">
+                                                    <div className={cn(
+                                                      "w-8 h-8 flex items-center justify-center rounded-xl text-xs font-black transition-all",
+                                                      q.correctAnswer === optIdx ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-400"
+                                                    )}>
+                                                      {String.fromCharCode(65 + optIdx)}
+                                                    </div>
+                                                    <div className="relative flex-1 group/opt">
+                                                      <Input
+                                                        value={opt}
+                                                        onChange={e => {
+                                                          const newOpts = [...q.options]
+                                                          newOpts[optIdx] = e.target.value
+                                                          updateQuestion(idx, { options: newOpts })
+                                                        }}
+                                                        placeholder={`Réponse optionnelle ${optIdx + 1}`}
+                                                        className={cn(
+                                                          "h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium pr-10",
+                                                          q.correctAnswer === optIdx && "border-emerald-500 ring-4 ring-emerald-500/10"
+                                                        )}
+                                                        required
+                                                      />
+                                                      <DictaphoneControl onTranscript={(t) => {
+                                                        const newOpts = [...q.options]
+                                                        newOpts[optIdx] = t
+                                                        updateQuestion(idx, { options: newOpts })
+                                                      }} className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 opacity-0 group-hover/opt:opacity-100" />
+                                                    </div>
+                                                    <Button
+                                                      type="button"
+                                                      variant="ghost"
+                                                      size="icon"
+                                                      onClick={() => updateQuestion(idx, { correctAnswer: optIdx })}
+                                                      className={cn("h-9 w-9 rounded-xl transition-all", q.correctAnswer === optIdx ? "text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20" : "text-slate-200 hover:text-emerald-300")}
+                                                    >
+                                                      <CheckCircle2 className="h-5 w-5" />
+                                                    </Button>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <div className="grid grid-cols-1 gap-6 pt-2">
+                                              <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Réponse attendue / Critères de validation</label>
+                                                <div className="relative group/field">
+                                                  <Textarea
+                                                    value={q.correctAnswer}
+                                                    onChange={e => updateQuestion(idx, { correctAnswer: e.target.value })}
+                                                    className="rounded-2xl bg-emerald-50/20 dark:bg-emerald-900/10 border-emerald-100/30 dark:border-emerald-800/30 min-h-[100px] text-sm font-medium pr-10"
+                                                    placeholder="Décrivez précisément ce qui est attendu du candidat..."
+                                                  />
+                                                  <DictaphoneControl onTranscript={(t) => updateQuestion(idx, { correctAnswer: q.correctAnswer + " " + t })} className="absolute right-2 top-2 opacity-0 group-hover/field:opacity-100" />
+                                                </div>
+                                              </div>
+                                              <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Explication pédagogique (Optionnelle)</label>
+                                                <div className="relative group/field">
+                                                  <Textarea
+                                                    value={q.explanation}
+                                                    onChange={e => updateQuestion(idx, { explanation: e.target.value })}
+                                                    className="rounded-2xl bg-slate-50/50 dark:bg-slate-950 border-slate-100 dark:border-slate-800 min-h-[80px] text-xs font-medium pr-10"
+                                                    placeholder="Pourquoi cette approche est la meilleure ? Donnez des détails pédagogiques."
+                                                  />
+                                                  <DictaphoneControl onTranscript={(t) => updateQuestion(idx, { explanation: q.explanation + " " + t })} className="absolute right-2 top-2 opacity-0 group-hover/field:opacity-100" />
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </AccordionContent>
+                                    </AccordionItem>
                                   ))}
-                                </div>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <label className="text-sm font-medium">Bonne réponse :</label>
-                                  <Select value={String(q.answer)} onValueChange={v => setQcmQuestions(arr => arr.map((qq, i) => i === qi ? { ...qq, answer: Number(v) } : qq))}>
-                                    <SelectTrigger className="w-32"><SelectValue placeholder="Numéro" /></SelectTrigger>
-                                    <SelectContent>
-                                      {[1,2,3,4].map(n => <SelectItem key={n} value={String(n)}>{`Proposition ${n}`}</SelectItem>)}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  <Button type="button" size="sm" variant="destructive" onClick={() => setQcmQuestions(arr => arr.filter((_, i) => i !== qi))}>Supprimer la question</Button>
-                                </div>
+                                </Accordion>
+
+                                {quizForm.questions.length === 0 && (
+                                  <div className="text-center py-20 bg-slate-50/50 dark:bg-slate-800/10 rounded-[2.5rem] border-2 border-dashed border-slate-100 dark:border-slate-800">
+                                    <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl w-fit mx-auto shadow-sm mb-4">
+                                      <PlusCircle className="h-8 w-8 text-slate-200" />
+                                    </div>
+                                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Structure vide</p>
+                                    <p className="text-slate-500 text-sm mt-1">Générez avec l'IA ou ajoutez manuellement des questions.</p>
+                                    <Button type="button" onClick={addQuestion} className="mt-6 rounded-xl bg-slate-900 text-white font-bold h-11 px-6">
+                                      Ajouter la première question
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
-                            ))}
-                            <Button type="button" className="mt-2" onClick={() => setQcmQuestions(arr => [...arr, { title: '', choices: ['', '', '', ''], answer: 1 }])}>Ajouter une question QCM</Button>
-                          </div>
-                        )}
-                        {quizType === 'CODING' && (
-                          <div className="space-y-4">
-                            <Input placeholder="Technologie (ex: javascript, python)" value={codingTech} onChange={e => setCodingTech(e.target.value)} />
-                            <div className="flex justify-between items-center">
-                              <span className="font-semibold">Exercices de code</span>
-                              <Button type="button" variant="outline" size="sm" onClick={handleGenerateAI} disabled={generating}>{generating ? 'Génération...' : 'Générer avec l’IA'}</Button>
-                            </div>
-                            {codingQuestions.map((q, qi) => (
-                              <div key={qi} className="border rounded-lg p-3 bg-gray-50 space-y-2">
-                                <Input placeholder="Titre de l'exercice" value={q.title} onChange={e => setCodingQuestions(arr => arr.map((qq, i) => i === qi ? { ...qq, title: e.target.value } : qq))} />
-                                <span className="text-xs text-gray-500">Starter code</span>
-                                <CodingEditor
-                                  value={q.starterCode}
-                                  language={codingTech}
-                                  onChange={(v: string) => setCodingQuestions(arr => arr.map((qq, i) => i === qi ? { ...qq, starterCode: v } : qq))}
-                                />
-                                <span className="text-xs text-gray-500">Solution attendue</span>
-                                <CodingEditor
-                                  value={q.solution}
-                                  language={codingTech}
-                                  onChange={(v: string) => setCodingQuestions(arr => arr.map((qq, i) => i === qi ? { ...qq, solution: v } : qq))}
-                                />
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  <Button type="button" size="sm" variant="destructive" onClick={() => setCodingQuestions(arr => arr.filter((_, i) => i !== qi))}>Supprimer l'exercice</Button>
-                                </div>
+
+                              <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-800">
+                                <Button type="button" onClick={() => setShowQuizForm(false)} variant="ghost" className="rounded-2xl h-14 px-8 font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">Annuler</Button>
+                                <Button type="submit" disabled={creatingQuiz} className="h-14 px-10 bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest shadow-2xl shadow-emerald-500/20 transition-all rounded-2xl">
+                                  {creatingQuiz ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Sparkles className="h-5 w-5 mr-2" />}
+                                  Publier l'Entretien
+                                </Button>
                               </div>
-                            ))}
-                            <Button type="button" className="mt-2" onClick={() => setCodingQuestions(arr => [...arr, { title: '', starterCode: '', solution: '' }])}>Ajouter un exercice</Button>
+                            </form>
                           </div>
-                        )}
-                        {quizType === 'SOFT_SKILLS' && (
-                          <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                              <span className="font-semibold">Questions Soft Skills</span>
-                              <Button type="button" variant="outline" size="sm" onClick={handleGenerateAI} disabled={generating}>{generating ? 'Génération...' : 'Générer avec l’IA'}</Button>
-                            </div>
-                            {softQuestions.map((q, qi) => (
-                              <div key={qi} className="flex gap-2 items-center">
-                                <Textarea placeholder="Question soft skill" value={q} onChange={e => setSoftQuestions(arr => arr.map((qq, i) => i === qi ? e.target.value : qq))} />
-                                <Button type="button" size="icon" variant="ghost" onClick={() => setSoftQuestions(arr => arr.filter((_, i) => i !== qi))}>-</Button>
-                              </div>
-                            ))}
-                            <Button type="button" onClick={() => setSoftQuestions(arr => [...arr, ''])}>Ajouter une question</Button>
-                          </div>
-                        )}
-                        <DialogFooter>
-                          <Button type="submit" disabled={creatingQuiz} className="bg-gradient-to-r from-purple-500 to-pink-500 text-white w-full">
-                            {creatingQuiz ? 'Création...' : 'Créer'}
-                          </Button>
-                        </DialogFooter>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-                
-                <div className="space-y-4">
-                  {/* Affichage desktop */}
-                  <div className="hidden lg:block">
-                    {quizzes.map((quiz) => (
-                      <div key={quiz.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 hover:shadow-md transition-all duration-300">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
-                            <FileText className="h-6 w-6 text-white" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-800">{quiz.title}</p>
-                            <p className="text-sm text-gray-600">{quiz.company}</p>
-                            <p className="text-xs text-gray-500">{quiz.technology.join(', ')}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <DuolingoBadge variant="premium">{quiz.type}</DuolingoBadge>
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-purple-600">{quiz._count.results} résultats</p>
-                            <p className="text-xs text-gray-500">{quiz.duration} min</p>
-                          </div>
-                          <Button variant="ghost" size="sm" className="hover:bg-purple-100">
-                            <MoreHorizontal className="h-4 w-4 text-purple-600" />
-                          </Button>
-                        </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder="Chercher par titre ou entreprise"
+                          className="pl-10 rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                       </div>
-                    ))}
+                      <Select value={selectedType} onValueChange={setSelectedType}>
+                        <SelectTrigger className="w-full sm:w-48 rounded-2xl border-none bg-slate-100 dark:bg-slate-800/50 text-sm font-medium">
+                          <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="all">Tous les types</SelectItem>
+                          {QUIZ_TYPES.map(t => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
-                  {/* Affichage mobile */}
-                  <div className="lg:hidden space-y-3">
-                    {quizzes.map((quiz) => (
-                      <MobileQuizCard key={quiz.id} quiz={quiz} />
-                    ))}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredQuizzes.map((quiz) => {
+                      const typeInfo = QUIZ_TYPES.find(t => t.id === quiz.type) || QUIZ_TYPES[0]
+                      return (
+                        <div key={quiz.id} className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 hover:shadow-2xl hover:shadow-emerald-500/5 transition-all duration-300">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className={cn("p-2 rounded-xl bg-white dark:bg-slate-800 shadow-sm ring-1 ring-slate-100 dark:ring-slate-800", typeInfo.color)}>
+                              <typeInfo.icon className="h-5 w-5" />
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteQuiz(quiz.id)}
+                              className="h-9 w-9 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-widest">{quiz.company}</p>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight line-clamp-2">{quiz.title}</h3>
+                            <div className="flex flex-wrap gap-1.5 mt-3">
+                              {quiz.technology.slice(0, 3).map((t: string) => (
+                                <Badge key={t} variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold border-none px-2 rounded-md">
+                                  {t}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="mt-6 pt-6 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between">
+                            <div className="flex gap-4">
+                              <div className="flex items-center gap-1.5">
+                                <Clock className="h-3.5 w-3.5 text-slate-400" />
+                                <span className="text-[11px] font-bold text-slate-500">{quiz.duration}m</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <Target className="h-3.5 w-3.5 text-slate-400" />
+                                <span className="text-[11px] font-bold text-slate-500">{quiz.totalPoints}pts</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Users className="h-3.5 w-3.5 text-slate-300" />
+                              <span className="text-xs font-black text-slate-800 dark:text-slate-200">{quiz._count?.results || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                </div>
-              </div>
-            </DuolingoCard>
-          </TabsContent>
+                </motion.div>
+              )}
 
-          {/* Autres onglets */}
-          <TabsContent value="subscriptions" className="space-y-4 sm:space-y-6">
-            <DuolingoCard gradient="from-yellow-500 to-orange-500">
-              <div className="p-4 sm:p-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6">Gestion des abonnements</h2>
-                <p className="text-gray-600">Fonctionnalité en cours de développement...</p>
-              </div>
-            </DuolingoCard>
-          </TabsContent>
+              {['subscriptions', 'results'].includes(activeTab) && (
+                <motion.div
+                  key="other"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white dark:bg-slate-900 rounded-3xl p-12 text-center border-2 border-dashed border-slate-100 dark:border-slate-800"
+                >
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Section en cours d'optimisation</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          <TabsContent value="results" className="space-y-4 sm:space-y-6">
-            <DuolingoCard gradient="from-red-500 to-pink-500">
-              <div className="p-4 sm:p-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6">Résultats des quiz</h2>
-                <p className="text-gray-600">Fonctionnalité en cours de développement...</p>
-              </div>
-            </DuolingoCard>
-          </TabsContent>
+          </div>
+        </div>
 
-          <TabsContent value="analytics" className="space-y-4 sm:space-y-6">
-            <DuolingoCard gradient="from-indigo-500 to-purple-500">
-              <div className="p-4 sm:p-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6">Analytics</h2>
-                <p className="text-gray-600">Fonctionnalité en cours de développement...</p>
-              </div>
-            </DuolingoCard>
-          </TabsContent>
-        </Tabs>
       </div>
     </div>
   )
-} 
+}

@@ -27,6 +27,7 @@ export async function getInterviews() {
         technology: true,
         duration: true,
         totalPoints: true,
+        domain: true,
       }
     }) 
     return interviews

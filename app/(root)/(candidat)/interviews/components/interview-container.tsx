@@ -14,6 +14,7 @@ import { formatTimeDetailed } from "@/lib/time-utils"
 import { InterviewContent } from "./interview-content"
 import DevLoader from "@/components/dev-loader"
 import VocalInterview from "@/components/interviews/vocal-interview"
+import VoiceInterviewResult from "@/components/interviews/voice-interview-result"
 
 interface Question {
   id: string
@@ -37,6 +38,13 @@ interface Interview {
   totalPoints: number
   description?: string
   technology?: string[]
+  // Voice & Result Fields
+  status?: string
+  score?: number
+  feedback?: any
+  transcription?: any
+  createdAt?: Date
+  isVoiceInterview?: boolean
 }
 
 interface InterviewContainerProps {
@@ -89,7 +97,12 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
           description: vi.context,
           technology: vi.technologies,
           // Custom fields for Voice
-          isVoiceInterview: true
+          isVoiceInterview: true,
+          status: vi.status,
+          score: vi.score,
+          feedback: vi.feedback,
+          transcription: vi.transcription,
+          createdAt: vi.createdAt
         }
       }
 
@@ -134,12 +147,14 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
 
   // Initialize timer
   useEffect(() => {
-    if (interview && !hasStarted) {
+    if (interview && !hasStarted && interview.status !== 'completed') {
       setTimeLeft(interview.duration * 60)
       setTimeout(() => {
         setIsRunning(true)
         setHasStarted(true)
-        toast.success("Interview démarrée ! Timer activé automatiquement.")
+        if (!interview.isVoiceInterview) { // Don't toast for voice interview auto-start
+          toast.success("Interview démarrée ! Timer activé automatiquement.")
+        }
       }, 1500)
     }
   }, [interview, hasStarted])
@@ -233,22 +248,25 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
     )
   }
 
-  // Validate questions (Skip for Voice Interviews which generate questions dynamically)
-  if ((!interview.questions || !Array.isArray(interview.questions) || interview.questions.length === 0) && interview.type !== "MOCK_INTERVIEW") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <Card className="p-8 text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Aucune question trouvée</h2>
-          <p className="text-gray-600 mb-4">Cette interview ne contient aucune question valide.</p>
-          <Button onClick={() => router.push("/interviews")}>Retour aux interviews</Button>
-        </Card>
-      </div>
-    )
-  }
-
   // Affichage spécifique pour MOCK_INTERVIEW (vocal)
-  if (interview.type === "MOCK_INTERVIEW") {
+  if (interview.type === "MOCK_INTERVIEW" || interview.isVoiceInterview) {
+    // Si terminé, afficher les résultats
+    if (interview.status === 'completed' && interview.feedback) {
+      return (
+        <VoiceInterviewResult
+          data={{
+            id: interview.id,
+            title: interview.title,
+            score: interview.score || 0,
+            duration: interview.duration,
+            feedback: interview.feedback,
+            transcription: interview.transcription,
+            date: interview.createdAt || new Date()
+          }}
+        />
+      );
+    }
+
     return (
       <VocalInterview
         interviewData={{
@@ -263,15 +281,24 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
         }}
         onComplete={(score, answers) => {
           // Sauvegarder les résultats de l'interview vocal
-          const payload = {
-            quizId: interview.id,
-            answers: answers,
-            timeSpent: Math.max(0, (interview.duration || 0) - (timeLeft || 0)),
-            score: score,
-          }
-          saveQuiz(payload)
+          // Note: L'analyse réelle et la mise à jour de 'completed' sont gérées par analyzeAndSaveVoiceInterview
+          // Ceci est juste pour la cohérence UI locale si besoin
         }}
       />
+    )
+  }
+
+  // Validate questions (Skip for Voice Interviews which generate questions dynamically)
+  if ((!interview.questions || !Array.isArray(interview.questions) || interview.questions.length === 0) && interview.type !== "MOCK_INTERVIEW") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Aucune question trouvée</h2>
+          <p className="text-gray-600 mb-4">Cette interview ne contient aucune question valide.</p>
+          <Button onClick={() => router.push("/interviews")}>Retour aux interviews</Button>
+        </Card>
+      </div>
     )
   }
 

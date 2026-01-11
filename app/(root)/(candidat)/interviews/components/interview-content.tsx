@@ -337,32 +337,46 @@ export function InterviewContent({
       <div className={`${isTechnicalInterview && currentQuestion.type === "coding" ? "h-full flex flex-col" : "max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8"}`}>
         {/* Header avec retour pour TECHNICAL coding */}
         {isTechnicalInterview && currentQuestion.type === "coding" && (
-          <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
+          <div className="flex items-center justify-between p-4 border-b border-emerald-500/20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => window.history.back()}
-                className="flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors rounded-lg"
+                className="flex items-center gap-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-slate-300 transition-colors rounded-xl"
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span>Retour aux interviews</span>
+                <span className="font-bold text-xs uppercase tracking-tight">Quitter</span>
               </Button>
-              <div className="h-6 w-px bg-slate-300 dark:bg-slate-600"></div>
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-800"></div>
               <div>
-                <h1 className="text-lg font-bold text-slate-900 dark:text-white line-clamp-1">
+                <h1 className="text-sm font-black text-slate-900 dark:text-white line-clamp-1 uppercase tracking-wider">
                   {interview.title}
                 </h1>
-                <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-1">
-                  {interview.description || `${interview.questions.length} questions`}
-                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <Badge className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 text-[9px] font-black uppercase tracking-widest px-1.5 py-0 h-4">
+                    Technique
+                  </Badge>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    {interview.company}
+                  </p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                <Clock className="h-4 w-4" />
-                {formatTime(timeLeft)}
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-2xl border border-emerald-100 dark:border-emerald-800/50">
+                <Clock className="h-4 w-4 text-emerald-500 animate-pulse" />
+                <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                  {formatTime(timeLeft)}
+                </span>
               </div>
+              <Button
+                onClick={onCompleteInterview}
+                disabled={isSaving}
+                className="bg-slate-900 dark:bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest px-5 h-10 rounded-xl hover:opacity-90 transition-all shadow-lg shadow-emerald-500/10"
+              >
+                {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Terminer"}
+              </Button>
             </div>
           </div>
         )}
@@ -386,44 +400,53 @@ export function InterviewContent({
         {/* Interface adaptée selon le type de question */}
         {currentQuestion.type === "coding" && isTechnicalInterview ? (
           <div className="flex-1 flex overflow-hidden">
-            {/* Colonne gauche - Énoncé */}
-            <div className="w-1/2 border-r border-slate-200 dark:border-slate-700 overflow-y-auto bg-white dark:bg-slate-800/50">
-              <div className="p-6 space-y-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                    Question {currentQuestionIndex + 1}
-                  </h3>
-                  <Badge variant="outline" className="capitalize">
-                    {interview.difficulty?.toLowerCase() || "medium"}
+            {/* Colonne gauche - Énoncé (Glass Emerald Design) */}
+            <div className="w-1/2 border-r border-slate-200 dark:border-slate-800 overflow-y-auto bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm custom-scrollbar">
+              <div className="p-8 space-y-8">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase text-emerald-500 tracking-[0.2em] mb-1">Exercice {currentQuestionIndex + 1}</p>
+                    <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                      {interviewDomain.replace(/_/g, ' ')}
+                    </h3>
+                  </div>
+                  <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg font-black text-[10px] px-2 py-1 uppercase tracking-widest border-none">
+                    {interview.difficulty || "MEDIUM"}
                   </Badge>
                 </div>
 
-                <div className="prose dark:prose-invert max-w-none">
-                  <div className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 leading-relaxed">
-                    {currentQuestion.question}
+                <div className="bg-white dark:bg-slate-800/50 rounded-3xl p-6 border border-slate-100 dark:border-slate-800/50 shadow-sm">
+                  <div className="prose dark:prose-invert max-w-none">
+                    <div className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                      {currentQuestion.question}
+                    </div>
                   </div>
                 </div>
 
                 {currentQuestion.expectedOutput && (
-                  <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <h4 className="font-semibold mb-2 text-slate-900 dark:text-white">Sortie attendue</h4>
-                    <div className="text-sm font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 p-3 rounded">
-                      {currentQuestion.expectedOutput}
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Sortie Attendue</label>
+                    <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800">
+                      <pre className="text-sm font-mono text-emerald-400 overflow-x-auto">
+                        {currentQuestion.expectedOutput}
+                      </pre>
                     </div>
                   </div>
                 )}
 
-                <div className="mt-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium text-emerald-700 dark:text-emerald-400">
-                      {currentQuestion.points} points
-                    </span>
-                    <span className="text-slate-600 dark:text-slate-400">•</span>
-                    <span className="text-slate-600 dark:text-slate-400">
-                      Question {currentQuestionIndex + 1} / {interview.questions.length}
+                <div className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-3xl p-6 border border-emerald-100/50 dark:border-emerald-800/30">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/40"></div>
+                      <span className="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                        Objectif : {currentQuestion.points} points
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Question {currentQuestionIndex + 1} sur {interview.questions.length}
                     </span>
                   </div>
-                  <Progress value={questionProgress} className="h-2 mt-2" />
+                  <Progress value={questionProgress} className="h-2 rounded-full bg-slate-200 dark:bg-slate-800" />
                 </div>
               </div>
             </div>
@@ -695,6 +718,7 @@ export function InterviewContent({
             question={currentQuestion}
             answer={answers[currentQuestion.id]}
             onAnswerChange={(answer) => onAnswerChange(currentQuestion.id, answer)}
+            isTechnical={isTechnicalInterview}
           />
         )}
 

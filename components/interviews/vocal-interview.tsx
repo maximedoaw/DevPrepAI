@@ -128,11 +128,9 @@ export default function VocalInterview({ interviewData, onComplete }: VocalInter
   // ElevenLabs Configuration
   const conversation = useConversation({
     onConnect: () => {
-      console.log("Connected to ElevenLabs")
       setErrorMessage("")
     },
     onDisconnect: () => {
-      console.log("Disconnected from ElevenLabs")
       if (!showCallEnded && !isAnalyzing && callDuration > 5) {
         endCall()
       }
@@ -329,7 +327,7 @@ export default function VocalInterview({ interviewData, onComplete }: VocalInter
         </div>
 
         <div className="w-full space-y-2">
-          <Progress value={loadingProgress} className="h-3 bg-slate-100 dark:bg-slate-800"  />
+          <Progress value={loadingProgress} className="h-3 bg-slate-100 dark:bg-slate-800" />
           <div className="flex justify-between text-xs text-slate-400 font-mono">
             <span>ANALYSIS_PROTOCOL_V2</span>
             <span>{Math.round(loadingProgress)}%</span>

@@ -241,6 +241,7 @@ export async function createQuiz(data: {
   difficulty: string
   company: string
   technology: string[]
+  domain: string
   duration: number
   totalPoints: number
 }) {
@@ -263,6 +264,7 @@ export async function createQuiz(data: {
         difficulty: data.difficulty as any,
         company: data.company,
         technology: data.technology,
+        domain: data.domain as any,
         duration: data.duration,
         totalPoints: data.totalPoints
       }
@@ -284,6 +286,7 @@ export async function updateQuiz(id: string, data: Partial<{
   difficulty: string
   company: string
   technology: string[]
+  domain: string
   duration: number
   totalPoints: number
 }>) {
@@ -297,7 +300,8 @@ export async function updateQuiz(id: string, data: Partial<{
       data: {
         ...data,
         ...(data.type && { type: data.type as any }),
-        ...(data.difficulty && { difficulty: data.difficulty as any })
+        ...(data.difficulty && { difficulty: data.difficulty as any }),
+        ...(data.domain && { domain: data.domain as any })
       }
     })
 

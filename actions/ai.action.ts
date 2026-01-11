@@ -4,12 +4,6 @@ import prisma from "@/db/prisma"
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server"
 
 const getBaseUrl = () => {
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL
-  }
-  if (process.env.NEXTAUTH_URL) {
-    return process.env.NEXTAUTH_URL
-  }
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`
   }
@@ -133,42 +127,86 @@ export async function saveVoiceInterviewTranscription(
   }
 }
 
-export async function getUserVoiceInterviews() {
+export async function getUserHistory() {
   try {
-    const { getUser } = getKindeServerSession()
-    const user = await getUser()
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
 
     if (!user || !user.id) {
-      return { success: false, error: "Utilisateur non authentifié" }
+      return { success: false, error: "Utilisateur non authentifié" };
     }
 
+    // 1. Récupérer les entretiens vocaux
     const voiceInterviews = await prisma.voiceInterview.findMany({
-      where: {
-        userId: user.id
-      },
-      orderBy: {
-        startedAt: 'desc'
-      },
-      select: {
-        id: true,
-        technologies: true,
-        context: true,
-        duration: true,
-        actualDuration: true,
-        status: true,
-        startedAt: true,
-        endedAt: true,
-        score: true,
-        conversationId: true
-      }
-    })
+      where: { userId: user.id, status: "completed" },
+      orderBy: { startedAt: "desc" },
+    });
 
-    console.log("Entretiens vocaux récupérés:", voiceInterviews.length)
-    return { success: true, voiceInterviews }
+    // 2. Récupérer les résultats de quiz (QCM, Coding)
+    // On exclut le type MOCK_INTERVIEW car ils sont déjà dans VoiceInterview (normalement)
+    // ou alors on les garde si on veut tout unifié via QuizResult.
+    // L'analyse et enregistrement de VoiceInterview crée déjà un QuizResult.
+    const quizResults = await prisma.quizResult.findMany({
+      where: { userId: user.id },
+      include: {
+        quiz: true,
+      },
+      orderBy: { completedAt: "desc" },
+    });
+
+    // 3. Normalisation et Fusion
+    const history = [
+      ...voiceInterviews.map((vi) => ({
+        id: vi.id,
+        type: "MOCK_INTERVIEW",
+        title: `Entretien Vocal: ${vi.technologies[0] || "Général"}`,
+        context: vi.context,
+        technologies: vi.technologies,
+        score: vi.score,
+        date: vi.startedAt,
+        duration: Math.round((vi.actualDuration || 0) / 60),
+        status: vi.status,
+        feedback: vi.feedback,
+        isHistory: true,
+        domain: "DEVELOPMENT", // Default for now
+      })),
+      ...quizResults
+        .filter((qr) => qr.quiz.type !== "MOCK_INTERVIEW") // Éviter les doublons si déjà géré
+        .map((qr) => ({
+          id: qr.id,
+          type: qr.quiz.type,
+          title: qr.quiz.title,
+          description: qr.quiz.description,
+          technologies: qr.quiz.technology,
+          score: qr.score,
+          date: qr.completedAt,
+          duration: Math.round((qr.duration ?? 0) / 60),
+          status: "completed",
+          isHistory: true,
+          difficulty: qr.quiz.difficulty,
+          domain: qr.quiz.domain
+        })),
+    ];
+
+    // Tri par date décroissante
+    history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return { success: true, history };
   } catch (error) {
-    console.error("Erreur lors de la récupération des entretiens vocaux:", error)
-    return { success: false, error: "Erreur lors de la récupération des entretiens" }
+    console.error("Erreur getUserHistory:", error);
+    return { success: false, error: "Erreur lors de la récupération de l'historique", history: [] };
   }
+}
+
+export async function getUserVoiceInterviews() {
+  const result = await getUserHistory();
+  if (result.success && result.history) {
+    return { 
+      success: true, 
+      voiceInterviews: result.history.filter(h => h.type === "MOCK_INTERVIEW") 
+    };
+  }
+  return { success: false, error: result.error || "Erreur", voiceInterviews: [] };
 }
 
 export async function getVoiceInterviewById(interviewId: string) {
@@ -226,11 +264,54 @@ export async function analyzeAndSaveVoiceInterview(
       return { success: false, error: "Entretien vocal non trouvé" };
     }
 
-    // 2. Construire le prompt Gemini
-    const transcriptText = Array.isArray(transcription)
-      ? transcription.map(seg => seg.text).join('\n')
-      : String(transcription);
-    const prompt = `Tu es un expert en évaluation d'entretiens techniques pour développeurs.\nAnalyse la conversation suivante entre un candidat et un interviewer pour un poste de développeur.\nTon objectif est de :\n1.  Attribuer une note sur 100 à la performance globale du candidat.\n2.  Identifier les 3 points faibles majeurs du candidat.\n3.  Identifier les 3 points forts majeurs du candidat.\n4.  Fournir une explication générale de la note.\n\nLe résultat doit être formaté comme un objet JSON strict pour faciliter l'extraction des données.\n\nVoici le transcript de la conversation :\n---\n${transcriptText}\n---\n\nFormat de sortie attendu (JSON):\n{\n  "note": INTEGER_VALUE,\n  "explication_note": "STRING_VALUE",\n  "points_faibles": [\n    "STRING_VALUE_1",\n    "STRING_VALUE_2",\n    "STRING_VALUE_3"\n  ],\n  "points_forts": [\n    "STRING_VALUE_1",\n    "STRING_VALUE_2",\n    "STRING_VALUE_3"\n  ]\n}`;
+    // 2. Construire le prompt Gemini avec une transcription formatée proprement
+    let transcriptText = "";
+    if (Array.isArray(transcription)) {
+        transcriptText = transcription.map((seg: any) => {
+            const speaker = seg.speaker === 'user' ? 'Candidat' : 'Interviewer (IA)';
+            return `${speaker}: ${seg.text}`;
+        }).join('\n');
+    } else {
+        transcriptText = String(transcription);
+    }
+    
+    // Si la transcription est vide, on ne peut pas analyser
+    if (!transcriptText || transcriptText.trim().length < 10) {
+         // On sauvegarde quand même la session comme "completed" mais sans score
+         await prisma.voiceInterview.update({
+            where: { id: interviewId },
+            data: {
+                transcription,
+                actualDuration,
+                status: "completed",
+                endedAt: new Date()
+            }
+         });
+         return { success: false, error: "Transcription trop courte pour être analysée." };
+    }
+
+    const prompt = `Tu es un expert senior en recrutement technique et évaluation de développeurs.
+Analyse la conversation d'entretien suivante pour le poste/contexte : "${voiceInterview.context}".
+Technologies ciblées : ${voiceInterview.technologies.join(", ")}.
+
+TRANSCRIPTION DE L'ENTRETIEN :
+---
+${transcriptText}
+---
+
+Tâche :
+1. Évalue la performance du candidat sur 100 (sois objectif, note sévèrement si les réponses sont vagues).
+2. Identifie 3 points forts précis.
+3. Identifie 3 points faibles précis.
+4. Donne une appréciation générale constructive.
+
+Format de réponse attendu (JSON, sans markdown) :
+{
+  "note": number, // Score sur 100
+  "explication_note": "string", // Appréciation générale
+  "points_faibles": ["string", "string", "string"],
+  "points_forts": ["string", "string", "string"]
+}`;
 
     // 3. Appeler l'API Gemini
     const baseUrl = getBaseUrl()
@@ -242,91 +323,123 @@ export async function analyzeAndSaveVoiceInterview(
       },
       body: JSON.stringify({ prompt }),
     });
+
     const geminiData = await geminiRes.json();
+    
     if (!geminiRes.ok || !geminiData.text) {
-      return { success: false, error: geminiData.error || "Erreur Gemini" };
-    }
-    let feedback;
-    try {
-      feedback = JSON.parse(geminiData.text);
-    } catch (e) {
-      return { success: false, error: "Réponse Gemini non JSON" };
+        console.error("Gemini API Error:", geminiData);
+        // Sauvegarde de secours sans analyse
+        await prisma.voiceInterview.update({
+            where: { id: interviewId },
+            data: { transcription, actualDuration, status: "completed", endedAt: new Date() }
+        });
+        return { success: false, error: geminiData.error || "Erreur lors de l'analyse IA" };
     }
 
-    // 4. Enregistrer le résultat dans QuizResult (type MOCK_INTERVIEW)
-    // Créer un quiz pour cet entretien si besoin
-    const quiz = await prisma.quiz.create({
-      data: {
-        title: `Entretien vocal du ${new Date().toLocaleDateString('fr-FR')}`,
-        description: voiceInterview.context,
-        type: "MOCK_INTERVIEW",
-        questions: JSON.stringify([{ question: "Entretien vocal IA", type: "open-ended", points: 100 }]),
-        company: "DevPrepAI",
-        technology: voiceInterview.technologies,
-        difficulty: "JUNIOR",
-        duration: voiceInterview.duration,
-        totalPoints: 100,
-      },
-    });
-    const quizResult = await prisma.quizResult.create({
+    let feedback;
+    try {
+      // Nettoyage basique si markdown présent
+      let jsonStr = geminiData.text.trim();
+      if (jsonStr.startsWith("```json")) jsonStr = jsonStr.replace("```json", "").replace("```", "");
+      else if (jsonStr.startsWith("```")) jsonStr = jsonStr.replace("```", "").replace("```", "");
+      
+      feedback = JSON.parse(jsonStr);
+    } catch (e) {
+      console.error("JSON Parse Error:", e, geminiData.text);
+      return { success: false, error: "Format de réponse IA invalide" };
+    }
+
+    // 4. Enregistrer le résultat dans QuizResult (pour l'historique unifié)
+        const quiz = await prisma.quiz.create({
+          data: {
+            title: `Entretien Vocal: ${voiceInterview.technologies[0] || 'Général'}`,
+            description: voiceInterview.context,
+            type: "MOCK_INTERVIEW",
+            domain: "DEVELOPMENT", // Default domain for voice interviews
+            questions: JSON.stringify([{ question: "Analyse entretien vocal", type: "open-ended", points: 100 }]),
+            company: "DevPrepAI",
+            technology: voiceInterview.technologies,
+            difficulty: "MID", // À ajuster selon le contexte si disponible
+            duration: Math.round(actualDuration / 60), // en minutes
+            totalPoints: 100,
+          },
+        });
+
+    await prisma.quizResult.create({
       data: {
         quizId: quiz.id,
         userId: user.id,
         score: feedback.note,
-        answers: transcription,
+        answers: transcription, // On stocke la transcription brute ici
         analysis: feedback.explication_note,
         duration: actualDuration,
       },
     });
 
-    // 5. Générer des exercices de renforcement pour chaque point faible
-    const reinforcementPrompt = `Pour chaque point faible suivant, génère un exercice technique (QCM ou question ouverte) pour un développeur, en précisant le niveau (JUNIOR, MID ou SENIOR) selon la difficulté du point. Format de sortie: tableau JSON d'objets {\n  "titre": "...",\n  "type": "QCM" ou "open-ended",\n  "question": "...",\n  "options": ["...", "...", ...] (si QCM),\n  "bonne_reponse": "..." (si QCM),\n  "niveau": "JUNIOR"|"MID"|"SENIOR"\n}\n\nPoints faibles:\n${(feedback.points_faibles as string[]).map((p: string, i: number) => `${i+1}. ${p}`).join("\n")}`;
-    const reinforceRes = await fetch(`${baseUrl}/api/gemini`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: reinforcementPrompt }),
-    });
-    const reinforceData = await reinforceRes.json();
+    // 5. Génération d'exercices (Optionnel, on log juste l'erreur si ça rate pour ne pas bloquer)
     let generatedQuizzes = [];
-    if (reinforceRes.ok && reinforceData.text) {
-      try {
-        const exercises = JSON.parse(reinforceData.text);
-        // Créer un quiz pour chaque exercice
-        for (const ex of exercises) {
-          const quiz = await prisma.quiz.create({
-            data: {
-              title: ex.titre || "Exercice de renforcement IA",
-              description: ex.question,
-              type: ex.type === "QCM" ? "QCM" : "MOCK_INTERVIEW",
-              questions: JSON.stringify([ex]),
-              company: "DevPrepAI",
-              technology: voiceInterview.technologies,
-              difficulty: ex.niveau || "JUNIOR",
-              duration: 10,
-              totalPoints: 10,
-            },
-          });
-          generatedQuizzes.push(quiz);
+    try {
+        if (feedback.points_faibles?.length > 0) {
+            const reinforcementPrompt = `Génère 1 exercice technique (QCM niveau JUNIOR/MID) pour un développeur voulant s'améliorer sur ce point faible : "${feedback.points_faibles[0]}".
+Format JSON:
+[{
+  "title": "Titre",
+  "question": "Question",
+  "type": "QCM",
+  "options": ["A", "B", "C", "D"],
+  "correctAnswer": 0,
+  "explanation": "Exp"
+}]`;
+            
+            const reinforceRes = await fetch(`${baseUrl}/api/gemini`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: reinforcementPrompt }),
+            });
+            const reinforceData = await reinforceRes.json();
+            if (reinforceRes.ok && reinforceData.text) {
+                let exerJson = reinforceData.text.replace(/```json|```/g, "").trim();
+                const exercises = JSON.parse(exerJson);
+                // Création rapide du quiz
+                 for (const ex of exercises) {
+                    const q = await prisma.quiz.create({
+                        data: {
+                            title: `Renforcement: ${ex.title}`,
+                            description: "Exercice généré suite à votre entretien vocal",
+                            type: "QCM",
+                            domain: "DEVELOPMENT", 
+                            questions: JSON.stringify([ex]),
+                            company: "DevPrepAI",
+                            technology: voiceInterview.technologies,
+                            difficulty: "JUNIOR",
+                            duration: 5,
+                            totalPoints: 10
+                        }
+                    });
+                    generatedQuizzes.push(q);
+                 }
+            }
         }
-      } catch (e) {
-        // ignore parsing error
-      }
+    } catch (err) {
+        console.warn("Erreur génération exercices renforcement:", err);
     }
 
-    // 6. Mettre à jour l'entretien vocal avec le feedback et le score
+    // 6. Mise à jour finale de l'entretien
     await prisma.voiceInterview.update({
       where: { id: interviewId },
       data: {
         feedback,
         score: feedback.note,
         status: "completed",
+        transcription: transcription, // Ensure explicit save
+        actualDuration,
         endedAt: new Date(),
       },
     });
 
     return { success: true, feedback, generatedQuizzes };
   } catch (error) {
-    console.error("Erreur analyse Gemini:", error);
-    return { success: false, error: "Erreur analyse Gemini" };
+    console.error("Erreur critique analyzeAndSaveVoiceInterview:", error);
+    return { success: false, error: "Erreur serveur interne lors de l'analyse" };
   }
 }
