@@ -35,7 +35,7 @@ export default function ClientRoot({ children }: { children: React.ReactNode }) 
       } else {
         // User is NOT on onboarding page
         const wasOnboarding = sessionStorage.getItem('onboarding_active');
-        
+
         if (wasOnboarding === 'true') {
           // User tried to leave onboarding without finishing -> Sign Out
           sessionStorage.removeItem('onboarding_active');
@@ -52,12 +52,17 @@ export default function ClientRoot({ children }: { children: React.ReactNode }) 
   }, [isAuthenticated, userLoading, userData, pathname, router]);
 
   if (authLoading || (isAuthenticated && userLoading)) return <DevLoader />;
-  
+
   if (!isAuthenticated) return <AuthScreen />;
 
   // If we are on onboarding page, render children (which is the onboarding page content)
   // We don't show the sidebar on the onboarding page
   if (pathname === '/onboarding') {
+    return <>{children}</>;
+  }
+
+  // If we are on the portfolio preview page, don't show sidebar
+  if (pathname?.startsWith('/portfolio/')) {
     return <>{children}</>;
   }
 

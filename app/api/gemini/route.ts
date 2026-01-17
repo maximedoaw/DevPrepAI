@@ -1,10 +1,12 @@
 // app/api/gemini/route.ts
 // Ce code s'exécute uniquement sur le serveur.
 import { GoogleGenAI } from "@google/genai";
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, NextRequest } from "next/server";
+import prisma from "@/db/prisma";
 
+const apiKey = process.env.GEMINI_API_KEY;
 interface GenerateInterviewRequest {
-  type: 'generate-interview' | 'simple-prompt' | 'evaluate-code' | 'evaluate-mock-interview' | 'evaluate-technical-text';
+  type: 'generate-interview' | 'simple-prompt' | 'evaluate-code' | 'evaluate-mock-interview' | 'evaluate-technical-text' | 'evaluate-motivation-letters' | 'generate-career-plan';
   quizType?: 'QCM' | 'TECHNICAL' | 'MOCK_INTERVIEW' | 'SOFT_SKILLS';
   domain?: string; // Domaine du test (utilisé pour generate-interview et evaluate-technical-text)
   difficulty?: 'JUNIOR' | 'MID' | 'SENIOR';
@@ -34,6 +36,12 @@ interface GenerateInterviewRequest {
     questionText: string;
     answer: string;
     points?: number;
+  }>;
+  // Pour l'évaluation des lettres de motivation
+  motivationLetters?: Array<{
+    applicationId: string;
+    candidateName: string;
+    content: string;
   }>;
 }
 
@@ -798,28 +806,115 @@ Format JSON STRICT attendu (ne retourne rien d'autre que ce JSON):
 }`;
 
       console.log("🤖 [API] Appel Gemini générer plan carrière...");
+
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt
       });
 
       const generatedText = response.text;
-      if (!generatedText) throw new Error("Aucun texte généré par Gemini");
 
-      // Robust JSON Parsing
-      let jsonText = generatedText.trim();
-      const jsonMatch = jsonText.match(/```json\s*([\s\S]*?)\s*```/) || jsonText.match(/```\s*([\s\S]*?)\s*```/);
-      if (jsonMatch) jsonText = jsonMatch[1].trim();
-
-      const parsedResult = JSON.parse(jsonText);
-
-      // Validation minimale
-      if (!parsedResult.summary || !parsedResult.careerGoals) {
-        throw new Error("Format de réponse Gemini invalide (champs manquants)");
+      if (!generatedText) {
+        throw new Error("No text was generated");
       }
 
-      return NextResponse.json({ success: true, data: parsedResult });
-    
+      // Parser la réponse JSON
+       try {
+        let jsonText = generatedText.trim();
+        const jsonMatch = jsonText.match(/```json\s*([\s\S]*?)\s*```/) || jsonText.match(/```\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          jsonText = jsonMatch[1].trim();
+        }
+        const parsedResult = JSON.parse(jsonText);
+        return NextResponse.json({ success: true, data: parsedResult });
+      } catch (parseError) {
+        console.error("Error parsing career plan response:", parseError);
+        return NextResponse.json(
+          { 
+            error: "Failed to parse career plan response",
+            rawResponse: generatedText.substring(0, 500)
+          },
+          { status: 500 }
+        );
+      }
+    } else if (body.type === 'evaluate-motivation-letters') {
+      // ------------------------------------------------------------------
+      // LOGIQUE : ÉVALUATION LETTRES DE MOTIVATION (BATCH)
+      // ------------------------------------------------------------------
+      if (!body.motivationLetters || !Array.isArray(body.motivationLetters) || body.motivationLetters.length === 0) {
+        return NextResponse.json(
+          { error: "motivationLetters array is required." },
+          { status: 400 }
+        );
+      }
+
+      const lettersText = body.motivationLetters.map((l, index) => 
+        `ID: ${l.applicationId}
+Candidat: ${l.candidateName}
+Lettre:
+"${l.content}"
+---`
+      ).join('\n\n');
+
+      const prompt = `Tu es un expert en recrutement. Évalue la motivation des candidats ci-dessous sur une échelle de 1 à 5 étoiles.
+      
+CRITÈRES:
+- 1: Pas motivé / Lettre générique
+- 5: Très motivé / Lettre personnalisée et pertinente
+
+LETTRES À ANALYSER:
+${lettersText}
+
+Format JSON STRICT attendu (tableau d'objets) :
+{
+  "evaluations": [
+    {
+      "applicationId": "ID de la candidature correspondant",
+      "rating": 1-5 (entier uniquement)
+    }
+  ]
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt
+      });
+      
+      const generatedText = response.text;
+      if (!generatedText) throw new Error("No text generated form Gemini");
+
+       try {
+        let jsonText = generatedText.trim();
+        const jsonMatch = jsonText.match(/```json\s*([\s\S]*?)\s*```/) || jsonText.match(/```\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          jsonText = jsonMatch[1].trim();
+        }
+        const parsedResult = JSON.parse(jsonText);
+        
+        // --- PERSISTENCE LOGIC START ---
+        // We must save these evaluations to the database so they persist on reload.
+        if (parsedResult.evaluations && Array.isArray(parsedResult.evaluations)) {
+           await prisma.$transaction(
+             parsedResult.evaluations.map((evalItem: any) => 
+               prisma.application.update({
+                 where: { id: evalItem.applicationId },
+                 data: { 
+                   motivationAnalysis: evalItem 
+                 }
+               })
+             )
+           );
+        }
+        // --- PERSISTENCE LOGIC END ---
+
+        return NextResponse.json({ success: true, data: parsedResult });
+      } catch (parseError) {
+        console.error("Error parsing motivation letters evaluation:", parseError);
+        return NextResponse.json(
+          { error: "Failed to parse API response", rawResponse: generatedText.substring(0, 500) },
+          { status: 500 }
+        );
+      }
     } else {
       // Requête simple avec prompt
       if (!body.prompt || typeof body.prompt !== 'string') {
@@ -844,9 +939,9 @@ Format JSON STRICT attendu (ne retourne rien d'autre que ce JSON):
     }
 
   } catch (error: any) {
-    console.error("Error calling Gemini API:", error);
+    console.error("Error in gemini route:", error);
     return NextResponse.json(
-      { error: `Failed to generate content from Gemini: ${error.message || 'Unknown error'}` },
+      { error: error.message || "Internal Server Error" },
       { status: 500 }
     );
   }

@@ -1,425 +1,202 @@
-import { JobPosting, WorkMode, JobType } from "@/types/job";
-import { Badge } from "@/components/ui/badge";
-import { MapPin, Clock, Briefcase, Monitor, Bookmark, Star, ChevronDown, Users, DollarSign, Heart, Share2, Building2, Award, Calendar } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { useState } from "react";
-import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
+import { JobPosting, WorkMode, JobType } from "@/types/job"
+import { Badge } from "@/components/ui/badge"
+import { MapPin, Clock, Briefcase, Monitor, Building2, DollarSign, ArrowRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { formatDistanceToNow } from "date-fns"
+import { fr } from "date-fns/locale"
 
 interface JobCardProps {
-  job: JobPosting;
-  onApply: (job: JobPosting) => void;
-  onViewDetails: (job: JobPosting) => void;
+  job: JobPosting
+  onApply: (job: JobPosting) => void
+  onViewDetails: (job: JobPosting) => void
+  viewMode?: "grid" | "list"
 }
 
-export const JobCard = ({ job, onApply, onViewDetails }: JobCardProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-  const MAX_DESCRIPTION_LENGTH = 120;
-
+export const JobCard = ({ job, onApply, onViewDetails, viewMode = "grid" }: JobCardProps) => {
   const formatSalary = () => {
     if (job.salaryMin && job.salaryMax) {
-      return `${(job.salaryMin / 1000000).toFixed(1)}M - ${(job.salaryMax / 1000000).toFixed(1)}M ${job.currency || "FCFA"}`;
+      return `${(job.salaryMin / 1000000).toFixed(1)}M - ${(job.salaryMax / 1000000).toFixed(1)}M`
     }
     if (job.salaryMin) {
-      return `À partir de ${(job.salaryMin / 1000000).toFixed(1)}M ${job.currency || "FCFA"}`;
+      return `> ${(job.salaryMin / 1000000).toFixed(1)}M`
     }
-    return null;
-  };
+    return "N/A"
+  }
 
   const getWorkModeLabel = (mode: WorkMode) => {
     switch (mode) {
-      case WorkMode.REMOTE: return "Remote";
-      case WorkMode.ON_SITE: return "Présentiel";
-      case WorkMode.HYBRID: return "Hybride";
-      default: return "";
+      case WorkMode.REMOTE: return "Remote"
+      case WorkMode.ON_SITE: return "Présentiel"
+      case WorkMode.HYBRID: return "Hybride"
+      default: return ""
     }
-  };
+  }
 
   const getJobTypeLabel = (type: JobType) => {
     switch (type) {
-      case JobType.CDI: return "CDI";
-      case JobType.STAGE: return "Stage";
-      case JobType.MISSION: return "Mission";
-      case JobType.FULL_TIME: return "Temps plein";
-      case JobType.PART_TIME: return "Temps partiel";
-      case JobType.INTERNSHIP: return "Internship";
-      default: return type.replace('_', ' ');
+      case JobType.CDI: return "CDI"
+      case JobType.STAGE: return "Stage"
+      case JobType.MISSION: return "Mission"
+      case JobType.FULL_TIME: return "Temps plein"
+      case JobType.PART_TIME: return "Temps partiel"
+      default: return type.replace('_', ' ')
     }
-  };
-
-  const getExperienceLevelLabel = (level?: string) => {
-    switch (level) {
-      case "JUNIOR": return "Junior";
-      case "MID": return "Intermédiaire";
-      case "SENIOR": return "Senior";
-      default: return level;
-    }
-  };
+  }
 
   const getTimeAgo = () => {
-    return formatDistanceToNow(new Date(job.createdAt), { 
+    return formatDistanceToNow(new Date(job.createdAt), {
       addSuffix: true,
-      locale: fr 
-    });
-  };
+      locale: fr
+    })
+  }
 
-  // Calcul des heures pour le badge "Nouveau" (48h)
-  const hoursAgo = Math.floor((Date.now() - new Date(job.createdAt).getTime()) / (1000 * 60 * 60));
-  const isNew = hoursAgo <= 48 && job.isActive;
+  const hoursAgo = Math.floor((Date.now() - new Date(job.createdAt).getTime()) / (1000 * 60 * 60))
+  const isNew = hoursAgo <= 48 && job.isActive
 
-  const shouldTruncate = job.description.length > MAX_DESCRIPTION_LENGTH;
-  const displayDescription = isExpanded 
-    ? job.description 
-    : job.description.slice(0, MAX_DESCRIPTION_LENGTH) + (shouldTruncate ? '...' : '');
-
-  // Gestion sécurisée des applications
-  const applicationsCount = job.applications?.length || 0;
-
-  // Empêcher les actions pour les jobs inactifs
-  const handleCardClick = (e: React.MouseEvent) => {
-    if (!job.isActive) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-    onViewDetails(job);
-  };
-
-  const handleApplyClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (job.isActive) {
-      onApply(job);
-    }
-  };
-
-  const handleDetailsClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (job.isActive) {
-      onViewDetails(job);
-    }
-  };
-
-  return (
-    <div 
-      className={cn(
-        "group relative overflow-hidden rounded-2xl p-6 transition-all duration-300",
-        "bg-white dark:bg-slate-800/90 backdrop-blur-sm",
-        "border-2 border-slate-200/80 dark:border-slate-700/80",
-        "hover:shadow-xl hover:scale-[1.02] w-full",
-        "shadow-md cursor-pointer",
-        job.isActive 
-          ? "hover:border-blue-300 dark:hover:border-blue-600" 
-          : "hover:border-slate-300 dark:hover:border-slate-600 opacity-80"
-      )}
-      onClick={handleCardClick}
-    >
-      {/* Badge d'état - Design amélioré */}
-      <div className="absolute top-4 right-4 flex gap-2">
-        {!job.isActive && (
-          <Badge className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 shadow-lg shadow-slate-200/50 dark:shadow-slate-900/30 px-3 py-1 text-xs font-semibold">
-            Inactif
-          </Badge>
+  // --- LIST VIEW (Improved Table-like) ---
+  if (viewMode === "list") {
+    return (
+      <div
+        onClick={() => job.isActive && onViewDetails(job)}
+        className={cn(
+          "group relative flex items-center gap-6 p-4 rounded-xl transition-all duration-300 cursor-pointer overflow-hidden",
+          "bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800",
+          job.isActive ? "hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 hover:border-emerald-200 dark:hover:border-emerald-800" : "opacity-60 grayscale"
         )}
-        {isNew && (
-          <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-none shadow-lg shadow-green-200/50 dark:shadow-emerald-900/30 px-3 py-1 text-xs font-semibold">
-             Nouveau
-          </Badge>
-        )}
-      </div>
-
-      {/* Header: Company + Actions */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-3">
-            {/* Logo entreprise avec gradient amélioré */}
-            <div className={cn(
-              "w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg transition-all duration-300",
-              job.isActive 
-                ? "bg-gradient-to-br from-blue-500 to-purple-600 shadow-blue-200 dark:shadow-blue-900 group-hover:shadow-blue-300"
-                : "bg-gradient-to-br from-slate-400 to-slate-600 shadow-slate-200 dark:shadow-slate-900"
-            )}>
-              {job.companyName.charAt(0)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className={cn(
-                "font-bold text-xl line-clamp-1 transition-colors duration-300",
-                job.isActive 
-                  ? "text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400" 
-                  : "text-slate-500 dark:text-slate-400"
-              )}>
-                {job.title}
-              </h3>
-              <div className="flex items-center gap-2 mt-1">
-                <Building2 className={cn(
-                  "h-4 w-4 transition-colors",
-                  job.isActive ? "text-slate-400" : "text-slate-300"
-                )} />
-                <p className={cn(
-                  "text-sm font-medium transition-colors",
-                  job.isActive ? "text-slate-600 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"
-                )}>
-                  {job.companyName}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Métadonnées principales avec icônes colorées */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {job.location && (
-          <div className="flex items-center gap-2 text-sm">
-            <MapPin className={cn(
-              "h-4 w-4 flex-shrink-0 transition-colors",
-              job.isActive ? "text-blue-500" : "text-slate-300"
-            )} />
-            <span className={cn(
-              "truncate transition-colors",
-              job.isActive ? "text-slate-700 dark:text-slate-300" : "text-slate-400"
-            )}>
-              {job.location}
-            </span>
-          </div>
-        )}
-        {job.workMode && (
-          <div className="flex items-center gap-2 text-sm">
-            <Monitor className={cn(
-              "h-4 w-4 flex-shrink-0 transition-colors",
-              job.isActive ? "text-purple-500" : "text-slate-300"
-            )} />
-            <span className={cn(
-              "transition-colors",
-              job.isActive ? "text-slate-700 dark:text-slate-300" : "text-slate-400"
-            )}>
-              {getWorkModeLabel(job.workMode)}
-            </span>
-          </div>
-        )}
-        {job.type && (
-          <div className="flex items-center gap-2 text-sm">
-            <Briefcase className={cn(
-              "h-4 w-4 flex-shrink-0 transition-colors",
-              job.isActive ? "text-green-500" : "text-slate-300"
-            )} />
-            <span className={cn(
-              "transition-colors",
-              job.isActive ? "text-slate-700 dark:text-slate-300" : "text-slate-400"
-            )}>
-              {getJobTypeLabel(job.type)}
-            </span>
-          </div>
-        )}
-        {job.experienceLevel && (
-          <div className="flex items-center gap-2 text-sm">
-            <Award className={cn(
-              "h-4 w-4 flex-shrink-0 transition-colors",
-              job.isActive ? "text-amber-500" : "text-slate-300"
-            )} />
-            <span className={cn(
-              "transition-colors",
-              job.isActive ? "text-slate-700 dark:text-slate-300" : "text-slate-400"
-            )}>
-              {getExperienceLevelLabel(job.experienceLevel)}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Description avec bouton pour étendre */}
-      <div className="mb-4">
-        <p className={cn(
-          "text-sm leading-relaxed transition-colors",
-          job.isActive ? "text-slate-600 dark:text-slate-400" : "text-slate-400"
+      >
+        {/* Logo */}
+        <div className={cn(
+          "h-14 w-14 rounded-xl flex items-center justify-center text-xl font-bold shadow-sm flex-shrink-0 text-white",
+          job.isActive ? "bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-700 dark:to-slate-800" : "bg-slate-300"
         )}>
-          {displayDescription}
-        </p>
-        {shouldTruncate && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsExpanded(!isExpanded);
-            }}
-            className={cn(
-              "mt-2 h-8 px-3 text-xs transition-all duration-200",
-              job.isActive 
-                ? "text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30" 
-                : "text-slate-400 hover:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"
-            )}
-          >
-            {isExpanded ? (
-              <>
-                Voir moins
-                <ChevronDown className="h-3 w-3 ml-1 rotate-180" />
-              </>
-            ) : (
-              <>
-                Voir plus
-                <ChevronDown className="h-3 w-3 ml-1" />
-              </>
-            )}
-          </Button>
-        )}
-      </div>
+          {job.companyName.charAt(0)}
+        </div>
 
-      {/* Compétences */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {job.skills.slice(0, 5).map((skill) => (
-          <Badge 
-            key={skill}
-            variant="secondary"
-            className={cn(
-              "text-xs font-medium transition-all duration-200 border",
-              job.isActive
-                ? "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 border-blue-200 dark:border-blue-800 hover:scale-105"
-                : "bg-slate-50 dark:bg-slate-700 text-slate-400 border-slate-200 dark:border-slate-600"
-            )}
-          >
-            {skill}
-          </Badge>
-        ))}
-        {job.skills.length > 5 && (
-          <Badge 
-            variant="outline" 
-            className={cn(
-              "text-xs transition-colors",
-              job.isActive 
-                ? "text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-600"
-                : "text-slate-400 border-slate-200 dark:border-slate-600"
-            )}
-          >
-            +{job.skills.length - 5}
-          </Badge>
-        )}
-      </div>
-
-      {/* Footer: Salary + Time + Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          {formatSalary() ? (
-            <div className="flex items-center gap-2">
-              <DollarSign className={cn(
-                "h-4 w-4 transition-colors",
-                job.isActive ? "text-green-500" : "text-slate-300"
-              )} />
-              <div className={cn(
-                "text-lg font-bold transition-colors",
-                job.isActive ? "text-slate-900 dark:text-slate-100" : "text-slate-400"
-              )}>
-                {formatSalary()}
-              </div>
+        {/* Main Info */}
+        <div className="flex-1 min-w-0 grid grid-cols-12 gap-4 items-center">
+          {/* Title & Company (Col 1-5) */}
+          <div className="col-span-12 md:col-span-5">
+            <h3 className="font-bold text-slate-900 dark:text-white truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
+              {job.title}
+            </h3>
+            <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+              <span className="font-medium">{job.companyName}</span>
+              {isNew && <Badge className="h-4 px-1 text-[10px] bg-emerald-500 text-white border-0">NEW</Badge>}
             </div>
-          ) : (
-            <div className={cn(
-              "text-sm transition-colors",
-              job.isActive ? "text-slate-500 dark:text-slate-400" : "text-slate-400"
-            )}>
-              Salaire à négocier
-            </div>
-          )}
-          
-          <div className="flex items-center gap-1.5 text-sm">
-            <Clock className={cn(
-              "h-4 w-4 transition-colors",
-              job.isActive ? "text-slate-500" : "text-slate-300"
-            )} />
-            <span className={cn(
-              "transition-colors",
-              job.isActive ? "text-slate-500 dark:text-slate-500" : "text-slate-400"
-            )}>
-              {getTimeAgo()}
-            </span>
           </div>
 
-          {applicationsCount > 0 && (
-            <div className="flex items-center gap-1.5 text-sm">
-              <Users className={cn(
-                "h-4 w-4 transition-colors",
-                job.isActive ? "text-orange-500" : "text-slate-300"
-              )} />
-              <span className={cn(
-                "transition-colors",
-                job.isActive ? "text-slate-500 dark:text-slate-500" : "text-slate-400"
-              )}>
-                {applicationsCount} candidature{applicationsCount > 1 ? 's' : ''}
+          {/* Meta Tags (Col 6-9) */}
+          <div className="col-span-12 md:col-span-4 hidden md:flex items-center gap-2 flex-wrap">
+            {job.type && (
+              <Badge variant="outline" className="text-xs bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+                {getJobTypeLabel(job.type)}
+              </Badge>
+            )}
+            {job.workMode && (
+              <Badge variant="outline" className="text-xs bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+                {getWorkModeLabel(job.workMode)}
+              </Badge>
+            )}
+            {job.location && (
+              <span className="text-xs text-slate-400 flex items-center gap-1">
+                <MapPin className="w-3 h-3" /> {job.location}
               </span>
-            </div>
-          )}
-        </div>
-        
-        {/* Boutons d'action */}
-        <div className="flex gap-3">
-          <div className="flex gap-1">
-            <button 
-              className={cn(
-                "p-2 rounded-lg transition-all duration-200",
-                isSaved 
-                  ? "bg-red-50 text-red-500 dark:bg-red-950/30" 
-                  : job.isActive
-                    ? "hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:scale-110"
-                    : "text-slate-300 cursor-not-allowed"
-              )}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (job.isActive) setIsSaved(!isSaved);
-              }}
-              disabled={!job.isActive}
-            >
-              <Heart className={cn("h-4 w-4", isSaved && "fill-current")} />
-            </button>
-            <button 
-              className={cn(
-                "p-2 rounded-lg transition-all duration-200",
-                job.isActive
-                  ? "hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:scale-110"
-                  : "text-slate-300 cursor-not-allowed"
-              )}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (job.isActive) {
-                  // Share functionality
-                }
-              }}
-              disabled={!job.isActive}
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
+            )}
           </div>
-          
-          <Button 
-            variant="outline"
-            onClick={handleDetailsClick}
-            size="sm"
-            className={cn(
-              "font-medium px-4 rounded-lg transition-all duration-200 border-2",
-              job.isActive
-                ? "text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-400 cursor-pointer hover:scale-105"
-                : "text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed"
-            )}
-            disabled={!job.isActive}
-          >
-            Détails
-          </Button>
-          
-          <Button 
-            onClick={handleApplyClick}
-            size="sm"
-            className={cn(
-              "font-medium px-6 rounded-lg shadow-sm transition-all duration-200",
-              job.isActive
-                ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white cursor-pointer hover:shadow-lg hover:scale-105"
-                : "bg-slate-200 dark:bg-slate-600 text-slate-400 cursor-not-allowed"
-            )}
-            disabled={!job.isActive}
-          >
-            {job.isActive ? "Postuler" : "Inactif"}
+
+          {/* Salary & Date (Col 10-12) */}
+          <div className="col-span-12 md:col-span-3 hidden md:block text-right">
+            <div className="font-bold text-slate-900 dark:text-white text-sm">
+              {formatSalary()}
+            </div>
+            <div className="text-xs text-slate-400 mt-1">
+              {getTimeAgo()}
+            </div>
+          </div>
+        </div>
+
+        {/* Hover Arrow Action */}
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute right-4 top-1/2 -translate-y-1/2 hidden md:block">
+          <Button size="icon" variant="ghost" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-full">
+            <ArrowRight className="w-5 h-5" />
           </Button>
         </div>
+      </div>
+    )
+  }
+
+  // --- GRID VIEW (YouTube Style - Borderless & Immersive) ---
+  return (
+    <div
+      onClick={() => job.isActive && onViewDetails(job)}
+      className={cn(
+        "group flex flex-col gap-3 cursor-pointer",
+        !job.isActive && "opacity-60 grayscale"
+      )}
+    >
+      {/* Visual Thumbnail Area */}
+      <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 shadow-sm group-hover:shadow-md transition-all duration-300">
+        {/* Background Pattern/Gradient */}
+        <div className={cn(
+          "absolute inset-0 opacity-10 dark:opacity-20 transition-transform duration-500 group-hover:scale-110",
+          "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-400 via-slate-200 to-slate-100 dark:from-emerald-900 dark:via-slate-900 dark:to-black"
+        )} />
+
+        {/* Centered Logo (Big) */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900/80 shadow-lg flex items-center justify-center text-3xl font-black text-slate-800 dark:text-emerald-500 backdrop-blur-sm">
+            {job.companyName.charAt(0)}
+          </div>
+        </div>
+
+        {/* Badges Overlay */}
+        <div className="absolute bottom-2 right-2 flex gap-1">
+          {isNew && <Badge className="bg-red-500 text-white border-0 shadow-sm text-[10px] px-1.5 h-5">NOUVEAU</Badge>}
+          <Badge className="bg-slate-900/80 text-white backdrop-blur-md border-0 text-[10px] px-1.5 h-5">
+            {formatSalary()}
+          </Badge>
+        </div>
+
+        {/* Type Badge Top Left */}
+        {job.type && (
+          <div className="absolute top-2 left-2">
+            <Badge variant="secondary" className="bg-white/90 dark:bg-black/50 backdrop-blur text-slate-800 dark:text-slate-200 text-[10px] border-0 h-5 font-medium shadow-sm">
+              {getJobTypeLabel(job.type)}
+            </Badge>
+          </div>
+        )}
+      </div>
+
+      {/* Content Info (YouTube Style) */}
+      <div className="flex gap-3 items-start px-1">
+        {/* Minimal Avatar */}
+        <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-400 flex-shrink-0 mt-0.5">
+          {job.companyName.charAt(0)}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {/* Title */}
+          <h3 className="font-bold text-slate-900 dark:text-white leading-tight line-clamp-2 text-sm md:text-base group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+            {job.title}
+          </h3>
+
+          {/* Metadata Line */}
+          <div className="flex items-center flex-wrap gap-x-2 text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
+            <span className="hover:text-slate-800 dark:hover:text-slate-200 transition-colors">{job.companyName}</span>
+            {job.workMode && (
+              <>
+                <span className="w-0.5 h-0.5 rounded-full bg-slate-400" />
+                <span>{getWorkModeLabel(job.workMode)}</span>
+              </>
+            )}
+            <span className="w-0.5 h-0.5 rounded-full bg-slate-400" />
+            <span>{getTimeAgo()}</span>
+          </div>
+        </div>
+
+        {/* Action Menu (Vertical Dots) or simple interaction hint could go here, but we keep it clean */}
       </div>
     </div>
-  );
-};
+  )
+}

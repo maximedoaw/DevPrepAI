@@ -18,6 +18,9 @@ import {
   User,
   Users,
   Video,
+  Search,
+  X,
+  Briefcase
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -128,13 +131,13 @@ export function InterviewsTab({ onScheduleInterview }: InterviewsTabProps) {
   const contextData = contextQuery.data
   const contextLoading = contextQuery.isLoading
 
-const meetingsData = meetingsQuery.data
-const meetingsLoading = meetingsQuery.isPending
-const meetingsFetching = meetingsQuery.isFetching
-const meetings: MeetingWithRelations[] = meetingsData?.meetings ?? []
-const previousStatusesRef = useRef(
-  new Map<string, { status: MeetingWithRelations["status"]; respondedAt?: string | Date | null }>()
-)
+  const meetingsData = meetingsQuery.data
+  const meetingsLoading = meetingsQuery.isPending
+  const meetingsFetching = meetingsQuery.isFetching
+  const meetings: MeetingWithRelations[] = meetingsData?.meetings ?? []
+  const previousStatusesRef = useRef(
+    new Map<string, { status: MeetingWithRelations["status"]; respondedAt?: string | Date | null }>()
+  )
 
   useEffect(() => {
     if (!meetings || meetings.length === 0) return
@@ -168,14 +171,14 @@ const previousStatusesRef = useRef(
     })
   }, [meetings])
 
-const pagination =
-  meetingsData?.pagination ?? {
-    page: 1,
-    pageSize: filters.pageSize,
-    total: 0,
-    totalPages: 1,
-    hasNextPage: false,
-  }
+  const pagination =
+    meetingsData?.pagination ?? {
+      page: 1,
+      pageSize: filters.pageSize,
+      total: 0,
+      totalPages: 1,
+      hasNextPage: false,
+    }
 
   const selectedJob = useMemo(() => {
     if (!contextData || !formData.jobPostingId) return undefined
@@ -184,7 +187,11 @@ const pagination =
 
   const candidateOptions = useMemo(() => {
     if (!selectedJob) return []
-    return selectedJob.candidates
+    // Filter candidates to only show those who are accepted
+    // Assuming the candidate object from context contains the application status
+    return selectedJob.candidates.filter((c: any) =>
+      c.status === 'ACCEPTED' || c.status === 'HIRED' || c.applicationStatus === 'ACCEPTED'
+    )
   }, [selectedJob])
 
   const stats = useMemo(() => {
@@ -372,15 +379,15 @@ const pagination =
       )
     }
 
-          return (
-            <div className="space-y-3">
-              {meetings.map((meeting) => {
-                const meetingDate = new Date(meeting.scheduledAt)
-                const isPast = meetingDate.getTime() < Date.now()
-                const canJoin = meetingDate.getTime() <= Date.now()
-                const isPublishing =
-                  publishMutation.isPending &&
-                  (publishMutation.variables as string | undefined) === meeting.id
+    return (
+      <div className="space-y-3">
+        {meetings.map((meeting) => {
+          const meetingDate = new Date(meeting.scheduledAt)
+          const isPast = meetingDate.getTime() < Date.now()
+          const canJoin = meetingDate.getTime() <= Date.now()
+          const isPublishing =
+            publishMutation.isPending &&
+            (publishMutation.variables as string | undefined) === meeting.id
 
           const initials = `${meeting.candidate.firstName?.[0] ?? ""}${meeting.candidate.lastName?.[0] ?? ""}`.trim()
 
@@ -388,29 +395,34 @@ const pagination =
             <div
               key={meeting.id}
               className={cn(
-                "rounded-xl border p-4 transition-colors",
-                "border-slate-200 dark:border-slate-800",
-                "bg-white dark:bg-slate-900/50"
+                "group relative rounded-xl border p-5 transition-all duration-200",
+                "border-slate-200 bg-white hover:border-emerald-200 hover:shadow-md",
+                "dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-emerald-800/50"
               )}
             >
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <Avatar className="h-12 w-12 border border-emerald-100 dark:border-emerald-900/40">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+
+                {/* Left Side: Avatar & Info */}
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Avatar className="h-14 w-14 border-2 border-slate-100 dark:border-slate-800 shadow-sm shrink-0">
                     <AvatarImage src={undefined} alt="candidate avatar" />
-                    <AvatarFallback>{initials || <User className="h-5 w-5" />}</AvatarFallback>
+                    <AvatarFallback className="bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300 text-lg">
+                      {initials || <User className="h-6 w-6" />}
+                    </AvatarFallback>
                   </Avatar>
-                  <div>
+
+                  <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">
+                      <h4 className="font-bold text-lg text-slate-900 dark:text-slate-100">
                         {meeting.candidate.firstName} {meeting.candidate.lastName}
-                      </p>
+                      </h4>
                       <Badge
-                        variant="outline"
+                        variant="soft"
                         className={cn(
-                          "text-xs border-slate-200 dark:border-slate-700",
+                          "text-[10px] px-2 py-0.5 rounded-full border",
                           meeting.isPublished
-                            ? "text-emerald-600 dark:text-emerald-300"
-                            : "text-amber-600 dark:text-amber-300"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800"
+                            : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
                         )}
                       >
                         {meeting.isPublished ? "Envoyé" : "Brouillon"}
@@ -418,115 +430,65 @@ const pagination =
                       <Badge
                         variant="outline"
                         className={cn(
-                          "text-xs capitalize border-emerald-200 dark:border-emerald-800",
+                          "text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wide",
                           meeting.status === "CANCELLED"
-                            ? "text-red-600 dark:text-red-400"
-                            : meeting.status === "COMPLETED"
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-emerald-700 dark:text-emerald-300"
+                            ? "border-red-200 text-red-700 bg-red-50 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800"
+                            : "border-slate-200 text-slate-600 bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
                         )}
                       >
                         {meeting.status.toLowerCase()}
                       </Badge>
                     </div>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
+
+                    <div className="flex items-center text-sm text-slate-500 dark:text-slate-400 font-medium">
+                      <Briefcase className="w-4 h-4 mr-1.5 text-slate-400" />
                       {meeting.job.title}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200">
-                        <CalendarDays className="h-3 w-3" />
-                        {format(meetingDate, "dd MMM yyyy - HH:mm", { locale: fr })}
-                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                      <div className="flex items-center text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700/50">
+                        <CalendarDays className="h-3.5 w-3.5 mr-2 text-emerald-600 dark:text-emerald-400" />
+                        {format(meetingDate, "dd MMM yyyy", { locale: fr })}
+                        <span className="mx-2 text-slate-300">|</span>
+                        {format(meetingDate, "HH:mm", { locale: fr })}
+                      </div>
+
                       {meeting.durationMinutes && (() => {
                         const hours = Math.floor(meeting.durationMinutes / 60)
                         const minutes = meeting.durationMinutes % 60
-                        const durationText = hours > 0 
-                          ? minutes > 0 
-                            ? `${hours}h ${minutes}min`
-                            : `${hours}h`
-                          : `${minutes}min`
+                        const durationText = hours > 0
+                          ? minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
+                          : `${minutes}m`
                         return (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-800 dark:bg-slate-900/30">
-                            <Clock className="h-3 w-3" />
+                          <div className="flex items-center text-xs text-slate-500 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded-md">
+                            <Clock className="h-3 w-3 mr-1.5" />
                             {durationText}
-                          </span>
+                          </div>
                         )
                       })()}
+
                       {meeting.location && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-800 dark:bg-slate-900/30">
-                          <MapPin className="h-3 w-3" />
+                        <div className="flex items-center text-xs text-slate-500 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded-md max-w-[150px] truncate">
+                          <MapPin className="h-3 w-3 mr-1.5" />
                           {meeting.location}
-                        </span>
-                      )}
-                      {meeting.meetingLink && (
-                        <a
-                          href={meeting.meetingLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
-                        >
-                          <Link2 className="h-3 w-3" />
-                          Lien visio
-                        </a>
+                        </div>
                       )}
                     </div>
-                    {meeting.isPublished && meeting.publishedAt && (
-                      <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-300">
-                        Envoyé le{" "}
-                        {format(new Date(meeting.publishedAt), "dd MMM yyyy à HH:mm", {
-                          locale: fr,
-                        })}
-                      </p>
-                    )}
-                    {meeting.candidateRespondedAt && (
-                      <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
-                        Réponse du candidat le{" "}
-                        {format(new Date(meeting.candidateRespondedAt), "dd MMM yyyy à HH:mm", {
-                          locale: fr,
-                        })}
-                      </p>
-                    )}
-                    {meeting.candidateNotes && (
-                      <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-200">
-                        <p className="font-medium text-slate-700 dark:text-slate-100">
-                          Message du candidat
-                        </p>
-                        <p className="mt-1 whitespace-pre-wrap">{meeting.candidateNotes}</p>
-                      </div>
-                    )}
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2 sm:items-end">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                      <Users className="h-3.5 w-3.5" />
-                      {meeting.application
-                        ? `Candidature: ${meeting.application.status}`
-                        : "Candidat invité"}
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "text-xs",
-                        isPast
-                          ? "border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400"
-                          : "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
-                      )}
-                    >
-                      {isPast ? "Entretien passé" : "À venir"}
-                    </Badge>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
+                {/* Right Side: Actions */}
+                <div className="flex flex-col gap-3 mt-4 lg:mt-0 lg:items-end w-full lg:w-auto">
+                  <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
                     {canJoin ? (
                       <Button
-                        variant="secondary"
                         size="sm"
-                        className="bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/20 dark:text-emerald-300"
+                        className="bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-200 dark:shadow-none"
                         asChild
                       >
                         <Link href={`/meetings/${meeting.id}`} prefetch={false}>
-                          Rejoindre l'appel
+                          <Video className="mr-2 h-3.5 w-3.5" />
+                          Rejoindre
                         </Link>
                       </Button>
                     ) : (
@@ -534,72 +496,70 @@ const pagination =
                         variant="outline"
                         size="sm"
                         disabled
-                        className="border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                        className="opacity-50"
                       >
-                        À venir
+                        <Clock className="mr-2 h-3.5 w-3.5" />
+                        Bientôt
                       </Button>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40"
-                      onClick={() => handleCopyMeetingLink(meeting.id)}
-                    >
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copier le lien
-                    </Button>
+
                     {!meeting.isPublished && (
                       <Button
-                        variant="outline"
+                        variant="default"
                         size="sm"
-                        className="border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
+                        className="bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900"
                         onClick={() => publishMeeting(meeting.id)}
                         disabled={isPublishing}
                       >
-                        {isPublishing ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Envoi...
-                          </>
-                        ) : (
-                          <>
-                            <Send className="mr-2 h-4 w-4" />
-                            Envoyer
-                          </>
-                        )}
+                        {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-2" />}
+                        {isPublishing ? "..." : "Envoyer"}
                       </Button>
                     )}
+
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
+                      onClick={() => handleCopyMeetingLink(meeting.id)}
+                      title="Copier le lien"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => handleEditMeeting(meeting)}
+                      title="Modifier"
                     >
                       Modifier
                     </Button>
-                    {meeting.status !== "CANCELLED" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-300"
-                        onClick={() => handleCancelMeeting(meeting.id)}
-                        disabled={cancelMutation.isPending}
-                      >
-                        Annuler
-                      </Button>
-                    )}
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      className="border-red-200 text-red-600 dark:border-red-800 dark:text-red-400"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                       onClick={() => handleDeleteMeeting(meeting.id)}
-                      disabled={deleteMutation.isPending}
+                      title="Supprimer"
                     >
-                      Supprimer
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
+
+                  {meeting.candidateRespondedAt && (
+                    <div className="text-xs text-right text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/10 px-2 py-1 rounded inline-block self-start lg:self-end">
+                      Confirmé le {format(new Date(meeting.candidateRespondedAt), "dd/MM/yy", { locale: fr })}
+                    </div>
+                  )}
                 </div>
+
               </div>
+
+              {/* Optional: Candidate Notes expansion could go here */}
+              {meeting.candidateNotes && (
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <p className="text-xs font-semibold text-slate-500 mb-1">Note du candidat:</p>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 italic">"{meeting.candidateNotes}"</p>
+                </div>
+              )}
+
             </div>
           )
         })}
@@ -625,7 +585,7 @@ const pagination =
         <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <CardTitle className="text-2xl font-bold text-slate-900 dark:text-white">
-          Gestion des entretiens
+              Gestion des entretiens
             </CardTitle>
             <CardDescription className="text-slate-600 dark:text-slate-400">
               Planifiez vos échanges, suivez les candidats rencontrés et anticipez vos prochaines sessions.
@@ -651,28 +611,32 @@ const pagination =
         </CardHeader>
       </Card>
 
-      <Card className="border border-slate-200/70 bg-white/80 dark:border-slate-800/70 dark:bg-slate-900/70 shadow-lg">
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+      <Card className="border border-slate-200/70 bg-white/80 dark:border-slate-800/70 dark:bg-slate-900/70 shadow-sm mb-6">
+        <CardContent className="p-4 space-y-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Rechercher
               </Label>
-              <Input
-                placeholder="Nom, email ou intitulé..."
-                value={filters.search}
-                onChange={(event) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    search: event.target.value,
-                    page: 1,
-                  }))
-                }
-                className="border-slate-200 dark:border-slate-700"
-              />
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Candidat..."
+                  value={filters.search}
+                  onChange={(event) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      search: event.target.value,
+                      page: 1,
+                    }))
+                  }
+                  className="pl-9 h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-emerald-500"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Statut
               </Label>
               <Select
@@ -685,7 +649,7 @@ const pagination =
                   }))
                 }
               >
-                <SelectTrigger className="border-slate-200 dark:border-slate-700">
+                <SelectTrigger className="h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus:ring-emerald-500">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -697,9 +661,10 @@ const pagination =
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Offre d'emploi
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Offre
               </Label>
               <Select
                 value={filters.jobPostingId}
@@ -711,7 +676,7 @@ const pagination =
                   }))
                 }
               >
-                <SelectTrigger className="border-slate-200 dark:border-slate-700">
+                <SelectTrigger className="h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus:ring-emerald-500">
                   <SelectValue placeholder="Toutes les offres" />
                 </SelectTrigger>
                 <SelectContent>
@@ -724,80 +689,63 @@ const pagination =
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-900/10">
-              <div>
-                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-200">
-                  Uniquement les à venir
-                </p>
-                <p className="text-xs text-emerald-600 dark:text-emerald-300">
-                  {upcomingCount} entretien(s) programmés
-                </p>
+
+            {/* Switches grouped */}
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm text-slate-600 dark:text-slate-300">À venir uniquement</Label>
+                <Switch
+                  checked={filters.upcomingOnly}
+                  onCheckedChange={(value) =>
+                    setFilters((prev) => ({ ...prev, upcomingOnly: value, page: 1 }))
+                  }
+                />
               </div>
-              <Switch
-                checked={filters.upcomingOnly}
-                onCheckedChange={(value) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    upcomingOnly: value,
-                    page: 1,
-                  }))
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/40">
-              <div>
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                  Voir seulement les propositions envoyées
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Masque les brouillons internes.
-                </p>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm text-slate-600 dark:text-slate-300">Publiés uniquement</Label>
+                <Switch
+                  checked={filters.publishedOnly}
+                  onCheckedChange={(value) =>
+                    setFilters((prev) => ({ ...prev, publishedOnly: value, page: 1 }))
+                  }
+                />
               </div>
-              <Switch
-                checked={filters.publishedOnly}
-                onCheckedChange={(value) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    publishedOnly: value,
-                    page: 1,
-                  }))
-                }
-              />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border border-emerald-100/70 dark:border-emerald-900/30 bg-white/90 dark:bg-slate-900/70 shadow-md">
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="rounded-full bg-emerald-100 p-3 dark:bg-emerald-900/40">
-              <CalendarDays className="h-6 w-6 text-emerald-600 dark:text-emerald-300" />
+      {/* Stats Cards - Responsive Grid */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 mb-6">
+        <Card className="bg-white/50 dark:bg-slate-900/50 border-emerald-100 dark:border-emerald-900/30 shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="rounded-full bg-emerald-100 p-2.5 dark:bg-emerald-900/30">
+              <CalendarDays className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">À venir</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">À venir</p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">
                 {stats.upcomingCount}
               </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-emerald-100/70 dark:border-emerald-900/30 bg-white/90 dark:bg-slate-900/70 shadow-md">
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="rounded-full bg-green-100 p-3 dark:bg-green-900/40">
-              <Clock className="h-6 w-6 text-green-600 dark:text-green-300" />
+        <Card className="bg-white/50 dark:bg-slate-900/50 border-emerald-100 dark:border-emerald-900/30 shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="rounded-full bg-blue-100 p-2.5 dark:bg-blue-900/30">
+              <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Cette semaine</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Cette semaine</p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">
                 {stats.thisWeekCount}
               </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-emerald-100/70 dark:border-emerald-900/30 bg-white/90 dark:bg-slate-900/70 shadow-md">
+        <Card className="bg-white/50 dark:bg-slate-900/50 border-emerald-100 dark:border-emerald-900/30 shadow-sm">
           <CardContent className="flex items-center gap-4 p-5">
             <div className="rounded-full bg-teal-100 p-3 dark:bg-teal-900/40">
               <CheckCircle2 className="h-6 w-6 text-teal-600 dark:text-teal-300" />
@@ -808,8 +756,8 @@ const pagination =
                 {stats.completedCount}
               </p>
             </div>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
       </div>
 
       <Card className="border border-slate-200/70 bg-white/90 shadow-xl dark:border-slate-800/70 dark:bg-slate-900/70">
@@ -896,288 +844,288 @@ const pagination =
               </div>
             ) : (
               <div className="space-y-5">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Offre d'emploi
-                  </Label>
-                  <Select
-                    value={formData.jobPostingId}
-                    onValueChange={(value) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        jobPostingId: value,
-                        candidateId: "",
-                        applicationId: undefined,
-                      }))
-                    }}
-                  >
-                    <SelectTrigger className="border-slate-200 dark:border-slate-700">
-                      <SelectValue placeholder="Sélectionner une offre" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(contextData?.jobs || []).map((job) => (
-                        <SelectItem key={job.id} value={job.id}>
-                          {job.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Date
-                  </Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal border-slate-200 dark:border-slate-700",
-                          !selectedDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        {selectedDate ? (
-                          format(selectedDate, "PPP", { locale: fr })
-                        ) : (
-                          <span>Sélectionner une date</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={(date) => {
-                          setSelectedDate(date)
-                          if (date) {
-                            const time = selectedTime || "09:00"
-                            const [hours, minutes] = time.split(":")
-                            const datetime = new Date(date)
-                            datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
-                            setFormData((prev) => ({
-                              ...prev,
-                              scheduledAt: datetime.toISOString().slice(0, 16),
-                            }))
-                          }
-                        }}
-                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Heure
-                  </Label>
-                  <Input
-                    type="time"
-                    value={selectedTime}
-                    onChange={(event) => {
-                      const time = event.target.value
-                      setSelectedTime(time)
-                      if (selectedDate) {
-                        const [hours, minutes] = time.split(":")
-                        const datetime = new Date(selectedDate)
-                        datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Offre d'emploi
+                    </Label>
+                    <Select
+                      value={formData.jobPostingId}
+                      onValueChange={(value) => {
                         setFormData((prev) => ({
                           ...prev,
-                          scheduledAt: datetime.toISOString().slice(0, 16),
+                          jobPostingId: value,
+                          candidateId: "",
+                          applicationId: undefined,
+                        }))
+                      }}
+                    >
+                      <SelectTrigger className="border-slate-200 dark:border-slate-700">
+                        <SelectValue placeholder="Sélectionner une offre" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(contextData?.jobs || []).map((job) => (
+                          <SelectItem key={job.id} value={job.id}>
+                            {job.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Date
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal border-slate-200 dark:border-slate-700",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarDays className="mr-2 h-4 w-4" />
+                          {selectedDate ? (
+                            format(selectedDate, "PPP", { locale: fr })
+                          ) : (
+                            <span>Sélectionner une date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={(date) => {
+                            setSelectedDate(date)
+                            if (date) {
+                              const time = selectedTime || "09:00"
+                              const [hours, minutes] = time.split(":")
+                              const datetime = new Date(date)
+                              datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
+                              setFormData((prev) => ({
+                                ...prev,
+                                scheduledAt: datetime.toISOString().slice(0, 16),
+                              }))
+                            }
+                          }}
+                          disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Heure
+                    </Label>
+                    <Input
+                      type="time"
+                      value={selectedTime}
+                      onChange={(event) => {
+                        const time = event.target.value
+                        setSelectedTime(time)
+                        if (selectedDate) {
+                          const [hours, minutes] = time.split(":")
+                          const datetime = new Date(selectedDate)
+                          datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
+                          setFormData((prev) => ({
+                            ...prev,
+                            scheduledAt: datetime.toISOString().slice(0, 16),
+                          }))
+                        }
+                      }}
+                      className="border-slate-200 dark:border-slate-700"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Candidat
+                    </Label>
+                    <Select
+                      value={formData.candidateId}
+                      onValueChange={(value) => {
+                        const candidate = candidateOptions.find(
+                          (option) => option.user.id === value
+                        )
+                        setFormData((prev) => ({
+                          ...prev,
+                          candidateId: value,
+                          applicationId: candidate?.applicationId,
+                        }))
+                      }}
+                      disabled={!selectedJob || candidateOptions.length === 0}
+                    >
+                      <SelectTrigger className="border-slate-200 dark:border-slate-700">
+                        <SelectValue placeholder={selectedJob ? "Choisir un candidat" : "Sélectionnez d'abord une offre"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {candidateOptions.map((candidate) => {
+                          const initials = `${candidate.user.firstName?.[0] ?? ""}${candidate.user.lastName?.[0] ?? ""}`.trim() || "?"
+                          return (
+                            <SelectItem key={candidate.user.id} value={candidate.user.id}>
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-6 w-6 border border-emerald-200 dark:border-emerald-800">
+                                  <AvatarImage src={undefined} alt={`${candidate.user.firstName} ${candidate.user.lastName}`} />
+                                  <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs font-medium">
+                                    {initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span>
+                                  {candidate.user.firstName} {candidate.user.lastName} —{" "}
+                                  {candidate.status.toLowerCase()}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          )
+                        })}
+                      </SelectContent>
+                    </Select>
+                    {selectedJob && candidateOptions.length === 0 && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        Aucun candidat n'est associé à cette offre pour le moment.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Durée (minutes)
+                    </Label>
+                    <Input
+                      type="number"
+                      min={15}
+                      value={formData.durationMinutes ?? 45}
+                      onChange={(event) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          durationMinutes: Number(event.target.value),
                         }))
                       }
-                    }}
-                    className="border-slate-200 dark:border-slate-700"
-                  />
+                      className="border-slate-200 dark:border-slate-700"
+                    />
+                    {formData.durationMinutes && formData.durationMinutes > 60 && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {(() => {
+                          const hours = Math.floor(formData.durationMinutes / 60)
+                          const minutes = formData.durationMinutes % 60
+                          return minutes > 0 ? `${hours}h ${minutes}min` : `${hours}h`
+                        })()}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Statut du meeting
+                    </Label>
+                    <Select
+                      value={formData.status ?? "PLANNED"}
+                      onValueChange={(value) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          status: value as ScheduleInterviewMeetingInput["status"],
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="border-slate-200 dark:border-slate-700">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PLANNED">Planifié</SelectItem>
+                        <SelectItem value="CONFIRMED">Confirmé</SelectItem>
+                        <SelectItem value="COMPLETED">Terminé</SelectItem>
+                        <SelectItem value="CANCELLED">Annulé</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Lien visio (optionnel)
+                    </Label>
+                    <Input
+                      type="url"
+                      placeholder="https://"
+                      value={formData.meetingLink ?? ""}
+                      onChange={(event) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          meetingLink: event.target.value,
+                        }))
+                      }
+                      className="border-slate-200 dark:border-slate-700"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Lieu (optionnel)
+                    </Label>
+                    <Input
+                      placeholder="Bureau, salle, adresse..."
+                      value={formData.location ?? ""}
+                      onChange={(event) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          location: event.target.value,
+                        }))
+                      }
+                      className="border-slate-200 dark:border-slate-700"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Candidat
+                    Notes internes
                   </Label>
-                  <Select
-                    value={formData.candidateId}
-                    onValueChange={(value) => {
-                      const candidate = candidateOptions.find(
-                        (option) => option.user.id === value
-                      )
-                      setFormData((prev) => ({
-                        ...prev,
-                        candidateId: value,
-                        applicationId: candidate?.applicationId,
-                      }))
-                    }}
-                    disabled={!selectedJob || candidateOptions.length === 0}
-                  >
-                    <SelectTrigger className="border-slate-200 dark:border-slate-700">
-                      <SelectValue placeholder={selectedJob ? "Choisir un candidat" : "Sélectionnez d'abord une offre"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {candidateOptions.map((candidate) => {
-                        const initials = `${candidate.user.firstName?.[0] ?? ""}${candidate.user.lastName?.[0] ?? ""}`.trim() || "?"
-                        return (
-                          <SelectItem key={candidate.user.id} value={candidate.user.id}>
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-6 w-6 border border-emerald-200 dark:border-emerald-800">
-                                <AvatarImage src={undefined} alt={`${candidate.user.firstName} ${candidate.user.lastName}`} />
-                                <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs font-medium">
-                                  {initials}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span>
-                                {candidate.user.firstName} {candidate.user.lastName} —{" "}
-                                {candidate.status.toLowerCase()}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-                  {selectedJob && candidateOptions.length === 0 && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Aucun candidat n'est associé à cette offre pour le moment.
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Durée (minutes)
-                  </Label>
-                  <Input
-                    type="number"
-                    min={15}
-                    value={formData.durationMinutes ?? 45}
+                  <Textarea
+                    placeholder="Ajoutez des points à aborder, un ordre du jour, des consignes..."
+                    value={formData.notes ?? ""}
                     onChange={(event) =>
                       setFormData((prev) => ({
                         ...prev,
-                        durationMinutes: Number(event.target.value),
+                        notes: event.target.value,
                       }))
                     }
-                    className="border-slate-200 dark:border-slate-700"
+                    className="min-h-[100px] border-slate-200 dark:border-slate-700"
                   />
-                  {formData.durationMinutes && formData.durationMinutes > 60 && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {(() => {
+                </div>
+
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/10 dark:text-emerald-200">
+                  <p className="font-medium flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Récapitulatif
+                  </p>
+                  <p className="mt-1">
+                    L'entretien sera planifié pour&nbsp;
+                    <span className="font-semibold">
+                      {formData.scheduledAt
+                        ? format(new Date(formData.scheduledAt), "dd MMMM yyyy à HH:mm", { locale: fr })
+                        : "date à définir"}
+                    </span>
+                    {formData.durationMinutes
+                      ? ` (durée prévue : ${(() => {
                         const hours = Math.floor(formData.durationMinutes / 60)
                         const minutes = formData.durationMinutes % 60
-                        return minutes > 0 ? `${hours}h ${minutes}min` : `${hours}h`
-                      })()}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Statut du meeting
-                  </Label>
-                  <Select
-                    value={formData.status ?? "PLANNED"}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        status: value as ScheduleInterviewMeetingInput["status"],
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="border-slate-200 dark:border-slate-700">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PLANNED">Planifié</SelectItem>
-                      <SelectItem value="CONFIRMED">Confirmé</SelectItem>
-                      <SelectItem value="COMPLETED">Terminé</SelectItem>
-                      <SelectItem value="CANCELLED">Annulé</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Lien visio (optionnel)
-                  </Label>
-                  <Input
-                    type="url"
-                    placeholder="https://"
-                    value={formData.meetingLink ?? ""}
-                    onChange={(event) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        meetingLink: event.target.value,
-                      }))
-                    }
-                    className="border-slate-200 dark:border-slate-700"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Lieu (optionnel)
-                  </Label>
-                  <Input
-                    placeholder="Bureau, salle, adresse..."
-                    value={formData.location ?? ""}
-                    onChange={(event) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        location: event.target.value,
-                      }))
-                    }
-                    className="border-slate-200 dark:border-slate-700"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Notes internes
-                </Label>
-                <Textarea
-                  placeholder="Ajoutez des points à aborder, un ordre du jour, des consignes..."
-                  value={formData.notes ?? ""}
-                  onChange={(event) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      notes: event.target.value,
-                    }))
-                  }
-                  className="min-h-[100px] border-slate-200 dark:border-slate-700"
-                />
-              </div>
-
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/10 dark:text-emerald-200">
-                <p className="font-medium flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Récapitulatif
-                </p>
-                <p className="mt-1">
-                  L'entretien sera planifié pour&nbsp;
-                  <span className="font-semibold">
-                    {formData.scheduledAt
-                      ? format(new Date(formData.scheduledAt), "dd MMMM yyyy à HH:mm", { locale: fr })
-                      : "date à définir"}
-                  </span>
-                  {formData.durationMinutes
-                    ? ` (durée prévue : ${(() => {
-                        const hours = Math.floor(formData.durationMinutes / 60)
-                        const minutes = formData.durationMinutes % 60
-                        return hours > 0 
-                          ? minutes > 0 
+                        return hours > 0
+                          ? minutes > 0
                             ? `${hours}h ${minutes}min`
                             : `${hours}h`
                           : `${minutes}min`
                       })()})`
-                    : ""}
-                  .
-                </p>
+                      : ""}
+                    .
+                  </p>
+                </div>
               </div>
-            </div>
             )}
           </div>
 

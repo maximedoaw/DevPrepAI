@@ -67,7 +67,7 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
     error,
   } = useQuery({
     queryKey: ["interview", interviewId],
-    queryFn: async () => {
+    queryFn: async ()  => {
       // 1. Try fetching standard Quiz Interview
       const result = await getInterviewById(interviewId)
       if (result) {
@@ -88,7 +88,7 @@ export function InterviewContainer({ interviewId }: InterviewContainerProps) {
         return {
           id: vi.id,
           title: `Entretien Vocal - ${vi.technologies[0] || "Custom"}`,
-          company: "DevPrepAI",
+          company: "SkillWokz",
           duration: vi.duration,
           difficulty: "MID", // Default or stored in context string?
           type: "MOCK_INTERVIEW", // Force type to trigger VocalInterview

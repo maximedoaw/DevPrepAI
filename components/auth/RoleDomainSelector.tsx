@@ -601,7 +601,18 @@ export default function RoleDomainSelector({ onComplete }: RoleDomainSelectorPro
       mutation.mutate(finalAvatarUrl || undefined);
     } catch (error) {
       console.error("Erreur d'upload avatar:", error);
-      setUploadError("Impossible de téléverser l'avatar. Réessayez.");
+
+      let errorMessage = "Impossible de téléverser l'avatar. Réessayez.";
+      if (error instanceof Error) {
+        if (error.message.includes("FetchError")) {
+          console.error("Cause probable: Clés API UploadThing manquantes ou problème réseau vers /api/uploadthing");
+          errorMessage = "Erreur de configuration (FetchError). Vérifiez les clés API.";
+        } else {
+          errorMessage = `Erreur: ${error.message}`;
+        }
+      }
+
+      setUploadError(errorMessage);
     }
   };
 

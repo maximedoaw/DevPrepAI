@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import { Suspense, useRef } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
 import { OrbitControls, Float, Environment, PerspectiveCamera } from "@react-three/drei"
@@ -340,7 +340,11 @@ export default function ThreeDTemplate({ portfolioData }: ThreeDTemplateProps) {
       <div className="relative z-10 bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 from-slate-100 to-slate-50">
 
         {/* Dynamic Sections */}
-        {sectionsOrder.map((sectionId: string) => renderSection(sectionId))}
+        {sectionsOrder.map((sectionId: string) => (
+          <React.Fragment key={sectionId}>
+            {renderSection(sectionId)}
+          </React.Fragment>
+        ))}
 
       </div>
     </div>

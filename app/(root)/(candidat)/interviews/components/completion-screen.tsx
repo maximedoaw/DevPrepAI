@@ -331,7 +331,7 @@ export function CompletionScreen({ interview, score, timeLeft, formatTime, answe
                                     <div className="text-lg">💡</div>
                                   </div>
                                   <div className="space-y-1">
-                                    <p className="font-bold text-emerald-900 dark:text-emerald-100 text-xs uppercase tracking-wider">L'explication de l'IA</p>
+                                    <p className="font-bold text-emerald-900 dark:text-emerald-100 text-xs uppercase tracking-wider">Explication</p>
                                     <p className="leading-relaxed opacity-90">{q.explanation}</p>
                                   </div>
                                 </div>

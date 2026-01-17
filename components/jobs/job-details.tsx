@@ -2,7 +2,7 @@
 import { JobPosting } from "@/types/job";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Sparkles, Clock, Briefcase, Building2, Users, DollarSign } from "lucide-react";
+import { MapPin, Sparkles, Clock, Briefcase, Building2, Users, DollarSign, ChevronRight, Share2, Info, CheckCircle2, FileText, Zap, User, FileCheck, Rocket, Wand2, Brain, Ban, ClipboardCheck } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import {
@@ -10,7 +10,9 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface JobDetailsProps {
   job: JobPosting | null;
@@ -23,7 +25,7 @@ export const JobDetails = ({ job, open, onClose, onApply }: JobDetailsProps) => 
   if (!job) return null;
 
   const daysAgo = Math.floor((Date.now() - job.createdAt.getTime()) / (1000 * 60 * 60 * 24));
-  
+
   const formatSalary = () => {
     if (job.salaryMin && job.salaryMax) {
       return `${(job.salaryMin / 1000000).toFixed(1)}M - ${(job.salaryMax / 1000000).toFixed(1)}M ${job.currency || "FCFA"}`;
@@ -38,166 +40,187 @@ export const JobDetails = ({ job, open, onClose, onApply }: JobDetailsProps) => 
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent 
-        side="right" 
+      <SheetContent
+        side="right"
         className={cn(
-          "w-full sm:max-w-2xl p-0 overflow-hidden",
-          "bg-gradient-to-br dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 from-slate-50 via-blue-50/80 to-slate-100",
-          "border-l border-slate-200/60 dark:border-slate-700/60"
+          "w-full sm:max-w-2xl p-0 overflow-hidden border-0",
+          "bg-white dark:bg-slate-950",
+          "shadow-[-10px_0_30px_-10px_rgba(16,185,129,0.1)]"
         )}
       >
-        <div className="h-full flex flex-col">
-          {/* Header */}
-          <SheetHeader className="flex-shrink-0 p-6 pb-0 bg-gradient-to-b from-white/95 to-white/80 dark:from-slate-900/95 dark:to-slate-900/80 backdrop-blur-sm border-b border-slate-200/50 dark:border-slate-700/50">
-            <SheetTitle className="text-left">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                  Détails de l'offre
-                </h2>
-              </div>
-
-              {/* En-tête du job */}
-              <div className="flex items-start gap-4 mb-6">
-                {job.companyLogo ? (
-                  <div className="relative flex-shrink-0 group">
-                    <img 
-                      src={job.companyLogo} 
-                      alt={job.companyName}
-                      className="w-16 h-16 rounded-xl object-cover border border-slate-200 dark:border-slate-600 transition-all duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 dark:from-blue-400/5 dark:to-purple-400/5" />
-                  </div>
-                ) : (
-                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg border border-slate-200 dark:border-slate-600 transition-all duration-300 hover:scale-105">
-                    {job.companyName.charAt(0)}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-2">
-                    {job.title}
-                  </h1>
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                    <Building2 className="h-4 w-4" />
-                    <span className="font-medium truncate">{job.companyName}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Métadonnées principales */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {job.location && (
-                  <div className="flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 transition-all duration-300 hover:scale-105">
-                    <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <span className="text-sm font-medium">{job.location}</span>
-                  </div>
-                )}
-                {job.type && (
-                  <div className="flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 transition-all duration-300 hover:scale-105">
-                    <Briefcase className="h-4 w-4 text-green-600 dark:text-green-400" />
-                    <span className="text-sm font-medium">{job.type.replace('_', ' ')}</span>
-                  </div>
-                )}
-                {applicationsCount > 0 && (
-                  <div className="flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 transition-all duration-300 hover:scale-105">
-                    <Users className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                    <span className="text-sm font-medium">{applicationsCount} candidature{applicationsCount > 1 ? 's' : ''}</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 transition-all duration-300 hover:scale-105">
-                  <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                  <span className="text-sm font-medium">Publié il y a {daysAgo} jour{daysAgo > 1 ? 's' : ''}</span>
-                </div>
-              </div>
-
-              {/* Salaire */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 p-4 rounded-xl border border-blue-200/50 dark:border-blue-800/50 mb-6 transition-all duration-300 hover:shadow-md">
-                <div className="flex items-center gap-2 mb-1">
-                  <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <p className="text-sm text-slate-600 dark:text-slate-400">Salaire estimé</p>
-                </div>
-                <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
-                  {formatSalary() || "Salaire à négocier"}
-                </p>
-              </div>
-            </SheetTitle>
+        <div className="h-full flex flex-col relative">
+          <SheetHeader className="sr-only">
+            <SheetTitle>{job.title}</SheetTitle>
+            <SheetDescription>Détails du poste chez {job.companyName}</SheetDescription>
           </SheetHeader>
 
-          {/* Contenu scrollable */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-6 space-y-8">
-              {/* Description */}
-              <div>
-                <h3 className="font-bold text-lg mb-4 text-slate-900 dark:text-white flex items-center gap-2">
-                  <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full" />
-                  Description du poste
-                </h3>
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line bg-white/50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200/50 dark:border-slate-700/50 backdrop-blur-sm">
-                  {job.description}
-                </p>
+          {/* Decorative background elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
+
+          {/* Header section with human touch */}
+          <div className="flex-shrink-0 p-8 pt-10 relative overflow-hidden bg-gradient-to-b from-emerald-50/50 to-transparent dark:from-emerald-950/20 dark:to-transparent">
+            <div className="flex gap-6 items-start relative z-10">
+              {/* Company Logo or Initial */}
+              {job.companyLogo ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="relative flex-shrink-0 group"
+                >
+                  <img
+                    src={job.companyLogo}
+                    alt={job.companyName}
+                    className="w-20 h-20 rounded-2xl object-cover border-2 border-white dark:border-slate-800 shadow-xl transition-all duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1 rounded-full border-2 border-white dark:border-slate-800 shadow-md">
+                    <CheckCircle2 className="w-3 h-3" />
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-bold text-2xl border-2 border-white dark:border-slate-800 shadow-xl"
+                >
+                  {job.companyName.charAt(0)}
+                </motion.div>
+              )}
+
+              <div className="flex-1 space-y-2">
+                <div className="flex flex-wrap gap-2 items-center">
+                  {job.type && (
+                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-0 font-semibold px-3 py-0.5">
+                      {job.type.replace('_', ' ')}
+                    </Badge>
+                  )}
+                  {daysAgo < 7 && (
+                    <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border-0 font-semibold px-3 py-0.5">
+                      Nouveau
+                    </Badge>
+                  )}
+                </div>
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-white leading-tight">
+                  {job.title}
+                </h1>
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 group cursor-default">
+                  <Building2 className="h-4 w-4 text-emerald-500" />
+                  <span className="font-medium group-hover:text-emerald-600 transition-colors uppercase tracking-wider text-xs">
+                    {job.companyName}
+                  </span>
+                </div>
               </div>
+            </div>
 
-              <Separator className="bg-slate-200/50 dark:bg-slate-700/50" />
+            {/* Quick stats buttons/pills */}
+            <div className="flex flex-wrap gap-3 mt-8 relative z-10">
+              <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200/50 dark:border-slate-800/50 shadow-sm transition-all hover:border-emerald-500/30">
+                <MapPin className="h-4 w-4 text-emerald-500" />
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{job.location || "Remote"}</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200/50 dark:border-slate-800/50 shadow-sm transition-all hover:border-emerald-500/30">
+                <Clock className="h-4 w-4 text-emerald-500" />
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Il y a {daysAgo}j</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200/50 dark:border-slate-800/50 shadow-sm transition-all hover:border-emerald-500/30">
+                <Users className="h-4 w-4 text-emerald-500" />
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{applicationsCount} candidats</span>
+              </div>
+            </div>
+          </div>
 
-              {/* Compétences */}
-              <div>
-                <h3 className="font-bold text-lg mb-4 text-slate-900 dark:text-white flex items-center gap-2">
-                  <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full" />
-                  Compétences requises
-                </h3>
-                <div className="flex flex-wrap gap-3">
+          {/* Main content scroll area */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="p-8 space-y-10">
+              {/* Salary Section - Human friendly */}
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500">
+                    <DollarSign className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Rémunération</h3>
+                </div>
+                <div className="bg-emerald-500/[0.03] dark:bg-emerald-500/[0.05] p-6 rounded-3xl border border-emerald-500/10 transition-all hover:shadow-md">
+                  <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">
+                    {formatSalary() || "Salaire à négocier"}
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">
+                    Estimation basée sur le marché et l'expérience
+                  </p>
+                </div>
+              </section>
+
+              {/* Job Description */}
+              <section className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500">
+                    <Info className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">À propos du rôle</h3>
+                </div>
+                <div className="text-slate-600 dark:text-slate-400 leading-relaxed text-base space-y-4 whitespace-pre-line">
+                  {job.description}
+                </div>
+              </section>
+
+              {/* Skills Section */}
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Compétences attendues</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
                   {job.skills.map((skill) => (
-                    <Badge 
-                      key={skill} 
-                      className="bg-gradient-to-r from-blue-100 to-blue-50 text-blue-800 dark:from-blue-900/40 dark:to-blue-800/30 dark:text-blue-200 border-0 px-4 py-2 transition-all duration-300 hover:scale-105 hover:shadow-md"
+                    <Badge
+                      key={skill}
+                      className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-0 px-4 py-2 rounded-full font-medium transition-all hover:bg-emerald-500 hover:text-white"
                     >
                       {skill}
                     </Badge>
                   ))}
                 </div>
-              </div>
+              </section>
 
-              <Separator className="bg-slate-200/50 dark:bg-slate-700/50" />
-
-              {/* Domaines */}
-              <div>
-                <h3 className="font-bold text-lg mb-4 text-slate-900 dark:text-white flex items-center gap-2">
-                  <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full" />
-                  Domaines
-                </h3>
-                <div className="flex flex-wrap gap-3">
-                  {job.domains.map((domain) => (
-                    <Badge 
-                      key={domain} 
-                      className="bg-gradient-to-r from-purple-100 to-pink-50 text-purple-800 dark:from-purple-900/40 dark:to-pink-800/30 dark:text-purple-200 border-0 px-4 py-2 transition-all duration-300 hover:scale-105 hover:shadow-md"
-                    >
-                      {domain}
-                    </Badge>
-                  ))}
+              {/* Share section */}
+              <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl flex items-center justify-between border border-slate-200/50 dark:border-slate-800/50">
+                <div className="flex gap-4 items-center">
+                  <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200/50 dark:border-slate-700/50">
+                    <Share2 className="w-4 h-4 text-slate-500" />
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-bold text-slate-900 dark:text-white">Partager l'offre</p>
+                    <p className="text-slate-500">Aidez un ami dans sa carrière</p>
+                  </div>
                 </div>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
               </div>
             </div>
           </div>
 
-          {/* Boutons d'action */}
-          <div className="flex-shrink-0 p-6 border-t border-slate-200/50 dark:border-slate-700/50 bg-gradient-to-t from-white/90 to-white/70 dark:from-slate-900/90 dark:to-slate-900/70 backdrop-blur-sm">
-            <div className="flex gap-3">
-              <Button 
+          {/* Action bar - Fixed bottom */}
+          <div className="flex-shrink-0 p-8 border-t border-slate-100 dark:border-slate-900 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl">
+            <div className="flex gap-4">
+              <Button
                 onClick={() => {
                   onApply(job);
                   onClose();
                 }}
                 size="lg"
-                className="flex-1  bg-gradient-to-r from-green-600 to-green-600 hover:from-green-700 hover:to-green-700 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
+                className="flex-1 h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-xl shadow-emerald-500/20 text-lg font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                Postuler en 1 clic
+                Postuler maintenant
               </Button>
-              <Button 
-                variant="outline" 
-                size="lg" 
+              <Button
+                variant="outline"
+                size="lg"
                 onClick={onClose}
-                className="border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-300 hover:scale-105"
+                className="h-14 w-14 p-0 rounded-2xl border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
               >
-                Fermer
+                <ChevronRight className="w-6 h-6 rotate-180" />
               </Button>
             </div>
           </div>

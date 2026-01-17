@@ -1,9 +1,16 @@
 "use client";
 
 import PortfolioBuilder from "@/components/portfolio/portfolio-builder";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Eye } from "lucide-react";
+import { usePortfolioBuilder } from "@/hooks/usePortfolioBuilder";
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default function PortfolioPage() {
+  const { user } = useKindeBrowserClient();
+  const { portfolio } = usePortfolioBuilder({ userId: user?.id, enabled: !!user?.id });
+
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 relative overflow-hidden">
       {/* Background Gradients & Shapes (matching Dashboard) */}
@@ -27,6 +34,16 @@ export default function PortfolioPage() {
               <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
                 Créez une vitrine professionnelle unique pour mettre en valeur vos compétences et vos projets.
               </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {portfolio?.id && (
+                <Link href={`/portfolio/${portfolio.id}`} target="_blank">
+                  <Button variant="outline" className="bg-white/50 backdrop-blur-sm border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                    <Eye className="w-4 h-4 mr-2" />
+                    Visualiser en Pleine Page
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </div>

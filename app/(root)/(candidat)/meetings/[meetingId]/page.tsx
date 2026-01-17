@@ -3,6 +3,7 @@ import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { CalendarDays, Clock, MapPin, PhoneCall, User } from "lucide-react"
+import prisma from "@/db/prisma"
 
 import { getInterviewMeetingById, type MeetingWithRelations } from "@/actions/interview-meeting.action"
 import { Badge } from "@/components/ui/badge"
@@ -60,17 +61,30 @@ export default async function MeetingDetailsPage({ params }: MeetingDetailsPageP
   const viewerName =
     viewerRole === "organizer"
       ? `${meeting.organizer.firstName ?? ""} ${meeting.organizer.lastName ?? ""}`.trim() ||
-        user.given_name ||
-        user.email ||
-        user.id
+      user.given_name ||
+      user.email ||
+      user.id
       : `${meeting.candidate.firstName ?? ""} ${meeting.candidate.lastName ?? ""}`.trim() ||
-        user.given_name ||
-        user.email ||
-        user.id
+      user.given_name ||
+      user.email ||
+      user.id
 
   const candidateName = `${meeting.candidate.firstName ?? ""} ${meeting.candidate.lastName ?? ""}`.trim() ||
     meeting.candidate.email ||
     "Candidat"
+
+  // Fetch quizzes associated with the job
+  const quizzes = await prisma.jobQuiz.findMany({
+    where: {
+      jobPostingId: meeting.jobPostingId,
+    },
+    select: {
+      id: true,
+      title: true,
+      questions: true,
+      type: true,
+    }
+  })
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -212,6 +226,7 @@ export default async function MeetingDetailsPage({ params }: MeetingDetailsPageP
                 meetingTitle={meeting.job.title}
                 viewerName={viewerName}
                 candidateName={viewerRole === "organizer" ? candidateName : undefined}
+                quizzes={quizzes}
               />
             </div>
           </div>

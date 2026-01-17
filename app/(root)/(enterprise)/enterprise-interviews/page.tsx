@@ -9,7 +9,6 @@ import {
 } from "@/hooks/useJobInterview";
 import { toast } from "sonner";
 import { JobFormData } from "@/lib/validations/job-validation-form";
-import { EnterpriseHeader } from "@/components/enterprise/enterprise-interview/enterprise-header";
 import { Timeline } from "@/components/enterprise/enterprise-interview/timeline";
 import { QuickStats } from "@/components/enterprise/enterprise-interview/quick-stats";
 import { SearchFilters } from "@/components/enterprise/enterprise-interview/search-filter";
@@ -21,6 +20,7 @@ import { CreateJobModal } from "@/components/enterprise/enterprise-interview/cre
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import { useUserJobQueries } from "@/hooks/useJobQueries";
 import { ApplicationsTab } from "@/components/enterprise/enterprise-interview/applications-tabs";
+import { PageBanner } from "@/components/shared/Banner"
 
 // Types - Aligné avec JobOffersTab
 type JobOffer = {
@@ -61,7 +61,7 @@ interface Quiz {
 }
 
 export default function EnterpriseInterviewsPage() {
-  
+
   const [activeTab, setActiveTab] = useState("offers");
   const [selectedOffer, setSelectedOffer] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -70,11 +70,11 @@ export default function EnterpriseInterviewsPage() {
 
   const { user } = useKindeBrowserClient();
   const { jobs: rawJobs, loadingJobs, refetchJobs } = useUserJobQueries(user?.id);
-  
+
   // Transformer les jobs de la base de données vers le format JobOffer attendu par JobOffersTab
   const jobs = useMemo(() => {
     if (!rawJobs || !Array.isArray(rawJobs)) return [];
-    
+
     return rawJobs.map((job: any) => ({
       id: job.id,
       title: job.title || "",
@@ -218,8 +218,8 @@ export default function EnterpriseInterviewsPage() {
           job.salaryMin && job.salaryMax
             ? `${job.salaryMin.toLocaleString()} - ${job.salaryMax.toLocaleString()} ${job.currency}`
             : job.salaryMin
-            ? `À partir de ${job.salaryMin.toLocaleString()} ${job.currency}`
-            : "À discuter",
+              ? `À partir de ${job.salaryMin.toLocaleString()} ${job.currency}`
+              : "À discuter",
         type: job.type,
         applicants: job.applicants,
         status: job.status,
@@ -238,8 +238,8 @@ export default function EnterpriseInterviewsPage() {
           job.salaryMin && job.salaryMax
             ? `${job.salaryMin.toLocaleString()} - ${job.salaryMax.toLocaleString()} ${job.currency}`
             : job.salaryMin
-            ? `À partir de ${job.salaryMin.toLocaleString()} ${job.currency}`
-            : "À discuter",
+              ? `À partir de ${job.salaryMin.toLocaleString()} ${job.currency}`
+              : "À discuter",
         type: job.type,
         applicants: job.applicants,
         status: job.status,
@@ -248,119 +248,164 @@ export default function EnterpriseInterviewsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/20 to-blue-50/30 dark:from-slate-950 dark:via-green-950/10 dark:to-blue-950/10">
-      <div className="container mx-auto px-4 py-8">
-        <EnterpriseHeader
-          onCreateJobClick={() => setCreateModalOpen(true)}
-          onCreateQuizClick={() =>
-            toast.info(
-              "Utilisez le bouton 'Nouveau Test' dans l'onglet Tests & Quiz"
-            )
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      {/* Premium Banner */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <PageBanner
+          badge={{ text: "Espace Recruteur", icon: Briefcase }}
+          title={
+            <>
+              Gestion des <br />
+              <span className="text-emerald-100">Talents</span>
+            </>
+          }
+          description="Pilotez vos recrutements, créez des tests techniques et suivez vos candidats en temps réel."
+          stats={[
+            { value: jobs.length, label: "Total Offres" },
+            { value: jobs.filter(j => j.status === 'active').length, label: "Actives" },
+            { value: jobs.filter(j => j.status === 'paused').length, label: "En Pause" },
+            { value: jobs.filter(j => j.status === 'closed').length, label: "Clôturées" },
+            { value: quizzes.length, label: "Tests Créés" }
+          ]}
+          actions={
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <button
+                onClick={() => setCreateModalOpen(true)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-emerald-600 hover:bg-emerald-50 font-semibold rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 w-full sm:w-auto"
+              >
+                <Briefcase className="w-4 h-4" />
+                Créer une offre
+              </button>
+              <button
+                onClick={() => toast.info("Utilisez le bouton 'Nouveau Test' dans l'onglet Tests & Quiz")}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-700/50 text-white hover:bg-emerald-700/70 font-semibold rounded-xl backdrop-blur-sm border border-emerald-400/30 transition-all hover:scale-105 w-full sm:w-auto"
+              >
+                <FileText className="w-4 h-4" />
+                Nouveau Test
+              </button>
+            </div>
           }
         />
+      </div>
 
-        <div className="flex flex-col lg:flex-row gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid lg:grid-cols-12 gap-8">
+          {/* Main Content (Left) - Swapped expecting sidebar on right or keeps left? Original was Sidebar Left (1/4) Content Right (3/4). Let's keep Sidebar Left but visually improved */}
+
           {/* Sidebar */}
-          <div className="lg:w-1/4">
-            <Timeline
-              jobOffers={timelineEntries}
-              selectedOffer={selectedOffer}
-              onSelectOffer={setSelectedOffer}
-              loading={loadingJobs}
-            />
-            <QuickStats 
-              jobOffers={quickStatsJobEntries}
-              quizzes={quizzes} 
-            />
+          <div className="lg:col-span-3 space-y-6">
+            {/* Quick Actions Card if needed, or just Timeline/Stats */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-emerald-500" />
+                  Offres Récentes
+                </h3>
+              </div>
+              <div className="p-2">
+                <Timeline
+                  jobOffers={timelineEntries}
+                  selectedOffer={selectedOffer}
+                  onSelectOffer={setSelectedOffer}
+                  loading={loadingJobs}
+                />
+              </div>
+            </div>
+
+            {/* Note: QuickStats was partially redundant with banner stats, but maybe keeps detailed view? kept for now */}
           </div>
 
-          {/* Main Content */}
-          <div className="lg:w-3/4">
-            <SearchFilters
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              filterType={filterType}
-              onFilterTypeChange={setFilterType}
-            />
+          {/* Tabs Content */}
+          <div className="lg:col-span-9">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-1">
+              <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className="w-full"
+              >
+                <div className="bg-slate-50 dark:bg-slate-950/50 rounded-t-3xl border-b border-slate-100 dark:border-slate-800 p-2 sm:p-4 overflow-x-auto scrollbar-hide">
+                  <TabsList className="bg-slate-200/50 dark:bg-slate-800/50 h-auto p-1 gap-1 flex w-max sm:w-auto sm:inline-flex">
+                    <TabsTrigger
+                      value="offers"
+                      className="px-3 py-2 sm:px-4 sm:py-2.5 text-sm rounded-lg data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all flex items-center gap-2"
+                    >
+                      <Briefcase className="w-4 h-4" />
+                      Offres
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="quizzes"
+                      className="px-3 py-2 sm:px-4 sm:py-2.5 text-sm rounded-lg data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all flex items-center gap-2"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Tests & Quiz
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="applications"
+                      className="px-3 py-2 sm:px-4 sm:py-2.5 text-sm rounded-lg data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all flex items-center gap-2"
+                    >
+                      <User className="w-4 h-4" />
+                      Candidats
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="interviews"
+                      className="px-3 py-2 sm:px-4 sm:py-2.5 text-sm rounded-lg data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all flex items-center gap-2"
+                    >
+                      <Video className="w-4 h-4" />
+                      Entretiens
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="settings"
+                      className="px-3 py-2 sm:px-4 sm:py-2.5 text-sm rounded-lg data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all flex items-center gap-2"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Paramètres
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
 
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              className="space-y-6"
-            >
-              <TabsList className="bg-white/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-600/70 backdrop-blur-lg p-1">
-                <TabsTrigger
-                  value="offers"
-                  className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-                >
-                  <Briefcase className="w-4 h-4" />
-                  Offres d'emploi
-                </TabsTrigger>
-                <TabsTrigger
-                  value="quizzes"
-                  className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-                >
-                  <FileText className="w-4 h-4" />
-                  Tests & Quiz
-                  {isLoadingQuizzes && (
-                    <span className="animate-pulse">...</span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="applications"
-                  className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-                >
-                  <User className="w-4 h-4" />
-                  Candidatures
-                </TabsTrigger>
-                <TabsTrigger
-                  value="interviews"
-                  className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-                >
-                  <Video className="w-4 h-4" />
-                  Entretiens
-                </TabsTrigger>
-                <TabsTrigger
-                  value="settings"
-                  className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-                >
-                  <Settings className="w-4 h-4" />
-                  Paramètres
-                </TabsTrigger>
-              </TabsList>
+                <div className="p-6 min-h-[500px]">
+                  <SearchFilters
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    filterType={filterType}
+                    onFilterTypeChange={setFilterType}
+                  />
 
-              <TabsContent value="offers" className="space-y-6">
-                <JobOffersTab
-                  onCreateJobClick={() => setCreateModalOpen(true)}
-                  loading={loadingJobs}
-                  jobs={jobs}
-                  refetchJobs={refetchJobs}
-                />
-              </TabsContent>
+                  <div className="mt-8">
+                    <TabsContent value="offers" className="space-y-6 m-0 focus-visible:ring-0 outline-none">
+                      <JobOffersTab
+                        onCreateJobClick={() => setCreateModalOpen(true)}
+                        loading={loadingJobs}
+                        jobs={jobs}
+                        refetchJobs={refetchJobs}
+                      />
+                    </TabsContent>
 
+                    <TabsContent value="quizzes" className="space-y-6 m-0 focus-visible:ring-0 outline-none">
+                      <QuizzesTab
+                        quizzes={filteredQuizzes as any}
+                        onCreateQuiz={handleCreateQuiz}
+                        onUpdateQuiz={handleUpdateQuiz}
+                        onDeleteQuiz={handleDeleteQuiz}
+                        isLoading={isLoadingQuizzes}
+                        isCreating={isCreating || isUpdating || isDeleting}
+                      />
+                    </TabsContent>
 
-              <TabsContent value="quizzes" className="space-y-6">
-                <QuizzesTab
-                  quizzes={filteredQuizzes as any}
-                  onCreateQuiz={handleCreateQuiz}
-                  onUpdateQuiz={handleUpdateQuiz}
-                  onDeleteQuiz={handleDeleteQuiz}
-                  isLoading={isLoadingQuizzes}
-                  isCreating={isCreating || isUpdating || isDeleting}
-                />
-              </TabsContent>
+                    <TabsContent value="interviews" className="m-0 focus-visible:ring-0 outline-none">
+                      <InterviewsTab onScheduleInterview={handleScheduleInterview} />
+                    </TabsContent>
 
-              <TabsContent value="interviews">
-                <InterviewsTab onScheduleInterview={handleScheduleInterview} />
-              </TabsContent>
-
-              <TabsContent value="applications" className="space-y-6">
-                <ApplicationsTab />
-              </TabsContent>
-              <TabsContent value="settings">
-                <SettingsTab />
-              </TabsContent>
-            </Tabs>
+                    <TabsContent value="applications" className="space-y-6 m-0 focus-visible:ring-0 outline-none">
+                      <ApplicationsTab jobId={selectedOffer} />
+                    </TabsContent>
+                    <TabsContent value="settings" className="m-0 focus-visible:ring-0 outline-none">
+                      <SettingsTab />
+                    </TabsContent>
+                  </div>
+                </div>
+              </Tabs>
+            </div>
           </div>
         </div>
 

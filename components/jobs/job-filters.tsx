@@ -1,17 +1,23 @@
-// job-filters.tsx
-import { Domain, JobFilters as JobFiltersType, JobType, WorkMode } from "@/types/job";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { X, Filter, Search } from "lucide-react";
-import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { Domain, JobFilters as JobFiltersType, JobType, WorkMode } from "@/types/job"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { X, Filter, Search, RotateCcw, Building2, MapPin, Briefcase, Monitor } from "lucide-react"
+import { useState } from "react"
+import { cn } from "@/lib/utils"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 interface JobFiltersProps {
-  filters: JobFiltersType;
-  onFiltersChange: (filters: JobFiltersType) => void;
+  filters: JobFiltersType
+  onFiltersChange: (filters: JobFiltersType) => void
+  searchTerm?: string
+  onSearchChange?: (term: string) => void
 }
 
 const domainLabels: Record<Domain, string> = {
@@ -33,7 +39,7 @@ const domainLabels: Record<Domain, string> = {
   [Domain.MANAGEMENT]: "Management",
   [Domain.EDUCATION]: "Éducation",
   [Domain.HEALTH]: "Santé"
-};
+}
 
 const jobTypeLabels: Record<JobType, string> = {
   [JobType.CDI]: "CDI",
@@ -43,187 +49,206 @@ const jobTypeLabels: Record<JobType, string> = {
   [JobType.PART_TIME]: "Temps partiel",
   [JobType.CONTRACT]: "Contrat",
   [JobType.INTERNSHIP]: "Stage",
-};
+}
 
 const workModeLabels: Record<WorkMode, string> = {
   [WorkMode.REMOTE]: "Remote",
   [WorkMode.ON_SITE]: "Présentiel",
   [WorkMode.HYBRID]: "Hybride",
-};
+}
 
-export const JobFilters = ({ filters, onFiltersChange }: JobFiltersProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+export const JobFilters = ({ filters, onFiltersChange, searchTerm, onSearchChange }: JobFiltersProps) => {
+  const [isExpanded, setIsExpanded] = useState(false)
 
   const toggleDomain = (domain: Domain) => {
-    const currentDomains = filters.domains || [];
+    const currentDomains = filters.domains || []
     const newDomains = currentDomains.includes(domain)
       ? currentDomains.filter(d => d !== domain)
-      : [...currentDomains, domain];
-    
-    onFiltersChange({ ...filters, domains: newDomains });
-  };
+      : [...currentDomains, domain]
+
+    onFiltersChange({ ...filters, domains: newDomains })
+  }
 
   const toggleJobType = (type: JobType) => {
-    const current = filters.jobTypes || [];
+    const current = filters.jobTypes || []
     const updated = current.includes(type)
       ? current.filter(t => t !== type)
-      : [...current, type];
-    
-    onFiltersChange({ ...filters, jobTypes: updated });
-  };
+      : [...current, type]
+
+    onFiltersChange({ ...filters, jobTypes: updated })
+  }
 
   const toggleWorkMode = (mode: WorkMode) => {
-    const current = filters.workModes || [];
+    const current = filters.workModes || []
     const updated = current.includes(mode)
       ? current.filter(m => m !== mode)
-      : [...current, mode];
-    
-    onFiltersChange({ ...filters, workModes: updated });
-  };
+      : [...current, mode]
+
+    onFiltersChange({ ...filters, workModes: updated })
+  }
 
   const clearFilters = () => {
-    onFiltersChange({});
-  };
+    onFiltersChange({})
+    if (onSearchChange) onSearchChange("")
+  }
 
-  const activeFiltersCount = 
-    (filters.domains?.length || 0) + 
-    (filters.location ? 1 : 0) + 
+  const activeFiltersCount =
+    (filters.domains?.length || 0) +
+    (filters.location ? 1 : 0) +
     (filters.jobTypes?.length || 0) +
-    (filters.workModes?.length || 0);
+    (filters.workModes?.length || 0)
 
   return (
-    <Card className={cn(
-      "border-0 shadow-lg",
-      "bg-gradient-to-br from-white via-blue-50/30 to-slate-100",
-      "dark:from-slate-900 dark:via-slate-800/50 dark:to-slate-900"
-    )}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Filter className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-          Filtres
-          {activeFiltersCount > 0 && (
-            <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0">
-              {activeFiltersCount}
-            </Badge>
-          )}
-        </CardTitle>
-        <div className="flex gap-2">
-          {activeFiltersCount > 0 && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={clearFilters}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-            >
-              Réinitialiser
-            </Button>
-          )}
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="lg:hidden text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
-          >
-            {isExpanded ? "Masquer" : "Afficher"}
-          </Button>
-        </div>
-      </CardHeader>
-
-      <CardContent className={cn("space-y-6", isExpanded ? 'block' : 'hidden lg:block')}>
-        <div className="space-y-2">
-          <Label htmlFor="location" className="text-sm font-semibold">Localisation</Label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+    <div className="space-y-8">
+      {/* Search Header */}
+      {onSearchChange && (
+        <div className="space-y-3">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-1">Mots-clés</Label>
+          <div className="relative group">
             <Input
-              id="location"
+              placeholder="Titre, compétences..."
+              value={searchTerm || ""}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-4 pr-10 py-5 bg-transparent border-slate-200 dark:border-slate-800 focus:border-emerald-500/50 rounded-2xl shadow-none transition-all text-xs font-medium"
+            />
+            <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
+          </div>
+        </div>
+      )}
+
+      {/* Filters Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filtres actifs ({activeFiltersCount})</span>
+        </div>
+        {activeFiltersCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-6 px-2 text-[10px] font-bold uppercase tracking-wide text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+          >
+            <RotateCcw className="w-3 h-3 mr-1.5" />
+            Reset
+          </Button>
+        )}
+      </div>
+
+      <div className={cn("space-y-8", isExpanded ? 'block' : 'hidden lg:block')}>
+
+        {/* Localisation */}
+        <div className="space-y-3">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-1">Localisation</Label>
+          <div className="relative group">
+            <Input
               placeholder="Ville, pays..."
               value={filters.location || ""}
               onChange={(e) => onFiltersChange({ ...filters, location: e.target.value })}
-              className="pl-10 border-blue-200/50 dark:border-slate-700 focus:border-blue-400 dark:focus:border-blue-500 bg-white/50 dark:bg-slate-800/50"
+              className="pl-4 pr-10 py-5 bg-transparent border-slate-200 dark:border-slate-800 focus:border-emerald-500/50 rounded-2xl shadow-none transition-all text-xs font-medium"
             />
+            <MapPin className="absolute right-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
           </div>
         </div>
 
-        <div className="space-y-3">
-          <Label className="text-sm font-semibold">Type de poste</Label>
-          <div className="flex flex-wrap gap-2">
-            {[JobType.CDI, JobType.MISSION, JobType.STAGE].map((type) => {
-              const isSelected = filters.jobTypes?.includes(type);
-              
-              return (
-                <Badge
-                  key={type}
-                  variant={isSelected ? "default" : "outline"}
-                  className={cn(
-                    "cursor-pointer transition-all duration-300 border-0 px-3 py-1.5",
-                    isSelected 
-                      ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg"
-                      : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-950/30 dark:text-green-300 dark:hover:bg-green-900/50"
-                  )}
-                  onClick={() => toggleJobType(type)}
-                >
-                  {jobTypeLabels[type]}
-                  {isSelected && <X className="ml-1 h-3 w-3" />}
-                </Badge>
-              );
-            })}
-          </div>
-        </div>
+        <Accordion type="multiple" defaultValue={["types", "modes", "domains"]} className="w-full space-y-4">
 
-        <div className="space-y-3">
-          <Label className="text-sm font-semibold">Mode de travail</Label>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(workModeLabels).map(([key, label]) => {
-              const mode = key as WorkMode;
-              const isSelected = filters.workModes?.includes(mode);
-              
-              return (
-                <Badge
-                  key={mode}
-                  variant={isSelected ? "default" : "outline"}
-                  className={cn(
-                    "cursor-pointer transition-all duration-300 border-0 px-3 py-1.5",
-                    isSelected 
-                      ? "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg"
-                      : "bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-950/30 dark:text-purple-300 dark:hover:bg-purple-900/50"
-                  )}
-                  onClick={() => toggleWorkMode(mode)}
-                >
-                  {label}
-                  {isSelected && <X className="ml-1 h-3 w-3" />}
-                </Badge>
-              );
-            })}
-          </div>
-        </div>
+          {/* Type de poste */}
+          <AccordionItem value="types" className="border-none">
+            <AccordionTrigger className="hover:no-underline py-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-pointer">Type de poste</Label>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2">
+              <div className="flex flex-wrap gap-2">
+                {[JobType.CDI, JobType.MISSION, JobType.STAGE, JobType.FULL_TIME, JobType.PART_TIME].map((type) => {
+                  const isSelected = filters.jobTypes?.includes(type)
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => toggleJobType(type)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border",
+                        isSelected
+                          ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white shadow-sm"
+                          : "bg-transparent text-slate-500 border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 hover:text-slate-700 dark:text-slate-400"
+                      )}
+                    >
+                      {jobTypeLabels[type]}
+                    </button>
+                  )
+                })}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
 
-        <div className="space-y-3">
-          <Label className="text-sm font-semibold">Domaines</Label>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(domainLabels).map(([key, label]) => {
-              const domain = key as Domain;
-              const isSelected = filters.domains?.includes(domain);
-              
-              return (
-                <Badge
-                  key={domain}
-                  variant={isSelected ? "default" : "outline"}
-                  className={cn(
-                    "cursor-pointer transition-all duration-300 border-0 px-3 py-1.5",
-                    isSelected 
-                      ? "bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg"
-                      : "bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
-                  )}
-                  onClick={() => toggleDomain(domain)}
-                >
-                  {label}
-                  {isSelected && <X className="ml-1 h-3 w-3" />}
-                </Badge>
-              );
-            })}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+          {/* Mode de travail */}
+          <AccordionItem value="modes" className="border-none">
+            <AccordionTrigger className="hover:no-underline py-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-pointer">Mode de travail</Label>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2">
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(workModeLabels).map(([key, label]) => {
+                  const mode = key as WorkMode
+                  const isSelected = filters.workModes?.includes(mode)
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => toggleWorkMode(mode)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border",
+                        isSelected
+                          ? "bg-emerald-500 text-white border-emerald-500 shadow-sm shadow-emerald-500/20"
+                          : "bg-transparent text-slate-500 border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 hover:text-slate-700 dark:text-slate-400"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Domaines */}
+          <AccordionItem value="domains" className="border-none">
+            <AccordionTrigger className="hover:no-underline py-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-pointer">Domaines</Label>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2">
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(domainLabels).map(([key, label]) => {
+                  const domain = key as Domain
+                  const isSelected = filters.domains?.includes(domain)
+                  return (
+                    <button
+                      key={domain}
+                      onClick={() => toggleDomain(domain)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border",
+                        isSelected
+                          ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white shadow-sm"
+                          : "bg-transparent text-slate-500 border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 hover:text-slate-700 dark:text-slate-400"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </div>
+
+      {/* Mobile Toggle Button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="lg:hidden w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+      >
+        {isExpanded ? "Masquer les filtres" : "Afficher les filtres"}
+      </Button>
+    </div>
+  )
+}

@@ -6,13 +6,13 @@ import { getPortfolioById } from "@/actions/portfolio.action";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  User, 
-  Briefcase, 
-  GraduationCap, 
-  Award, 
-  Code, 
-  Languages, 
+import {
+  User,
+  Briefcase,
+  GraduationCap,
+  Award,
+  Code,
+  Languages,
   Heart,
   ExternalLink,
   Calendar,
@@ -29,11 +29,12 @@ import ModernTemplate from "@/components/portfolio/templates/modern-template";
 import MinimalTemplate from "@/components/portfolio/templates/minimal-template";
 import { PortfolioTemplate } from "@prisma/client";
 import { useParams } from "next/navigation";
+import ThreeDTemplate from "@/components/portfolio/templates/three-d-template";
 
 function PortfolioContent() {
   const params = useParams();
   const portfolioId = params.id as string;
-  
+
   const { data: portfolio, isLoading, error } = useQuery({
     queryKey: ["portfolio", portfolioId],
     queryFn: async () => {
@@ -107,6 +108,8 @@ function PortfolioContent() {
         return <ModernTemplate portfolioData={portfolioData} />;
       case PortfolioTemplate.MINIMAL:
         return <MinimalTemplate portfolioData={portfolioData} />;
+      case PortfolioTemplate.THREE_D:
+        return <ThreeDTemplate portfolioData={portfolioData} />;
       case PortfolioTemplate.CLASSIC:
       default:
         return <ClassicTemplate portfolioData={portfolioData} />;

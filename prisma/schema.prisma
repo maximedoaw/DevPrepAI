@@ -282,6 +282,7 @@ model Application {
   status           String              @default("PENDING")
   score            Int?
   reportUrl        String?
+  motivationAnalysis Json?               // Stockage de l'analyse IA (rating, feedback)
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   

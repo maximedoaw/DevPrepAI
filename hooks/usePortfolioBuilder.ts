@@ -28,6 +28,7 @@ interface PortfolioData {
 
 // Interface pour les données transformées depuis Prisma
 interface PortfolioFromPrisma {
+  id?: string
   name?: string
   headline?: string | null
   bio?: string | null
@@ -78,6 +79,7 @@ export function usePortfolioBuilder({ userId, enabled = true }: UsePortfolioBuil
       
       if (!portfolioData) {
         return {
+          id: undefined,
           name: '',
           headline: null,
           bio: null,
@@ -98,6 +100,7 @@ export function usePortfolioBuilder({ userId, enabled = true }: UsePortfolioBuil
       }
 
       return {
+        id: portfolioData.id,
         name: portfolioData.name || '',
         headline: portfolioData.headline,
         bio: portfolioData.bio,
@@ -139,7 +142,7 @@ export function usePortfolioBuilder({ userId, enabled = true }: UsePortfolioBuil
         experiences: portfolioData.experiences && portfolioData.experiences.length === 0 ? null : portfolioData.experiences,
         education: portfolioData.education && portfolioData.education.length === 0 ? null : portfolioData.education,
         certifications: portfolioData.certifications && portfolioData.certifications.length === 0 ? null : portfolioData.certifications,
-        sections: portfolioData.sections && portfolioData.sections.length === 0 ? null : portfolioData.sections,
+        sections: portfolioData.sections && portfolioData.sections.length === 0 ? undefined : portfolioData.sections,
       }
 
       return createOrUpdatePortfolio({ userId, portfolioData: cleanedData })

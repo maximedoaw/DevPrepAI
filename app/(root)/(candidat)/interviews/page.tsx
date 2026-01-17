@@ -50,6 +50,7 @@ import DevLoader from "@/components/dev-loader"
 import { motion, AnimatePresence } from "framer-motion"
 import { InterviewFilters } from "@/components/interviews/interview-filters"
 import { toast } from "sonner"
+import { PageBanner } from "@/components/shared/Banner"
 
 const INTERVIEW_TYPES = [
   { id: "ALL", label: "Tout", icon: Sparkles },
@@ -268,45 +269,22 @@ export default function InterviewsHubPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
         {/* 1. Bannière */}
-        <div className="relative overflow-hidden rounded-3xl bg-emerald-600 dark:bg-emerald-900 shadow-xl">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-900/20 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3" />
-
-          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center p-8 md:p-12 gap-8">
-            <div className="text-left space-y-4 flex-1">
-              <Badge className="bg-emerald-500/30 text-emerald-100 border-0 backdrop-blur-sm">
-                Hub d'Entraînement
-              </Badge>
-              <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-white leading-tight">
-                Préparez votre <br />
-                <span className="text-emerald-100">prochain succès</span>
-              </h1>
-              <p className="text-emerald-100/80 text-lg max-w-lg">
-                Accédez à nos simulations d'entretiens et exercices techniques pour booster votre carrière.
-              </p>
-
-              {!isLoading && (
-                <div className="flex gap-6 pt-4">
-                  <div>
-                    <div className="text-2xl font-bold text-white">{userStats?.totalInterviews || 0}</div>
-                    <div className="text-xs text-emerald-200 uppercase font-medium">Sessions</div>
-                  </div>
-                  <div className="w-px h-10 bg-emerald-500/40" />
-                  <div>
-                    <div className="text-2xl font-bold text-white">{userStats?.averageScore || 0}%</div>
-                    <div className="text-xs text-emerald-200 uppercase font-medium">Moyenne</div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex-shrink-0 relative hidden md:block">
-              <div className="relative rounded-2xl bg-white/10 backdrop-blur-sm p-4 border border-white/20 shadow-2xl transition-all duration-500 hover:scale-105">
-                <Target className="w-32 h-32 text-emerald-100 drop-shadow-lg" />
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* 1. Bannière */}
+        <PageBanner
+          badge={{ text: "Hub d'Entraînement" }}
+          title={
+            <>
+              Préparez votre <br />
+              <span className="text-emerald-100">prochain succès</span>
+            </>
+          }
+          description="Accédez à nos simulations d'entretiens et exercices techniques pour booster votre carrière."
+          stats={!isLoading ? [
+            { value: userStats?.totalInterviews || 0, label: "Sessions" },
+            { value: `${userStats?.averageScore || 0}%`, label: "Moyenne" }
+          ] : []}
+          image={<Target className="w-32 h-32 text-emerald-100 drop-shadow-lg" />}
+        />
 
         {/* 2. Layout (Reordered for Mobile: Sidebar Top) */}
         <div className="flex flex-col xl:flex-row gap-8 items-start">

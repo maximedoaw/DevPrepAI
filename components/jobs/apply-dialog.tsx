@@ -2,7 +2,7 @@
 import { JobPosting } from "@/types/job";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, FileText, Zap, User, Briefcase, FileCheck, Rocket, Wand2, Brain, Ban, ClipboardCheck } from "lucide-react";
+import { CheckCircle2, FileText, Zap, User, Briefcase, FileCheck, Rocket, Wand2, Brain, Ban, ClipboardCheck, Users } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner"
 import { cn } from "@/lib/utils";
@@ -17,24 +17,13 @@ interface ApplyDialogProps {
   onClose: () => void;
 }
 
-// Fonction pour générer les steps dynamiquement selon si des tests sont liés
-const getSteps = (hasJobQuizzes: boolean) => {
-  const baseSteps = [
+// Fonction pour générer les steps
+const getSteps = () => {
+  return [
     { id: 1, name: "Profil", icon: User, description: "Vérification de votre profil" },
-    { id: 2, name: "CV & Motivation", icon: Briefcase, description: "Optimisation des documents" },
+    { id: 2, name: "Documents", icon: Briefcase, description: "CV & Portfolio" },
+    { id: 3, name: "Confirmation", icon: Rocket, description: "Envoi final" }
   ];
-
-  // Ajouter la step des tests seulement si des tests sont liés au job
-  if (hasJobQuizzes) {
-    baseSteps.push({ id: 3, name: "Tests Techniques", icon: ClipboardCheck, description: "Validation des compétences" });
-  }
-
-  baseSteps.push(
-    { id: hasJobQuizzes ? 4 : 3, name: "Pré-screening", icon: FileCheck, description: "Validation automatique" },
-    { id: hasJobQuizzes ? 5 : 4, name: "Candidature", icon: Rocket, description: "Envoi final" }
-  );
-
-  return baseSteps;
 };
 
 export const ApplyDialog = ({ job, open, onClose }: ApplyDialogProps) => {
@@ -43,10 +32,10 @@ export const ApplyDialog = ({ job, open, onClose }: ApplyDialogProps) => {
   const router = useRouter();
 
   const { applyMutation, generateCoverLetterMutation } = useApplicationMutations();
-  const { 
-    hasApplied, 
-    userSkills, 
-    testResults, 
+  const {
+    hasApplied,
+    userSkills,
+    testResults,
     skillAnalysis,
     portfolio,
     resumeUrl,
@@ -54,11 +43,11 @@ export const ApplyDialog = ({ job, open, onClose }: ApplyDialogProps) => {
     jobQuizzes,
     hasJobQuizzes,
     quizCompletion,
-    isLoading 
+    isLoading
   } = useApplicationQueries(job?.id || "");
 
-  // Générer les steps dynamiquement selon si des tests sont liés
-  const steps = getSteps(hasJobQuizzes || false);
+  // Générer les steps
+  const steps = getSteps();
 
   // Réinitialiser le formulaire quand le dialog s'ouvre/ferme
   useEffect(() => {
@@ -79,26 +68,6 @@ export const ApplyDialog = ({ job, open, onClose }: ApplyDialogProps) => {
     }
   }, [hasApplied, job, open, steps.length]);
 
-  // Realtime : Détecter automatiquement quand tous les tests sont complétés et passer à l'étape suivante
-  useEffect(() => {
-    if (
-      !hasApplied && 
-      hasJobQuizzes && 
-      quizCompletion.allCompleted && 
-      currentStep === 3 && // Étape des tests techniques
-      open
-    ) {
-      // Attendre 1 seconde pour laisser le temps à l'utilisateur de voir le résultat
-      const timer = setTimeout(() => {
-        setCurrentStep(4); // Passer automatiquement à l'étape suivante (Pré-screening)
-        toast.success("Tous les tests sont complétés !", {
-          description: "Passage automatique à l'étape suivante"
-        });
-      }, 1000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [quizCompletion.allCompleted, currentStep, hasJobQuizzes, hasApplied, open]);
 
   const handleNextStep = () => {
     if (currentStep < steps.length && !hasApplied) {
@@ -114,7 +83,7 @@ export const ApplyDialog = ({ job, open, onClose }: ApplyDialogProps) => {
 
   const handleGenerateCoverLetter = async () => {
     if (!job || hasApplied) return;
-    
+
     try {
       const generatedLetter = await generateCoverLetterMutation.mutateAsync(job.id);
       setCoverLetter(generatedLetter);
@@ -123,27 +92,13 @@ export const ApplyDialog = ({ job, open, onClose }: ApplyDialogProps) => {
     }
   };
 
-  const handleTakeTechnicalTests = () => {
-    if (!job) return;
-    // Ouvrir dans un nouvel onglet
-    window.open(`/jobs/${job.id}`, '_blank');
-    // Passer à l'étape suivante après un délai
-    setTimeout(() => {
-      handleNextStep();
-    }, 1000);
-  };
 
   const handleSubmitApplication = async () => {
     if (!job || hasApplied) return;
-    
+
     // Calculer le score final basé sur les tests réels
-    const finalScore = quizCompletion.allCompleted && quizCompletion.completedQuizzes.length > 0
-      ? Math.round(
-          quizCompletion.completedQuizzes.reduce((sum: number, q: any) => sum + (q.score / q.totalPoints) * 100, 0) / 
-          quizCompletion.completedQuizzes.length
-        )
-      : calculateFinalScore();
-    
+    const finalScore = calculateFinalScore();
+
     try {
       await applyMutation.mutateAsync({
         jobId: job.id,
@@ -152,11 +107,11 @@ export const ApplyDialog = ({ job, open, onClose }: ApplyDialogProps) => {
         resumeUrl: resumeUrl || (resumeUrl || ""),
         score: finalScore,
       });
-      
-      toast.success("Candidature soumise avec succès", { 
-        description: "Votre candidature a été envoyée et le pré-screening est en cours" 
+
+      toast.success("Candidature soumise avec succès", {
+        description: "Votre candidature a été envoyée et le pré-screening est en cours"
       });
-      
+
       setTimeout(() => {
         onClose();
       }, 1500);
@@ -203,530 +158,249 @@ export const ApplyDialog = ({ job, open, onClose }: ApplyDialogProps) => {
           </DialogDescription>
         </DialogHeader>
 
-        {/* Stepper amélioré */}
-        <div className="flex-shrink-0 mb-6 px-1">
-          <div className="flex justify-between relative">
-            {/* Ligne de connexion */}
-            <div className="absolute top-4 left-0 right-0 h-0.5 bg-slate-200 dark:bg-slate-700 -z-10" />
-            <div 
-              className="absolute top-4 left-0 h-0.5 bg-emerald-500 transition-all duration-500 -z-10"
-              style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
+        {/* Stepper Elegant - Human Centric */}
+        <div className="flex-shrink-0 mb-10 px-8">
+          <div className="flex justify-between items-center relative">
+            {/* Ligne de base (inactive) - Connecte les centres des cercles */}
+            <div className="absolute top-[18px] left-[18px] right-[18px] h-[2px] bg-slate-100 dark:bg-slate-800 -z-10" />
+
+            {/* Ligne de progression (active) */}
+            <div
+              className="absolute top-[18px] left-[18px] h-[2px] bg-emerald-500 transition-all duration-700 ease-in-out -z-10 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
+              style={{ width: `calc(${((currentStep - 1) / (steps.length - 1)) * 100}% - ${currentStep === 1 ? '0px' : '0px'})`, maxWidth: 'calc(100% - 36px)' }}
             />
-            
-            {steps.map((step) => (
-              <div key={step.id} className="flex flex-col items-center flex-1">
-                <div className={cn(
-                  "flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-300 relative z-10",
-                  hasApplied 
-                    ? "bg-gray-300 border-gray-300 text-gray-500 dark:bg-gray-700 dark:border-gray-700 dark:text-gray-400"
-                    : currentStep > step.id 
-                    ? "bg-emerald-500 border-emerald-500 text-white"
-                    : currentStep === step.id
-                    ? "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-500/30"
-                    : "border-slate-300 bg-white text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500"
-                )}>
-                  {hasApplied ? (
-                    <Ban className="h-4 w-4" />
-                  ) : currentStep > step.id ? (
-                    <CheckCircle2 className="h-4 w-4" />
-                  ) : (
-                    <step.icon className="h-4 w-4" />
-                  )}
-                </div>
-                <div className="text-center mt-2">
+
+            {steps.map((step) => {
+              const isActive = currentStep === step.id;
+              const isCompleted = currentStep > step.id;
+
+              return (
+                <div key={step.id} className="flex flex-col items-center">
+                  <div className={cn(
+                    "w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-500 text-sm font-semibold",
+                    isCompleted
+                      ? "bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/20"
+                      : isActive
+                        ? "bg-white dark:bg-slate-900 border-emerald-500 text-emerald-600 dark:text-emerald-400 ring-4 ring-emerald-50 dark:ring-emerald-950/30"
+                        : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400"
+                  )}>
+                    {isCompleted ? (
+                      <CheckCircle2 className="h-5 w-5 stroke-[2.5px]" />
+                    ) : (
+                      <span>{step.id}</span>
+                    )}
+                  </div>
+
                   <span className={cn(
-                    "text-xs font-medium transition-colors block",
-                    hasApplied 
-                      ? "text-gray-400 dark:text-gray-500"
-                      : currentStep >= step.id 
-                      ? "text-emerald-600 dark:text-emerald-400 font-semibold"
-                      : "text-slate-400 dark:text-slate-500"
+                    "absolute -bottom-6 text-[11px] font-bold uppercase tracking-tight transition-colors duration-300",
+                    isActive ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"
                   )}>
                     {step.name}
                   </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 hidden sm:block">
-                    {step.description}
-                  </span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        {/* Contenu scrollable */}
-        <div className="flex-1 overflow-y-auto space-y-6 px-1 mb-4">
+        {/* Contenu Scrollable */}
+        <div className="flex-1 overflow-y-auto space-y-6 px-1 mb-2">
           {/* Étape 1: Profil */}
           {currentStep === 1 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <User className="h-5 w-5 text-emerald-500" />
-                Vérification du profil
-              </h3>
-              <div className="bg-gradient-to-br from-emerald-50/80 to-green-50/80 dark:from-emerald-950/60 dark:to-green-950/60 p-4 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Profil complété</span>
-                    <Badge className="bg-emerald-500 text-white">100%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Email vérifié</span>
-                    <Badge className="bg-emerald-500 text-white">Oui</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Téléphone vérifié</span>
-                    <Badge className="bg-emerald-500 text-white">Oui</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Statut candidature</span>
-                    <Badge className={hasApplied ? "bg-orange-500 text-white" : "bg-emerald-500 text-white"}>
-                      {hasApplied ? "Déjà postulé" : "Prêt à postuler"}
-                    </Badge>
-                  </div>
-                </div>
+            <div className="space-y-6 py-2 animate-in fade-in slide-in-from-bottom-3 duration-500">
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <User className="h-5 w-5 text-emerald-500" />
+                  Vérification du profil
+                </h3>
+                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                  Confirmez que vos informations sont à jour avant de soumettre.
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {hasApplied 
-                  ? "Vous avez déjà postulé à cette offre. Vous ne pouvez pas postuler à nouveau."
-                  : "Votre profil est complet et prêt pour la candidature."
-                }
-              </p>
-            </div>
-          )}
 
-          {/* Étape 2: CV & Motivation */}
-          {currentStep === 2 && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Briefcase className="h-5 w-5 text-emerald-500" />
-                Optimisation des documents
-              </h3>
-              
-              {/* Analyse du matching CV */}
-              <div className="bg-gradient-to-br from-emerald-50/80 to-cyan-50/80 dark:from-emerald-950/60 dark:to-cyan-950/60 p-4 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="font-semibold">Analyse de compatibilité CV</p>
-                    <p className="text-sm text-muted-foreground">
-                      {skillAnalysis.matchPercent >= 70 ? "Excellent matching !" : 
-                       skillAnalysis.matchPercent >= 50 ? "Bon matching" : 
-                       "Matching à améliorer"}
-                    </p>
-                  </div>
-                  <Badge className={cn(
-                    "text-lg px-3 py-1",
-                    skillAnalysis.matchPercent >= 70 ? "bg-emerald-500" :
-                    skillAnalysis.matchPercent >= 50 ? "bg-orange-500" : "bg-red-500"
-                  )}>
-                    {isLoading ? "..." : `${skillAnalysis.matchPercent}%`}
-                  </Badge>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span>Compétences correspondantes:</span>
-                    <span className="font-medium">
-                      {skillAnalysis.matchedSkills.length} / {job.skills.length}
+              <div className="grid grid-cols-1 gap-3">
+                {[
+                  { label: "Informations de contact", status: "À jour", icon: CheckCircle2 },
+                  { label: "Portfolio professionnel", status: portfolioUrl || portfolio?.url ? "Connecté" : "Non configuré", icon: portfolioUrl || portfolio?.url ? CheckCircle2 : Ban },
+                  { label: "Curriculum Vitae (PDF)", status: resumeUrl ? "Prêt" : "Manquant", icon: resumeUrl ? CheckCircle2 : Ban },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "p-2 rounded-xl",
+                        item.icon === CheckCircle2 ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-500" : "bg-slate-50 dark:bg-slate-800 text-slate-400"
+                      )}>
+                        <item.icon className="h-4 w-4" />
+                      </div>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{item.label}</span>
+                    </div>
+                    <span className={cn(
+                      "text-xs font-bold uppercase tracking-wider",
+                      item.icon === CheckCircle2 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"
+                    )}>
+                      {item.status}
                     </span>
                   </div>
-                  
-                  {skillAnalysis.matchPercent < 70 && skillAnalysis.missingSkills.length > 0 && (
-                    <div className="text-sm">
-                      <p className="font-medium mb-1">Compétences recommandées:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {skillAnalysis.missingSkills.slice(0, 5).map(skill => (
-                          <Badge key={skill} variant="outline" className="text-orange-600 dark:text-orange-400">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Étape 2: Documents */}
+          {currentStep === 2 && (
+            <div className="space-y-6 py-2 animate-in fade-in slide-in-from-bottom-3 duration-500">
+              <div className="space-y-2 mb-6">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-emerald-500" />
+                  Documents & Motivation
+                </h3>
+              </div>
+
+              {/* Information Card - Professional & Clean */}
+              <div className="p-5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50">
+                <div className="flex gap-4 items-start">
+                  <div className="p-2 rounded-xl bg-emerald-500 text-white shadow-sm">
+                    <Zap className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 dark:text-white leading-tight">Transmission automatique</h4>
+                    <p className="text-slate-600 dark:text-slate-400 text-sm mt-1 leading-relaxed">
+                      Votre CV et Portfolio sont déjà liés. Nous les transmettrons en haute qualité directement à l'équipe recrutement.
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {/* Optimisation lettre de motivation */}
-              <div className="space-y-4">
+              {/* Cover Letter Section */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <Brain className="h-4 w-4 text-purple-500" />
-                    Lettre de motivation
-                  </h4>
+                  <label className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-emerald-500" />
+                    Note de motivation (Optionnel)
+                  </label>
                   {!hasApplied && (
-                    <Button 
+                    <button
                       onClick={handleGenerateCoverLetter}
                       disabled={generateCoverLetterMutation.isPending}
-                      size="sm"
-                      variant="outline"
-                      className="border-purple-200 text-purple-600 dark:border-purple-800 dark:text-purple-400"
+                      className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 hover:underline disabled:opacity-50"
                     >
-                      {generateCoverLetterMutation.isPending ? (
-                        <span className="animate-spin">⏳</span>
-                      ) : (
+                      {generateCoverLetterMutation.isPending ? "Génération..." : (
                         <>
-                          <Wand2 className="h-3 w-3 mr-1" />
+                          <Wand2 className="h-3.5 w-3.5" />
                           Générer avec IA
                         </>
                       )}
-                    </Button>
+                    </button>
                   )}
                 </div>
 
                 <Textarea
                   value={coverLetter}
                   onChange={(e) => !hasApplied && setCoverLetter(e.target.value)}
-                  placeholder={
-                    hasApplied 
-                      ? "Vous avez déjà postulé à cette offre. Votre lettre de motivation a été enregistrée."
-                      : "Rédigez votre lettre de motivation ou utilisez l'IA pour en générer une optimisée..."
-                  }
-                  disabled={hasApplied}
+                  placeholder="Pourquoi ce poste ? Pourquoi vous ? (Quelques lignes suffisent)"
                   className={cn(
-                    "min-h-[250px] resize-none border-2 bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg text-sm leading-relaxed",
-                    hasApplied
-                      ? "border-gray-200 dark:border-gray-700 text-gray-500 cursor-not-allowed"
-                      : "border-emerald-200/70 dark:border-slate-600 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                    "min-h-[180px] bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-sm focus:border-emerald-500/50 focus:ring-emerald-500/5 transition-all text-slate-700 dark:text-slate-300",
+                    hasApplied && "opacity-50"
                   )}
+                  disabled={hasApplied}
                 />
-                
-                {!coverLetter && !hasApplied && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Brain className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">
-                      Utilisez le bouton "Générer avec IA" pour créer une lettre de motivation<br />
-                      personnalisée adaptée à ce poste spécifique.
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           )}
-
-          {/* Étape 3: Tests Techniques - Seulement si des tests sont liés */}
-          {currentStep === 3 && hasJobQuizzes && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <ClipboardCheck className="h-5 w-5 text-emerald-500" />
-                Tests Techniques
-              </h3>
-
-              <div className="bg-gradient-to-br from-blue-50/80 to-emerald-50/80 dark:from-blue-950/60 dark:to-emerald-950/60 p-6 rounded-xl border border-blue-200/50 dark:border-blue-800/50">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h4 className="text-xl font-bold mb-2">Tests Techniques Requis</h4>
-                    <p className="text-muted-foreground text-sm">
-                      {quizCompletion.allCompleted 
-                        ? "✅ Tous les tests sont complétés !"
-                        : `${quizCompletion.completedQuizzes.length} / ${quizCompletion.totalQuizzes} tests complétés`
-                      }
-                    </p>
-                  </div>
-                  <Badge className={cn(
-                    "text-lg px-3 py-1",
-                    quizCompletion.allCompleted 
-                      ? "bg-emerald-500 text-white"
-                      : "bg-orange-500 text-white"
-                  )}>
-                    {quizCompletion.completedQuizzes.length}/{quizCompletion.totalQuizzes}
-                  </Badge>
-                </div>
-
-                {/* Liste des tests */}
-                <div className="space-y-4 mb-6">
-                  {jobQuizzes.map((quiz: any) => {
-                    const isCompleted = quizCompletion.completedQuizzes.some((cq: any) => cq.id === quiz.id);
-                    const completedQuiz = quizCompletion.completedQuizzes.find((cq: any) => cq.id === quiz.id);
-                    const questionsCount = Array.isArray(quiz.questions) 
-                      ? quiz.questions.length 
-                      : (typeof quiz.questions === 'object' && quiz.questions !== null ? Object.keys(quiz.questions).length : 0);
-
-                    return (
-                      <div
-                        key={quiz.id}
-                        className={cn(
-                          "p-4 rounded-lg border-2 transition-all",
-                          isCompleted
-                            ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700"
-                            : "bg-white/50 dark:bg-slate-800/30 border-blue-200 dark:border-blue-800"
-                        )}
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h5 className="font-semibold text-slate-900 dark:text-white">
-                                {quiz.title}
-                              </h5>
-                              {isCompleted && (
-                                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                              )}
-                            </div>
-                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-                              {quiz.description || "Test technique pour évaluer vos compétences"}
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {questionsCount} question{questionsCount !== 1 ? 's' : ''}
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                {quiz.duration} min
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                {quiz.totalPoints} points
-                              </Badge>
-                              {quiz.technology && quiz.technology.length > 0 && (
-                                <>
-                                  {quiz.technology.slice(0, 3).map((tech: string, idx: number) => (
-                                    <Badge key={idx} variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                                      {tech}
-                                    </Badge>
-                                  ))}
-                                  {quiz.technology.length > 3 && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      +{quiz.technology.length - 3}
-                                    </Badge>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        {isCompleted && completedQuiz && (
-                          <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-emerald-700">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-slate-600 dark:text-slate-400">Score obtenu:</span>
-                              <Badge className="bg-emerald-500 text-white">
-                                {Math.round((completedQuiz.score / completedQuiz.totalPoints) * 100)}%
-                              </Badge>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {!quizCompletion.allCompleted && (
-                  <>
-                    <Button 
-                      onClick={handleTakeTechnicalTests}
-                      className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300 py-3 text-lg"
-                      size="lg"
-                    >
-                      <ClipboardCheck className="h-5 w-5 mr-2" />
-                      {quizCompletion.pendingQuizzes.length === 1 
-                        ? `Commencer le test restant`
-                        : `Commencer les ${quizCompletion.pendingQuizzes.length} tests restants`
-                      }
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-4 text-center">
-                      Les tests s'ouvriront dans un nouvel onglet. Vous pourrez reprendre 
-                      votre candidature une fois tous les tests terminés.
-                    </p>
-                  </>
-                )}
-
-                {quizCompletion.allCompleted && (
-                  <div className="text-center p-4 bg-emerald-100 dark:bg-emerald-900/40 rounded-lg border border-emerald-300 dark:border-emerald-700">
-                    <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
-                    <p className="font-semibold text-emerald-900 dark:text-emerald-100">
-                      Tous les tests sont complétés !
-                    </p>
-                    <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">
-                      Vous pouvez maintenant passer à l'étape suivante.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Étape 4: Pré-screening (ou 3 si pas de tests) */}
-          {((hasJobQuizzes && currentStep === 4) || (!hasJobQuizzes && currentStep === 3)) && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <FileCheck className="h-5 w-5 text-emerald-500" />
-                Résultats du pré-screening
-              </h3>
-              
-              <div className="space-y-4">
-                {/* Interviews validées */}
-                <div>
-                  <h4 className="font-medium text-emerald-600 dark:text-emerald-400 mb-2">Tests validés</h4>
-                  <div className="space-y-2">
-                    {testResults.validated.map(interview => (
-                      <div key={interview.id} className="flex items-center justify-between p-3 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-lg border border-emerald-200/50 dark:border-emerald-800/50">
-                        <span className="font-medium">{interview.name}</span>
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-emerald-500 text-white">{interview.score}%</Badge>
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Interviews non validées */}
-                {testResults.invalid.length > 0 && (
-                  <div>
-                    <h4 className="font-medium text-orange-600 dark:text-orange-400 mb-2">Tests à repasser</h4>
-                    <div className="space-y-2">
-                      {testResults.invalid.map(interview => (
-                        <div key={interview.id} className="flex items-center justify-between p-3 bg-orange-50/80 dark:bg-orange-950/40 rounded-lg border border-orange-200/50 dark:border-orange-800/50">
-                          <span className="font-medium">{interview.name}</span>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-orange-600 dark:text-orange-400 border-orange-300">
-                              {interview.score}%
-                            </Badge>
-                            <span className="text-xs text-orange-600 dark:text-orange-400">Échoué</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-gradient-to-br from-emerald-50/80 to-cyan-50/80 dark:from-emerald-950/60 dark:to-cyan-950/60 p-4 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold">Score global</p>
-                      <p className="text-sm text-muted-foreground">Basé sur les tests validés</p>
-                    </div>
-                    <Badge className="bg-emerald-500 text-white text-lg px-3 py-1">
-                      {calculateFinalScore()}%
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Étape 5: Confirmation (ou 4 si pas de tests) */}
-          {((hasJobQuizzes && currentStep === 5) || (!hasJobQuizzes && currentStep === 4)) && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                {hasApplied ? (
-                  <Ban className="h-5 w-5 text-orange-500" />
-                ) : (
+          {/* Étape 3: Confirmation */}
+          {currentStep === 3 && (
+            <div className="space-y-6 py-2 animate-in fade-in slide-in-from-bottom-3 duration-500">
+              <div className="space-y-2 mb-6">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Rocket className="h-5 w-5 text-emerald-500" />
-                )}
-                {hasApplied ? "Candidature existante" : "Confirmation de candidature"}
-              </h3>
-              
+                  Prêt pour l'envoi ?
+                </h3>
+              </div>
+
               <div className={cn(
-                "p-6 rounded-xl border text-center",
+                "p-6 rounded-2xl border-2 transition-all duration-500",
                 hasApplied
-                  ? "bg-gradient-to-br from-orange-50/80 to-amber-50/80 dark:from-orange-950/60 dark:to-amber-950/60 border-orange-200/50 dark:border-orange-800/50"
-                  : "bg-gradient-to-br from-emerald-50/80 to-green-50/80 dark:from-emerald-950/60 dark:to-green-950/60 border-emerald-200/50 dark:border-emerald-800/50"
+                  ? "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                  : "bg-white dark:bg-slate-900 border-emerald-500/50 shadow-sm"
               )}>
                 {hasApplied ? (
-                  <>
-                    <Ban className="h-12 w-12 text-orange-500 mx-auto mb-4" />
-                    <h4 className="text-xl font-bold mb-2">Candidature déjà soumise</h4>
-                    <p className="text-muted-foreground mb-4">
-                      Vous avez déjà postulé à <strong>{job.title}</strong> chez <strong>{job.companyName}</strong>.
-                    </p>
-                    <p className="text-sm text-orange-600 dark:text-orange-400 mb-4">
-                      Vous ne pouvez pas postuler à nouveau à cette offre.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
-                    <h4 className="text-xl font-bold mb-2">Prêt à postuler !</h4>
-                    <p className="text-muted-foreground mb-4">
-                      Votre candidature pour <strong>{job.title}</strong> chez <strong>{job.companyName}</strong> est prête à être envoyée.
-                    </p>
-                  </>
-                )}
-                
-                <div className="space-y-2 text-sm text-left bg-white/50 dark:bg-slate-800/30 p-4 rounded-lg">
-                  <div className="flex justify-between">
-                    <span>Score de matching:</span>
-                    <strong>{calculateFinalScore()}%</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Compatibilité CV:</span>
-                    <strong className={cn(
-                      skillAnalysis.matchPercent >= 70 ? "text-emerald-600" :
-                      skillAnalysis.matchPercent >= 50 ? "text-orange-600" : "text-red-600"
-                    )}>
-                      {skillAnalysis.matchPercent}%
-                    </strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Lettre de motivation:</span>
-                    <strong>{coverLetter ? "Personnalisée ✓" : "Non incluse"}</strong>
-                  </div>
-                  {hasJobQuizzes && (
-                    <div className="flex justify-between">
-                      <span>Tests techniques:</span>
-                      <strong>
-                        {quizCompletion.allCompleted 
-                          ? `${quizCompletion.completedQuizzes.length}/${quizCompletion.totalQuizzes} complétés ✓`
-                          : `${quizCompletion.completedQuizzes.length}/${quizCompletion.totalQuizzes} complétés`
-                        }
-                      </strong>
+                  <div className="flex flex-col items-center text-center py-4">
+                    <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                      <Ban className="h-8 w-8 text-slate-400" />
                     </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span>Portfolio:</span>
-                    <strong>{portfolio?.url || portfolioUrl ? "Disponible ✓" : "Non disponible"}</strong>
+                    <h4 className="text-lg font-bold text-slate-800 dark:text-white">Candidature enregistrée</h4>
+                    <p className="text-sm text-slate-500 mt-2 max-w-[280px]">
+                      Vous avez déjà postulé à ce poste. L'équipe de recrutement examine votre dossier.
+                    </p>
                   </div>
-                  <div className="flex justify-between">
-                    <span>CV:</span>
-                    <strong>{resumeUrl ? "Disponible ✓" : "Non disponible"}</strong>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="text-center pb-4 border-b border-slate-100 dark:border-slate-800">
+                      <h4 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Récapitulatif</h4>
+                      <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+                        Voici ce qui sera transmis à <span className="text-emerald-600 font-bold">{job.companyName}</span>
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+                        <div className="flex items-center gap-2.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Votre Dossier complet</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase">Synchronisé</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+                        <div className="flex items-center gap-2.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Note de motivation</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase">{coverLetter ? "Incluse" : "Non fournie"}</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-center text-slate-400 font-medium leading-relaxed px-4">
+                      * En cliquant sur soumettre, vous validez l'envoi sécurisé de vos données professionnelles.
+                    </p>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}
         </div>
 
         {/* Navigation fixe */}
-        <div className="flex-shrink-0 flex gap-3 pt-4 border-t border-emerald-100/50 dark:border-slate-700/50">
+        <div className="flex-shrink-0 flex gap-4 pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
           {currentStep > 1 && !hasApplied && (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="ghost"
               onClick={handlePreviousStep}
-              className="flex-1 border-emerald-200 dark:border-slate-700 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+              className="px-6 h-12 rounded-xl font-bold text-slate-500"
             >
-              Précédent
+              Retour
             </Button>
           )}
-          
+
           {hasApplied ? (
-            <Button 
+            <Button
               onClick={onClose}
-              className="flex-1 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+              className="flex-1 h-12 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-md active:scale-[0.98] transition-all"
             >
-              <Ban className="h-4 w-4 mr-2" />
-              Fermer
+              Fermer la fenêtre
             </Button>
           ) : currentStep < steps.length ? (
-            <Button 
+            <Button
               onClick={handleNextStep}
-              className={cn(
-                "flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-              )}
+              className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow-sm active:scale-[0.98] transition-all"
             >
-              Continuer
+              Étape suivante
             </Button>
           ) : (
-            <Button 
+            <Button
               onClick={handleSubmitApplication}
               disabled={applyMutation.isPending}
-              className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+              className="flex-1 h-12 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all"
             >
-              {applyMutation.isPending ? (
-                <>
-                  <span className="animate-spin mr-2">⏳</span>
-                  Envoi en cours...
-                </>
-              ) : (
-                <>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Soumettre ma candidature
-                </>
-              )}
+              {applyMutation.isPending ? "Transmission..." : "Confirmer ma candidature"}
             </Button>
           )}
         </div>

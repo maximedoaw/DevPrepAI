@@ -5,6 +5,7 @@ import { InterviewInfo } from "./interview-info"
 import { ProgressCard } from "./progress-card"
 import { QuestionCard } from "./question-card"
 import { QuizView } from "./quiz-view"
+import { TechnicalView } from "./technical-view"
 import { NavigationControls } from "./navigation-controls"
 import { CompletionScreen } from "./completion-screen"
 import { quizSaveAnswer } from "@/actions/interview.action"
@@ -21,6 +22,7 @@ import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, Clock, ChevronLeft, ChevronRight, Play, Loader2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface Question {
   id: string
@@ -312,7 +314,7 @@ export function InterviewContent({
   })()
   const currentQuestion: Question = {
     id: rawQuestion.id,
-    question: (rawQuestion as any).question,
+    question: (rawQuestion as any).question || (rawQuestion as any).text || "",
     type: normalizedType,
     points: (rawQuestion as any).points ?? 0,
     options: (rawQuestion as any).options,
@@ -399,6 +401,166 @@ export function InterviewContent({
 
         {/* Interface adaptée selon le type de question */}
         {currentQuestion.type === "coding" && isTechnicalInterview ? (
+          <div className="flex-1 flex overflow-hidden">
+            {/* Colonne gauche - Énoncé (Glass Emerald Design) */}
+            <div className="w-1/2 border-r border-slate-200 dark:border-slate-800 overflow-y-auto bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm custom-scrollbar">
+              <div className="p-8 space-y-8">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase text-emerald-500 tracking-[0.2em] mb-1">Exercice {currentQuestionIndex + 1}</p>
+                    <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                      {interviewDomain.replace(/_/g, ' ')}
+                    </h3>
+                  </div>
+                  <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg font-black text-[10px] px-2 py-1 uppercase tracking-widest border-none">
+                    {interview.difficulty || "MEDIUM"}
+                  </Badge>
+                </div>
+
+                <div className="bg-white dark:bg-slate-800/50 rounded-3xl p-6 border border-slate-100 dark:border-slate-800/50 shadow-sm">
+                  <div className="prose dark:prose-invert max-w-none">
+                    <div className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                      {currentQuestion.question}
+                    </div>
+                  </div>
+                </div>
+
+                {currentQuestion.expectedOutput && (
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Sortie Attendue</label>
+                    <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800">
+                      <pre className="text-sm font-mono text-emerald-400 overflow-x-auto">
+                        {currentQuestion.expectedOutput}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-3xl p-6 border border-emerald-100/50 dark:border-emerald-800/30">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/40"></div>
+                      <span className="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                        Objectif : {currentQuestion.points} points
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Question {currentQuestionIndex + 1} sur {interview.questions.length}
+                    </span>
+                  </div>
+                  <Progress value={questionProgress} className="h-2 rounded-full bg-slate-200 dark:bg-slate-800" />
+                </div>
+              </div>
+            </div>
+
+            {/* Colonne droite - Éditeur avec Monaco et Console */}
+            <div className="w-1/2 flex flex-col bg-slate-50 dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800">
+              {/* Éditeur Monaco */}
+              <div className="flex-1 relative min-h-0">
+                <div className="absolute inset-0">
+                  <MonacoEditor
+                    value={answers[currentQuestion.id] || currentQuestion.codeTemplate || ''}
+                    onChange={(value) => onAnswerChange(currentQuestion.id, value)}
+                    language={detectLanguage(answers[currentQuestion.id] || currentQuestion.codeTemplate || '', interview.technology?.[0]?.toLowerCase() || 'javascript') as any}
+                    theme="dark"
+                    height="100%"
+                    fontSize={14}
+                    lineNumbers="on"
+                    minimap={true}
+                  />
+                </div>
+              </div>
+
+              {/* Header avec bouton Run */}
+              <div className="px-4 py-2 border-t border-slate-300 dark:border-slate-700 bg-slate-800 dark:bg-slate-950 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                  </div>
+                  <span className="text-xs font-mono text-slate-400 ml-2">terminal</span>
+                </div>
+                <Button
+                  onClick={async () => {
+                    const currentCode = answers[currentQuestion.id] || currentQuestion.codeTemplate || ''
+                    if (!currentCode.trim()) {
+                      toast.warning("Veuillez écrire du code avant de le tester")
+                      return
+                    }
+
+                    setIsExecutingCode(true)
+                    setShowConsole(true)
+
+                    try {
+                      const detectedLang = detectLanguage(currentCode, interview.technology?.[0]?.toLowerCase() || 'javascript')
+                      const result = await executeCodeWithPiston(currentCode, detectedLang)
+                      const formatted = formatExecutionOutput(result)
+                      setExecutionOutput(formatted)
+                    } catch (error: any) {
+                      console.error("Erreur exécution Piston:", error)
+                      setExecutionOutput(`$ ERROR\nErreur lors de l'exécution: ${error.message}\n$ `)
+                      toast.error("Erreur lors de l'exécution du code")
+                    } finally {
+                      setIsExecutingCode(false)
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-600 hover:bg-slate-700 text-slate-200"
+                  disabled={isExecutingCode || !answers[currentQuestion.id]?.trim()}
+                >
+                  {isExecutingCode ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Exécution...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Run
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Console */}
+              {showConsole && (
+                <div className="h-64 border-t border-slate-700 bg-slate-900 dark:bg-black overflow-hidden flex flex-col">
+                  <div className="flex-1 overflow-y-auto p-4">
+                    <pre className="text-emerald-400 font-mono text-sm leading-relaxed whitespace-pre-wrap">
+                      {executionOutput || "$ "}
+                    </pre>
+                    {isExecutingCode && (
+                      <span className="inline-block w-2 h-4 bg-emerald-400 ml-1 animate-pulse"></span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : isTechnicalInterview ? (
+          <TechnicalView
+            question={{
+              id: currentQuestion.id,
+              question: currentQuestion.question,
+              expectedOutput: currentQuestion.expectedOutput,
+              correctAnswer: currentQuestion.correctAnswer,
+              codeTemplate: currentQuestion.codeTemplate,
+              explanation: currentQuestion.explanation,
+              points: currentQuestion.points,
+              type: currentQuestion.type
+            }}
+            currentIndex={currentQuestionIndex}
+            totalQuestions={interview.questions.length}
+            onNext={onNextQuestion}
+            onPrevious={onPreviousQuestion}
+            isSaving={isSaving || saving}
+            difficulty={interview.difficulty}
+            timeLeft={timeLeft}
+            formatTime={formatTime}
+          />
+        ) : currentQuestion.type === "coding" ? (
           <div className="flex-1 flex overflow-hidden">
             {/* Colonne gauche - Énoncé (Glass Emerald Design) */}
             <div className="w-1/2 border-r border-slate-200 dark:border-slate-800 overflow-y-auto bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm custom-scrollbar">
@@ -761,6 +923,6 @@ export function InterviewContent({
           />
         )}
       </div>
-    </div>
+    </div >
   )
 }

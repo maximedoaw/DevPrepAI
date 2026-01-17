@@ -127,6 +127,7 @@ export async function getUserPortfolio(userId: string) {
 
     // CORRECTION : Utiliser publishedAt pour déterminer isPublic
     return {
+      id: portfolio.id,
       name: portfolio.title,
       headline: portfolio.headline,
       bio: portfolio.bio,
@@ -210,6 +211,8 @@ export async function getPortfolioByUserId(userId: string) {
   }
 }
 
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+
 export async function getPortfolioById(portfolioId: string) {
   try {
     const portfolio = await prisma.portfolio.findUnique({
@@ -227,7 +230,12 @@ export async function getPortfolioById(portfolioId: string) {
       }
     })
 
-    if (!portfolio || !portfolio.publishedAt) {
+    const { getUser } = getKindeServerSession();
+    const user = await getUser();
+    const isOwner = user?.id === portfolio.userId
+
+    // Modifié selon la demande : Tout le monde peut voir le portfolio avec l'ID, même non publié
+    if (!portfolio) {
       return null
     }
 
