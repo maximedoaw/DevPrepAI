@@ -1,4 +1,8 @@
-import { Search, Filter, Briefcase, Zap, Globe, Code, TrendingUp, Building2, Lock } from "lucide-react"
+import {
+  Search, Filter, Briefcase, Zap, Globe, Code, TrendingUp, Building2, Lock,
+  Database, Brain, DollarSign, Cog, Palette, Server, Shield, Megaphone,
+  Package, Smartphone, MessageSquare, Users, GraduationCap, Heart
+} from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -21,10 +25,23 @@ interface TalentMatchingFiltersProps {
 const domainOptions = [
   { value: "ALL", label: "Tous les domaines", icon: Globe },
   { value: "DEVELOPMENT", label: "Développement", icon: Code },
-  { value: "DATA_SCIENCE", label: "Data Science", icon: TrendingUp },
-  { value: "ENGINEERING", label: "Ingénierie", icon: Building2 },
-  { value: "DEVOPS", label: "DevOps", icon: Zap },
-  { value: "CYBERSECURITY", label: "Cybersécurité", icon: Lock },
+  { value: "DATA_SCIENCE", label: "Data Science", icon: Database },
+  { value: "MACHINE_LEARNING", label: "Machine Learning", icon: Brain },
+  { value: "FINANCE", label: "Finance", icon: DollarSign },
+  { value: "BUSINESS", label: "Business", icon: Briefcase },
+  { value: "ENGINEERING", label: "Ingénierie", icon: Cog },
+  { value: "DESIGN", label: "Design", icon: Palette },
+  { value: "DEVOPS", label: "DevOps", icon: Server },
+  { value: "CYBERSECURITY", label: "Cybersécurité", icon: Shield },
+  { value: "MARKETING", label: "Marketing", icon: Megaphone },
+  { value: "PRODUCT", label: "Product", icon: Package },
+  { value: "ARCHITECTURE", label: "Architecture", icon: Building2 },
+  { value: "MOBILE", label: "Mobile", icon: Smartphone },
+  { value: "WEB", label: "Web", icon: Globe },
+  { value: "COMMUNICATION", label: "Communication", icon: MessageSquare },
+  { value: "MANAGEMENT", label: "Management", icon: Users },
+  { value: "EDUCATION", label: "Éducation", icon: GraduationCap },
+  { value: "HEALTH", label: "Santé", icon: Heart },
 ]
 
 export function TalentMatchingFilters({
@@ -57,7 +74,7 @@ export function TalentMatchingFilters({
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
               <Briefcase className="h-4 w-4" />

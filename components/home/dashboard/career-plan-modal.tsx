@@ -5,19 +5,41 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { X, Sparkles, Target, ArrowRight, BookOpen, Trophy, Building2, Calendar, Download } from "lucide-react"
+import { X, Sparkles, Target, ArrowRight, BookOpen, Trophy, Building2, Calendar, Download, Wallet, Landmark } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 
 interface CareerPlanModalProps {
     open: boolean;
     onClose: () => void;
     careerPlan: any;
+    onEditAnswers: () => void; // New prop for editing answers
 }
 
-export function CareerPlanModal({ open, onClose, careerPlan }: CareerPlanModalProps) {
+function ExpandableText({ text, limit = 150, className }: { text: string, limit?: number, className?: string }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    if (!text) return null;
+    if (text.length <= limit) return <p className={className}>{text}</p>;
+
+    return (
+        <div className="flex flex-col items-start gap-1">
+            <p className={cn(className, !isExpanded && "line-clamp-3")}>
+                {text}
+            </p>
+            <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline mt-1"
+            >
+                {isExpanded ? "Voir moins" : "Voir plus"}
+            </button>
+        </div>
+    );
+}
+
+export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: CareerPlanModalProps) {
     const modalRef = useRef<HTMLDivElement>(null);
-    
+
     if (!open || !careerPlan) return null;
 
     return (
@@ -55,6 +77,9 @@ export function CareerPlanModal({ open, onClose, careerPlan }: CareerPlanModalPr
                                 <TabsTrigger value="overview" className="h-14 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 px-0 font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-base">
                                     Vue d'ensemble
                                 </TabsTrigger>
+                                <TabsTrigger value="skills" className="h-14 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 px-0 font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-base">
+                                    Analyses & Ponts
+                                </TabsTrigger>
                                 <TabsTrigger value="path" className="h-14 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 px-0 font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-base">
                                     Parcours & Étapes
                                 </TabsTrigger>
@@ -74,98 +99,150 @@ export function CareerPlanModal({ open, onClose, careerPlan }: CareerPlanModalPr
                                         <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group">
                                             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none group-hover:bg-emerald-500/10 transition-colors duration-500"></div>
 
-                                            <div className="relative">
+                                            <div className="relative z-10">
                                                 <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between mb-6">
                                                     <div>
-                                                        <h3 className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2">
-                                                            Votre Profil
+                                                        <h3 className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+                                                            Votre Profil Reconverti
                                                         </h3>
-                                                        <h4 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                                        <h4 className="text-2xl font-bold text-slate-900 dark:text-white break-words">
                                                             {careerPlan.persona?.type || "Profil Professionnel"}
                                                         </h4>
                                                     </div>
                                                     {careerPlan.persona?.tags && (
                                                         <div className="flex flex-wrap gap-2">
                                                             {careerPlan.persona.tags.map((tag: string) => (
-                                                                <Badge key={tag} variant="secondary" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-none px-3 py-1.5 text-sm">
+                                                                <Badge key={tag} variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-none px-3 py-1.5 text-sm whitespace-normal text-center">
                                                                     {tag}
                                                                 </Badge>
                                                             ))}
                                                         </div>
                                                     )}
                                                 </div>
-                                                <p className="text-xl text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                                                    {careerPlan.summary}
-                                                </p>
+                                                <div className="prose prose-emerald dark:prose-invert max-w-none">
+                                                    <ExpandableText
+                                                        text={careerPlan.summary}
+                                                        limit={200}
+                                                        className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed font-normal whitespace-pre-wrap break-words"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
 
                                         {/* Stats Grid */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            {/* Forces */}
-                                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
-                                                <div className="flex items-center gap-3 mb-4">
-                                                    <div className="p-2.5 bg-green-100 dark:bg-green-500/20 rounded-xl text-green-600 dark:text-green-400">
-                                                        <Sparkles className="w-5 h-5" />
-                                                    </div>
-                                                    <h3 className="font-bold text-lg text-slate-900 dark:text-white">Vos Forces</h3>
-                                                </div>
-                                                <ul className="space-y-3">
-                                                    {careerPlan.currentSituation?.strengths?.map((item: string, i: number) => (
-                                                        <li key={i} className="flex items-start gap-3 text-slate-600 dark:text-slate-400">
-                                                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
-                                                            <span className="leading-relaxed">{item}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-
                                             {/* Objectifs */}
-                                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
+                                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col h-full">
+                                                <div className="absolute top-0 right-0 p-4 opacity-10">
+                                                    <Target className="w-12 h-12 text-blue-500" />
+                                                </div>
                                                 <div className="flex items-center gap-3 mb-4">
                                                     <div className="p-2.5 bg-blue-100 dark:bg-blue-500/20 rounded-xl text-blue-600 dark:text-blue-400">
                                                         <Target className="w-5 h-5" />
                                                     </div>
                                                     <h3 className="font-bold text-lg text-slate-900 dark:text-white">Objectifs Clés</h3>
                                                 </div>
-                                                <ul className="space-y-3">
+                                                <ul className="space-y-3 flex-1">
                                                     {careerPlan.careerGoals?.shortTerm?.slice(0, 3).map((item: string, i: number) => (
                                                         <li key={i} className="flex items-start gap-3 text-slate-600 dark:text-slate-400">
-                                                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-                                                            <span className="leading-relaxed">{item}</span>
+                                                            <div className="mt-2 w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                                                            <span className="leading-relaxed text-sm break-words">{item}</span>
                                                         </li>
                                                     ))}
                                                 </ul>
                                             </div>
-                                        </div>
 
-                                        {/* Matching Jobs */}
-                                        {careerPlan.matchingOpportunities && (
+                                            {/* Motivation Card */}
+                                            <div className="bg-emerald-600 dark:bg-emerald-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col h-full justify-center">
+                                                <div className="relative z-10">
+                                                    <Trophy className="w-8 h-8 mb-4 text-emerald-200" />
+                                                    <blockquote className="text-lg font-medium leading-relaxed italic pl-0 py-1">
+                                                        "{careerPlan.motivationalMessage || "Prêt à transformer votre carrière ?"}"
+                                                    </blockquote>
+                                                </div>
+                                                <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+                                            </div>
+                                        </div>
+                                    </TabsContent>
+
+                                    <TabsContent value="skills" className="mt-0 space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                                        {/* Compétences Transférables Section */}
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                             <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
                                                 <div className="flex items-center gap-3 mb-6">
-                                                    <Building2 className="w-5 h-5 text-indigo-500" />
-                                                    <h3 className="font-bold text-lg text-slate-900 dark:text-white">Opportunités de Carrière</h3>
+                                                    <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl">
+                                                        <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                                    </div>
+                                                    <h3 className="font-bold text-xl text-slate-900 dark:text-white">Compétences Transférables</h3>
                                                 </div>
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {careerPlan.matchingOpportunities.jobTypes?.map((job: any, idx: number) => (
-                                                        <div key={idx} className="group p-5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-500/20 hover:border-indigo-200 dark:hover:border-indigo-500/40 transition-all">
-                                                            <div className="flex justify-between items-start mb-2">
-                                                                <h4 className="font-bold text-indigo-950 dark:text-indigo-100">{job.title}</h4>
-                                                                {job.matchScore && (
-                                                                    <span className="text-xs font-bold px-2 py-1 rounded-lg bg-white dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 shadow-sm">
-                                                                        {job.matchScore}% Match
-                                                                    </span>
-                                                                )}
+                                                <div className="space-y-4">
+                                                    {careerPlan.transferableSkillsAnalysis?.identifiedSkills?.map((item: any, i: number) => (
+                                                        <div key={i} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors">
+                                                            <div className="flex justify-between items-start gap-3 mb-2">
+                                                                <span className="font-bold text-slate-900 dark:text-white break-words flex-1">{item.skill}</span>
+                                                                <Badge className={cn(
+                                                                    "text-[10px] uppercase shrink-0",
+                                                                    item.value === 'haute' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                                                                )}>
+                                                                    Valeur {item.value}
+                                                                </Badge>
                                                             </div>
-                                                            <p className="text-sm text-indigo-900/70 dark:text-indigo-300/70 leading-relaxed">
-                                                                {job.description}
+                                                            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed break-words">
+                                                                {item.context}
                                                             </p>
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
-                                        )}
+
+                                            {/* Financial Bridge Section */}
+                                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col">
+                                                <div className="absolute top-0 right-0 p-4 opacity-5">
+                                                    <Wallet className="w-24 h-24 text-emerald-600" />
+                                                </div>
+                                                <div className="flex items-center gap-3 mb-6">
+                                                    <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl">
+                                                        <Wallet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                                    </div>
+                                                    <h3 className="font-bold text-xl text-slate-900 dark:text-white">Sécurité Financière</h3>
+                                                </div>
+
+                                                {careerPlan.financialBridge ? (
+                                                    <div className="space-y-6 flex-1 flex flex-col">
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800">
+                                                                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-2">Salaire Actuel</p>
+                                                                <p className="text-2xl font-bold text-slate-900 dark:text-white truncate" title={careerPlan.financialBridge.currentEstimated}>{careerPlan.financialBridge.currentEstimated}</p>
+                                                            </div>
+                                                            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800">
+                                                                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-2">Cible Junior</p>
+                                                                <p className="text-2xl font-bold text-slate-900 dark:text-white truncate" title={careerPlan.financialBridge.targetJuniorEntry}>{careerPlan.financialBridge.targetJuniorEntry}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-3">
+                                                            <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                                                Analyse de l'écart
+                                                            </h4>
+                                                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic border-l-2 border-slate-200 dark:border-slate-700 pl-3 break-words">
+                                                                "{careerPlan.financialBridge.gapAnalysis}"
+                                                            </p>
+                                                        </div>
+                                                        <div className="mt-auto p-5 rounded-2xl bg-slate-900 text-white shadow-xl dark:bg-emerald-900/20 border border-slate-800 dark:border-emerald-800">
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <Landmark className="w-4 h-4 text-emerald-400" />
+                                                                <h4 className="text-sm font-bold text-emerald-400 uppercase tracking-wide">Stratégie Recommandée</h4>
+                                                            </div>
+                                                            <p className="text-sm text-slate-300 leading-relaxed font-medium break-words">
+                                                                {careerPlan.financialBridge.bridgeStrategy}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-slate-500 italic">Analyse financière non disponible pour ce profil.</p>
+                                                )}
+                                            </div>
+                                        </div>
                                     </TabsContent>
 
                                     <TabsContent value="path" className="mt-0 space-y-8 animate-in slide-in-from-bottom-4 duration-500">
@@ -182,14 +259,14 @@ export function CareerPlanModal({ open, onClose, careerPlan }: CareerPlanModalPr
                                                             </div>
                                                             <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
                                                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
-                                                                    <h4 className="font-bold text-slate-900 dark:text-white">{step.step}</h4>
+                                                                    <h4 className="font-bold text-slate-900 dark:text-white break-words">{step.step}</h4>
                                                                     {step.timeline && (
-                                                                        <Badge variant="secondary" className="text-xs bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                                                        <Badge variant="secondary" className="text-xs bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap">
                                                                             {step.timeline}
                                                                         </Badge>
                                                                     )}
                                                                 </div>
-                                                                <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
+                                                                <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed break-words">
                                                                     {step.description}
                                                                 </p>
                                                             </div>
@@ -308,16 +385,23 @@ export function CareerPlanModal({ open, onClose, careerPlan }: CareerPlanModalPr
                 </div>
 
                 {/* Footer Action */}
-                <div className="flex-none p-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex justify-between items-center gap-4">
-                    <p className="hidden md:block text-xs text-slate-400">
-                        Ce plan est privé et visible uniquement par vous.
-                    </p>
-                    <div className="flex items-center gap-3 w-full md:w-auto">
-                        <Button variant="outline" className="flex-1 md:flex-none border-slate-200 dark:border-slate-800" disabled>
+                <div className="flex-none p-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <Button
+                        variant="ghost"
+                        onClick={() => {
+                            onEditAnswers();
+                            onClose();
+                        }}
+                        className="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-sm"
+                    >
+                        Revoir mes réponses
+                    </Button>
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <Button variant="outline" className="flex-1 sm:flex-none border-slate-200 dark:border-slate-800" disabled>
                             <Download className="w-4 h-4 mr-2" />
                             PDF
                         </Button>
-                        <Button onClick={onClose} className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl transition-all w-full md:w-auto px-8">
+                        <Button onClick={onClose} className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl transition-all">
                             Ça marche, je fonce !
                             <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>

@@ -34,6 +34,12 @@ enum JobType {
   STAGE
 }
 
+enum MemberStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum WorkMode {
   REMOTE
   ON_SITE
@@ -124,6 +130,26 @@ enum BootcampInvitationStatus {
   CANCELLED
 }
 
+enum CircleStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum PostType {
+  PROGRESS
+  BLOCKED
+  QUESTION
+  RITUAL
+}
+
+enum ReactionType {
+  ENCOURAGEMENT
+  ADVICE
+  VALIDATION
+  SUPPORT
+}
+
 
 model User {
   id               String              @id @default(cuid())
@@ -143,6 +169,7 @@ model User {
   onboardingDetails Json?
   onboardingGoals   Json?
   careerProfile     Json?
+  careerProfileAnswers Json?            // Store career test answers for review/edit
   careerProfileUpdatedAt DateTime?
   careerProfileTestStatus String?      // PENDING, REFUSED, DONE
 
@@ -173,6 +200,13 @@ model User {
   bootcampInvitationsReceived BootcampInvitation[] @relation("BootcampInvitationReceiver")
   favorites        Favorite[]
   searchTemplates  SearchTemplate[]
+  managedCircles   ReconversionCircle[] @relation("CircleAdmin")
+  circleMemberships CircleMember[]
+  communityPosts   CommunityPost[]
+  postReactions    PostReaction[]
+  postComments     PostComment[]
+  ritualParticipations RitualParticipation[]
+  circleMessages   CircleMessage[]
 
   @@index([createdAt])
   @@index([role])
@@ -746,4 +780,185 @@ model BootcampInvitation {
   @@index([status])
   @@index([createdAt])
   @@map("bootcamp_invitations")
+}
+
+// ============================================
+// COMMUNITY MODELS - Reconversion Features
+// ============================================
+
+// Cercles de reconversion (mini-groupes)
+model ReconversionCircle {
+  id               String        @id @default(cuid())
+  name             String
+  description      String?
+  imageUrl         String?       // URL de l'image (UploadThing)
+  targetCareer     String        // Ex: "Développement Web"
+  level            String        // Ex: "Débutant", "Intermédiaire"
+  maxMembers       Int?          // Null = Illimité
+  duration         Int           @default(30)
+  startDate        DateTime
+  endDate          DateTime?
+  status           CircleStatus  @default(ACTIVE)
+  adminId          String        // ID de l'administrateur créateur
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  // Relations
+  admin            User               @relation("CircleAdmin", fields: [adminId], references: [id])
+  members          CircleMember[]
+  posts            CommunityPost[]
+  rituals          CircleRitual[]
+  messages         CircleMessage[]
+  
+  @@index([status, targetCareer])
+  @@index([startDate])
+  @@map("reconversion_circles")
+}
+
+// Membres d'un cercle
+model CircleMember {
+  id               String   @id @default(cuid())
+  userId           String
+  circleId         String
+  joinedAt         DateTime @default(now())
+  isAdmin          Boolean  @default(false)
+  
+  // Relations
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle           ReconversionCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, circleId])
+  @@index([circleId])
+  @@index([userId])
+  @@map("circle_members")
+}
+
+// Posts communautaires (journal de progression)
+model CommunityPost {
+  id               String     @id @default(cuid())
+  userId           String?    // Null si anonyme
+  circleId         String
+  type             PostType
+  content          String     @db.Text
+  isAnonymous      Boolean    @default(false)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  
+  // Relations
+  user             User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  circle           ReconversionCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  reactions        PostReaction[]
+  comments         PostComment[]
+  
+  @@index([circleId, createdAt])
+  @@index([type])
+  @@index([userId])
+  @@map("community_posts")
+}
+
+// Réactions aux posts
+model PostReaction {
+  id               String        @id @default(cuid())
+  userId           String
+  postId           String
+  type             ReactionType
+  createdAt        DateTime      @default(now())
+  
+  // Relations
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post             CommunityPost     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, postId, type])
+  @@index([postId])
+  @@index([userId])
+  @@map("post_reactions")
+}
+
+// Commentaires (conseils)
+model PostComment {
+  id               String        @id @default(cuid())
+  userId           String
+  postId           String
+  content          String        @db.Text
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  // Relations
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post             CommunityPost     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  @@index([postId, createdAt])
+  @@index([userId])
+  @@map("post_comments")
+}
+
+// Rituels communautaires
+model CircleRitual {
+  id               String   @id @default(cuid())
+  circleId         String
+  name             String   // Ex: "Défi 7 jours", "Simulation collective"
+  description      String   @db.Text
+  startDate        DateTime
+  endDate          DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Relations
+  circle           ReconversionCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  participants     RitualParticipation[]
+  
+  @@index([circleId])
+  @@map("circle_rituals")
+}
+
+model RitualParticipation {
+  id               String   @id @default(cuid())
+  userId           String
+  ritualId         String
+  joinedAt         DateTime @default(now())
+  status           String   @default("ACTIVE") // ACTIVE, COMPLETED, DROPPED
+  
+  // Relations
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ritual           CircleRitual       @relation(fields: [ritualId], references: [id], onDelete: Cascade)
+  dailyCompletions RitualDailyCompletion[]
+
+  @@unique([userId, ritualId])
+  @@index([ritualId])
+  @@index([userId])
+  @@map("ritual_participations")
+}
+
+model RitualDailyCompletion {
+  id              String             @id @default(cuid())
+  participationId String
+  date            DateTime           // Date précise de la complétion (start of day)
+  completedAt     DateTime           @default(now())
+  
+  // Relations
+  participation   RitualParticipation @relation(fields: [participationId], references: [id], onDelete: Cascade)
+
+  @@unique([participationId, date])
+  @@index([participationId])
+  @@map("ritual_daily_completions")
+}
+
+
+// Messages de chat (style Discord/Slack)
+model CircleMessage {
+  id        String   @id @default(cuid())
+  circleId  String
+  userId    String
+  content   String   @db.Text
+  attachmentUrl String?
+  attachmentType String?  // IMAGE, FILE, AUDIO, VIDEO
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  circle    ReconversionCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([circleId, createdAt])
+  @@index([userId])
+  @@map("circle_messages")
 }

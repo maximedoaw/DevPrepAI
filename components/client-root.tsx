@@ -6,7 +6,7 @@ import DevLoader from "@/components/dev-loader";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getUserRoleAndDomains } from "@/actions/user.action";
-import AppSidebar from "./AppNavbar";
+import AppSidebar from "./AppSidebar";
 import { usePathname, useRouter } from "next/navigation";
 
 export default function ClientRoot({ children }: { children: React.ReactNode }) {

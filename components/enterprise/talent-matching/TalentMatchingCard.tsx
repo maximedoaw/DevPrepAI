@@ -10,9 +10,10 @@ interface TalentMatchingCardProps {
   matching: MatchedCandidate
   index: number
   formatDomain: (domain: string) => string
+  onCardClick?: (matching: MatchedCandidate) => void
 }
 
-export function TalentMatchingCard({ matching, index, formatDomain }: TalentMatchingCardProps) {
+export function TalentMatchingCard({ matching, index, formatDomain, onCardClick }: TalentMatchingCardProps) {
   const isBlurred = index >= 10
   const candidate = matching.candidate
   const initials = `${candidate.firstName?.[0] ?? ""}${candidate.lastName?.[0] ?? ""}`.trim() || "?"
@@ -20,11 +21,12 @@ export function TalentMatchingCard({ matching, index, formatDomain }: TalentMatc
 
   return (
     <Card
+      onClick={() => !isBlurred && onCardClick?.(matching)}
       className={cn(
         "border transition-all duration-300 hover:shadow-lg dark:hover:shadow-lg group cursor-pointer overflow-hidden",
         isBlurred
           ? "border-amber-200 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-900/10"
-          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 backdrop-blur-sm hover:border-slate-300 dark:hover:border-slate-600",
+          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 backdrop-blur-sm hover:border-emerald-300 dark:hover:border-emerald-600",
         "relative rounded-xl"
       )}
     >

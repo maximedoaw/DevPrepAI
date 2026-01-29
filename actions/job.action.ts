@@ -180,6 +180,8 @@ export async function getJobById(id: string) {
   return job
 }
 
+import { saveAiMatchedTalents } from "./talent.action"
+
 // Créer un nouveau job
 export async function createJob(data: {
   companyName: string
@@ -217,6 +219,13 @@ export async function createJob(data: {
     }
   })
 
+  // Trigger AI Matching
+  try {
+    await saveAiMatchedTalents(job.id)
+  } catch (error) {
+    console.error("Failed to trigger automatic matching:", error)
+  }
+
   revalidatePath("/jobs")
   return job
 }
@@ -246,6 +255,15 @@ export async function updateJob(id: string, data: Partial<{
       updatedAt: new Date()
     }
   })
+
+  // Trigger AI Matching on update (re-analyze)
+  if (data.skills || data.domains || data.description) {
+      try {
+        await saveAiMatchedTalents(job.id)
+      } catch (error) {
+        console.error("Failed to re-trigger automatic matching:", error)
+      }
+  }
 
   revalidatePath("/jobs")
   revalidatePath(`/jobs/${id}`)

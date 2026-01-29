@@ -11,6 +11,7 @@ interface TalentMatchingListProps {
   matchings: MatchedCandidate[]
   formatDomain: (domain: string) => string
   onResetFilters: () => void
+  onCardClick?: (matching: MatchedCandidate) => void
 }
 
 export function TalentMatchingList({
@@ -18,6 +19,7 @@ export function TalentMatchingList({
   matchings,
   formatDomain,
   onResetFilters,
+  onCardClick,
 }: TalentMatchingListProps) {
   if (isLoading) {
     return (
@@ -52,7 +54,7 @@ export function TalentMatchingList({
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
             Essayez de modifier vos critères de recherche
           </p>
-          <Button 
+          <Button
             onClick={onResetFilters}
             className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
           >
@@ -82,7 +84,7 @@ export function TalentMatchingList({
           </Badge>
         )}
       </div>
-      
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {matchings.map((matching, index) => (
           <TalentMatchingCard
@@ -90,6 +92,7 @@ export function TalentMatchingList({
             matching={matching}
             index={index}
             formatDomain={formatDomain}
+            onCardClick={onCardClick}
           />
         ))}
       </div>
