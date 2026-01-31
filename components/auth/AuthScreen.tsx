@@ -11,20 +11,24 @@ import NewsLetters from './NewsLetters'
 import Pricing from './Pricing'
 import Hero from './Hero'
 
+import ThreePillars from '../landing/ThreePillars'
+import TargetFeatures from '../landing/TargetFeatures'
+import ComparisonTable from '../landing/ComparisonTable'
+
 const AuthScreen = () => {
   return (
     <div className="min-h-screen">
-      <Navbar/>
+      <Navbar />
       <Hero />
-      <TrainingHero />
-      <Features />
-      <WhySkillWokz/>
-      <Pricing/>
+      <ThreePillars />
+      <TargetFeatures />
+      <ComparisonTable />
+      <Pricing />
       {/* <Testimonials /> */}
-      <CreatorSection/>
-      <FAQ/>
-      <NewsLetters/>
-      <Footer/>
+      <CreatorSection />
+      <FAQ />
+      <NewsLetters />
+      <Footer />
     </div>
   )
 }

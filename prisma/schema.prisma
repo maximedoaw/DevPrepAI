@@ -917,7 +917,7 @@ model RitualParticipation {
   ritualId         String
   joinedAt         DateTime @default(now())
   status           String   @default("ACTIVE") // ACTIVE, COMPLETED, DROPPED
-  
+   
   // Relations
   user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   ritual           CircleRitual       @relation(fields: [ritualId], references: [id], onDelete: Cascade)

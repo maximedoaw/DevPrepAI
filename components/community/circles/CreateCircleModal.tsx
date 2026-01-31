@@ -231,44 +231,28 @@ export function CreateCircleModal({ open, onClose, onCreate }: CreateCircleModal
                                     <Calendar className="w-3.5 h-3.5 text-amber-500" />
                                     Cycle de vie
                                 </Label>
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <Label htmlFor="duration" className="text-sm font-semibold">Durée du cycle (jours)</Label>
-                                            <Badge variant="outline" className="text-[9px] h-4 bg-slate-50 dark:bg-slate-900 border-none">Optionnel</Badge>
-                                        </div>
-                                        <div className="relative">
-                                            <Input
-                                                id="duration"
-                                                type="number"
-                                                min={1}
-                                                max={90}
-                                                value={formData.duration}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    if (val === "" || (parseInt(val) <= 90 && parseInt(val) >= 0)) {
-                                                        setFormData({ ...formData, duration: val })
-                                                    }
-                                                }}
-                                                placeholder="Illimité"
-                                                className="h-11 rounded-xl pr-12"
-                                            />
-                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">JOURS</div>
-                                        </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="duration" className="text-sm font-semibold">Durée du cycle (jours)</Label>
+                                        <Badge variant="outline" className="text-[9px] h-4 bg-slate-50 dark:bg-slate-900 border-none">Optionnel</Badge>
                                     </div>
-
-                                    <div className="space-y-2">
-                                        <Label className="text-sm font-semibold">Nombre de compagnons</Label>
-                                        <Select value={formData.maxMembers.toString()} onValueChange={(val) => setFormData({ ...formData, maxMembers: parseInt(val) })}>
-                                            <SelectTrigger className="h-11 rounded-xl">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="rounded-xl">
-                                                <SelectItem value="5" className="rounded-lg">5 membres (Focus)</SelectItem>
-                                                <SelectItem value="12" className="rounded-lg">12 membres (Équilibre)</SelectItem>
-                                                <SelectItem value="25" className="rounded-lg">25 membres (Dynamique)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                    <div className="relative">
+                                        <Input
+                                            id="duration"
+                                            type="number"
+                                            min={1}
+                                            max={90}
+                                            value={formData.duration}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val === "" || (parseInt(val) <= 90 && parseInt(val) >= 0)) {
+                                                    setFormData({ ...formData, duration: val })
+                                                }
+                                            }}
+                                            placeholder="Illimité"
+                                            className="h-11 rounded-xl pr-12"
+                                        />
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">JOURS</div>
                                     </div>
                                 </div>
                             </div>

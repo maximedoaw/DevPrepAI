@@ -59,7 +59,7 @@ export function PostCard({ post, currentUserId, onReact, onComment, onDelete }: 
                             )}
                         </Avatar>
                         <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-bold text-slate-900 dark:text-white">
                                     {post.isAnonymous ? "Membre anonyme" : `${post.user?.firstName} ${post.user?.lastName}`}
                                 </span>
@@ -67,7 +67,17 @@ export function PostCard({ post, currentUserId, onReact, onComment, onDelete }: 
                                     {styles.label}
                                 </Badge>
                             </div>
-                            <p className="text-xs text-slate-400 mt-0.5">{timeAgo}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <p className="text-xs text-slate-400">{timeAgo}</p>
+                                {post.circle && (
+                                    <>
+                                        <span className="text-slate-300 dark:text-slate-600">•</span>
+                                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                            {post.circle.name}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
 

@@ -5,9 +5,6 @@ import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server"
 import { revalidatePath } from "next/cache"
 import { Prisma } from "@prisma/client"
 
-// ============================================
-// CIRCLES
-// ============================================
 
 export async function createCircle(data: {
   name: string
@@ -180,8 +177,14 @@ export async function getCircleDetails(circleId: string) {
         },
         rituals: {
           include: {
+            participants: {
+              where: user?.id ? { userId: user.id } : undefined,
+              include: {
+                dailyCompletions: true
+              }
+            },
             _count: {
-              select: { participations: true }
+              select: { participants: true }
             }
           },
           orderBy: { startDate: "desc" }
@@ -200,7 +203,15 @@ export async function getCircleDetails(circleId: string) {
     // Check if user is member
     const isMember = user?.id ? circle.members.some(m => m.userId === user.id) : false
 
-    return { success: true, data: { ...circle, isMember } }
+    // Transform rituals to have a more convenient userParticipation + dailyCompletions shape
+    const ritualsWithStatus = circle.rituals.map(ritual => ({
+      ...ritual,
+      userParticipation: ritual.participants[0] || null,
+      dailyCompletions: ritual.participants[0]?.dailyCompletions || [],
+      _count: { participations: ritual._count.participants }
+    }))
+
+    return { success: true, data: { ...circle, rituals: ritualsWithStatus, isMember } }
   } catch (error) {
     console.error("Error fetching circle details:", error)
     return { success: false, error: "Erreur lors du chargement" }
@@ -598,7 +609,7 @@ export async function getRituals(circleId: string) {
     const rituals = await prisma.circleRitual.findMany({
       where: { circleId },
       include: {
-        participations: {
+        participants: {
           include: {
             user: {
               select: {
@@ -607,11 +618,12 @@ export async function getRituals(circleId: string) {
                 lastName: true,
                 imageUrl: true
               }
-            }
+            },
+            dailyCompletions: true
           }
         },
         _count: {
-          select: { participations: true }
+          select: { participants: true }
         }
       },
       orderBy: {
@@ -620,12 +632,15 @@ export async function getRituals(circleId: string) {
     })
 
     // Add user participation status
-    const ritualsWithStatus = rituals.map(ritual => ({
-      ...ritual,
-      userParticipation: user?.id
-        ? ritual.participations.find(p => p.userId === user.id)
-        : null
-    }))
+    const ritualsWithStatus = rituals.map(ritual => {
+      const userPart = user?.id ? ritual.participants.find(p => p.userId === user.id) : null
+      return {
+        ...ritual,
+        userParticipation: userPart,
+        dailyCompletions: userPart?.dailyCompletions || [],
+        _count: { participations: ritual._count.participants }
+      }
+    })
 
     return { success: true, data: ritualsWithStatus }
   } catch (error) {
@@ -700,6 +715,12 @@ export async function getAllPosts() {
             imageUrl: true
           }
         },
+        circle: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
         reactions: true,
         comments: {
            include: {
@@ -738,9 +759,9 @@ export async function getAllRituals() {
         circle: {
           select: { name: true }
         },
-        participations: true,
+        participants: true,
         _count: {
-          select: { participations: true }
+          select: { participants: true }
         }
       },
       orderBy: { startDate: "asc" }
@@ -749,8 +770,9 @@ export async function getAllRituals() {
     const ritualsWithStatus = rituals.map(ritual => ({
       ...ritual,
       userParticipation: user?.id
-        ? ritual.participations.find(p => p.userId === user.id)
-        : null
+        ? ritual.participants.find(p => p.userId === user.id)
+        : null,
+      _count: { participations: ritual._count.participants }
     }))
 
     return { success: true, data: ritualsWithStatus }
@@ -846,6 +868,175 @@ export async function getMessages(circleId: string) {
   } catch (error: any) {
     console.error("Error fetching messages:", error)
     return { success: false, error: error.message }
+  }
+}
+
+// Toggle daily ritual completion
+export async function toggleDailyRitual(ritualId: string, date: Date) {
+  const { getUser } = getKindeServerSession()
+  const user = await getUser()
+
+  if (!user) {
+    return { success: false, error: "Non authentifié" }
+  }
+
+  try {
+    const startOfDay = new Date(date)
+    startOfDay.setHours(0, 0, 0, 0)
+
+    // Find participation
+    const participation = await prisma.ritualParticipation.findUnique({
+      where: {
+        userId_ritualId: {
+          userId: user.id,
+          ritualId: ritualId
+        }
+      }
+    })
+
+    if (!participation) {
+      return { success: false, error: "Vous ne participez pas à ce rituel" }
+    }
+
+    // Check if completion exists
+    const existingCompletion = await prisma.ritualDailyCompletion.findUnique({
+      where: {
+        participationId_date: {
+          participationId: participation.id,
+          date: startOfDay
+        }
+      }
+    })
+
+    if (existingCompletion) {
+      // Remove it (untoggle)
+      await prisma.ritualDailyCompletion.delete({
+        where: { id: existingCompletion.id }
+      })
+    } else {
+      // Create it
+      await prisma.ritualDailyCompletion.create({
+        data: {
+          participationId: participation.id,
+          date: startOfDay
+        }
+      })
+    }
+
+    revalidatePath("/community")
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error toggling ritual:", error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function leaveRitual(ritualId: string) {
+  const { getUser } = getKindeServerSession()
+  const user = await getUser()
+
+  if (!user) {
+    return { success: false, error: "Non authentifié" }
+  }
+
+  try {
+    await prisma.ritualParticipation.delete({
+      where: {
+        userId_ritualId: {
+          userId: user.id,
+          ritualId: ritualId
+        }
+      }
+    })
+
+    revalidatePath("/community")
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error leaving ritual:", error)
+    return { success: false, error: "Erreur lors de la désinscription" }
+  }
+}
+
+export async function deleteRitual(ritualId: string) {
+  const { getUser } = getKindeServerSession()
+  const user = await getUser()
+
+  if (!user) {
+    return { success: false, error: "Non authentifié" }
+  }
+
+  try {
+    // Verify user is admin of the circle that owns this ritual
+    const ritual = await prisma.circleRitual.findUnique({
+      where: { id: ritualId },
+      include: {
+        circle: {
+          include: {
+            members: {
+              where: { userId: user.id, isAdmin: true }
+            }
+          }
+        }
+      }
+    })
+
+    if (!ritual) {
+      return { success: false, error: "Rituel introuvable" }
+    }
+
+    if (ritual.circle.members.length === 0) {
+      return { success: false, error: "Seul l'admin peut supprimer un rituel" }
+    }
+
+    await prisma.circleRitual.delete({
+      where: { id: ritualId }
+    })
+
+    revalidatePath("/community")
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error deleting ritual:", error)
+    return { success: false, error: "Erreur lors de la suppression" }
+  }
+}
+
+export async function deleteCircle(circleId: string) {
+  const { getUser } = getKindeServerSession()
+  const user = await getUser()
+
+  if (!user) {
+    return { success: false, error: "Non authentifié" }
+  }
+
+  try {
+    // Verify user is admin of this circle
+    const circle = await prisma.reconversionCircle.findUnique({
+      where: { id: circleId },
+      include: {
+        members: {
+          where: { userId: user.id, isAdmin: true }
+        }
+      }
+    })
+
+    if (!circle) {
+      return { success: false, error: "Cercle introuvable" }
+    }
+
+    if (circle.members.length === 0) {
+      return { success: false, error: "Seul l'admin peut supprimer ce cercle" }
+    }
+
+    // Delete the circle (cascade will handle related data)
+    await prisma.reconversionCircle.delete({
+      where: { id: circleId }
+    })
+
+    revalidatePath("/community")
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error deleting circle:", error)
+    return { success: false, error: "Erreur lors de la suppression" }
   }
 }
 

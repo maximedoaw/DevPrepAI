@@ -43,7 +43,8 @@ export function CircleDetailsView({ circleId }: CircleDetailsViewProps) {
 
     const { data: circle, isLoading } = useQuery({
         queryKey: ["circle", circleId],
-        queryFn: () => getCircleDetails(circleId).then(res => res.success ? res.data : null)
+        queryFn: () => getCircleDetails(circleId).then(res => res.success ? res.data : null),
+        refetchInterval: 5000 // Real-time polling every 5 seconds
     })
 
     // Check if current user is admin
@@ -132,7 +133,7 @@ export function CircleDetailsView({ circleId }: CircleDetailsViewProps) {
                             {circle.description}
                         </p>
 
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 mb-4">
                             <Badge variant="secondary" className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-[10px]">
                                 {circle.level}
                             </Badge>
@@ -141,6 +142,49 @@ export function CircleDetailsView({ circleId }: CircleDetailsViewProps) {
                                 {circle._count?.members}
                             </Badge>
                         </div>
+
+                        {circle.isMember && !isAdmin && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                    if (confirm("Voulez-vous vraiment quitter ce cercle ?")) {
+                                        const { leaveCircle } = await import("@/actions/community.action")
+                                        const res = await leaveCircle(circleId)
+                                        if (res.success) {
+                                            toast.success("Vous avez quitté le cercle")
+                                            router.push("/community")
+                                        } else {
+                                            toast.error(res.error)
+                                        }
+                                    }
+                                }}
+                                className="w-full text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/30"
+                            >
+                                Quitter le cercle
+                            </Button>
+                        )}
+                        {isAdmin && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                    if (confirm("⚠️ Voulez-vous vraiment supprimer ce cercle ? Cette action est IRRÉVERSIBLE et supprimera toutes les données associées.")) {
+                                        const { deleteCircle } = await import("@/actions/community.action")
+                                        const res = await deleteCircle(circleId)
+                                        if (res.success) {
+                                            toast.success("Cercle supprimé définitivement")
+                                            router.push("/community")
+                                        } else {
+                                            toast.error(res.error)
+                                        }
+                                    }
+                                }}
+                                className="w-full text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/30"
+                            >
+                                🗑️ Supprimer le cercle
+                            </Button>
+                        )}
                     </div>
 
                     <div className="flex-1 px-4 overflow-y-auto custom-scrollbar">
@@ -257,6 +301,7 @@ export function CircleDetailsView({ circleId }: CircleDetailsViewProps) {
                                             ritual={ritual}
                                             onJoin={async (id) => await joinRitualMutation.mutateAsync(id)}
                                             onComplete={async (id) => { await completeRitualMutation.mutateAsync(id) }}
+                                            isAdmin={isAdmin}
                                         />
                                     ))}
                                     {(!circle.rituals || circle.rituals.length === 0) && (
