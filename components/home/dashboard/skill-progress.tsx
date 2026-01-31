@@ -12,7 +12,7 @@ export function SkillProgress({ skill, current }: SkillProgressProps) {
         <span className="font-medium text-slate-700 dark:text-slate-300">{skill}</span>
         <span className="text-slate-600 dark:text-slate-400">{current}%</span>
       </div>
-      <Progress value={current} className="h-2" />
+      <Progress value={current} className="h-1.5" indicatorClassName="bg-emerald-500" />
     </div>
   )
 }

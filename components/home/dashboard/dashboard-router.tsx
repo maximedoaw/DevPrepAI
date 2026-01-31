@@ -132,14 +132,16 @@ export function DashboardRouter({
         <StatCard
           icon={Flame}
           label="Engagement"
-          value={`${stats.streak} jours`}
-          gradient="bg-gradient-to-br from-orange-500 to-red-500"
+          value={`${stats.streak} Jours`}
+          gradient="bg-emerald-500"
+          iconColor="text-emerald-600 dark:text-emerald-400"
         />
         <StatCard
           icon={Zap}
           label="Crédits"
           value={userData.credits}
-          gradient="bg-gradient-to-br from-yellow-400 to-orange-500"
+          gradient="bg-teal-500"
+          iconColor="text-teal-600 dark:text-teal-400"
         />
       </>
     )
@@ -150,9 +152,10 @@ export function DashboardRouter({
           {commonStats}
           <StatCard
             icon={Briefcase}
-            label="Correspondances"
+            label="Opportunités"
             value={userData.matchingJobs}
-            gradient="bg-gradient-to-br from-green-500 to-emerald-500"
+            gradient="bg-green-500"
+            iconColor="text-green-600 dark:text-green-400"
           />
         </>
       )
@@ -217,11 +220,12 @@ export function DashboardRouter({
         subtitle={getSubtitle()}
         level={stats?.level || 1}
         progress={levelProgress}
-        progressLabel={`Performance moyenne : ${stats?.averageScore?.toFixed(1) || 0}%`}
+        progressLabel={`Moyenne : ${stats?.averageScore?.toFixed(1) || 0}%`}
         stats={renderHeaderStats()}
         onRefresh={() => refreshData.mutate()}
         isRefreshing={refreshData.isPending}
         userRole={userRole}
+        imageUrl={userData?.imageUrl}
       />
       {renderDashboard()}
     </div>

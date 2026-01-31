@@ -822,6 +822,7 @@ model CircleMember {
   circleId         String
   joinedAt         DateTime @default(now())
   isAdmin          Boolean  @default(false)
+  status           MemberStatus @default(APPROVED)
   
   // Relations
   user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)

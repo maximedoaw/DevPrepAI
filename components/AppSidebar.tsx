@@ -202,19 +202,18 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
           },
           path: "/",
         },
-        {
-          id: "matching",
-          title: "Portail d'emploi",
-          description: "Offres correspondant à votre profil",
-          icon: Network,
-          color: "text-green-600 dark:text-green-400",
-          bgColor: "bg-green-500 dark:bg-green-600",
+         {
+          id: "portfolio",
+          title: "Portfolio & CV",
+          description: "Mettez en lumière vos talents",
+          icon: Target,
+          color: "text-lime-600 dark:text-lime-400",
+          bgColor: "bg-lime-500 dark:bg-lime-600",
           action: () => {
-            router.push("/jobs");
+            router.push("/portfolio");
             if (window.innerWidth < 768) setSidebarOpen(false);
           },
-          badge: "Nouvelles offres",
-          path: "/jobs",
+          path: "/portfolio",
         },
         {
           id: "interviews",
@@ -231,18 +230,20 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
           isNew: true,
           path: "/interviews",
         },
+        
         {
-          id: "portfolio",
-          title: "Portfolio & CV",
-          description: "Mettez en lumière vos talents",
-          icon: Target,
-          color: "text-lime-600 dark:text-lime-400",
-          bgColor: "bg-lime-500 dark:bg-lime-600",
+          id: "matching",
+          title: "Portail d'emploi",
+          description: "Offres correspondant à votre profil",
+          icon: Network,
+          color: "text-green-600 dark:text-green-400",
+          bgColor: "bg-green-500 dark:bg-green-600",
           action: () => {
-            router.push("/portfolio");
+            router.push("/jobs");
             if (window.innerWidth < 768) setSidebarOpen(false);
           },
-          path: "/portfolio",
+          badge: "Nouvelles offres",
+          path: "/jobs",
         },
         {
           id: "guides",

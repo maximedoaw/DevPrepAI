@@ -371,17 +371,17 @@ export function CandidateDashboard({
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 transition-all duration-700 animate-in fade-in" onClick={() => setShowPortfolioSpotlight(false)} />
       )}
       <div className={cn(
-        "mb-8 relative overflow-hidden rounded-3xl border transition-all duration-700 group",
+        "mb-12 relative overflow-hidden rounded-[2rem] border transition-all duration-1000 group",
         showPortfolioSpotlight && testStatus === "done" && careerProfile
-          ? "z-50 border-emerald-500/50 shadow-2xl shadow-emerald-500/20 scale-[1.02] bg-white dark:bg-slate-900"
-          : "border-emerald-100 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-950/30 dark:via-slate-900 dark:to-teal-950/10 shadow-lg"
+          ? "z-50 border-emerald-500/50 shadow-2xl shadow-emerald-500/10 scale-[1.01] bg-white dark:bg-slate-930"
+          : "border-slate-200/60 dark:border-white/5 bg-white dark:bg-slate-900 shadow-sm"
       )}>
 
         {/* Decorative Background Elements */}
         {!showPortfolioSpotlight && (
           <>
-            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-400/10 rounded-full blur-3xl -mr-24 -mt-24 pointer-events-none group-hover:bg-emerald-400/20 transition-all duration-700"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-400/10 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
+            <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none group-hover:bg-emerald-500/10 transition-all duration-1000"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
           </>
         )}
 
@@ -554,22 +554,21 @@ export function CandidateDashboard({
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Daily Missions */}
-          <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-xl">
-            <CardHeader>
+          <Card className="border-slate-200/60 dark:border-white/5 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md shadow-sm rounded-3xl overflow-hidden">
+            <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Target className="w-6 h-6 text-emerald-500" />
-                  <CardTitle className="text-slate-900 dark:text-white">Objectifs du Jour</CardTitle>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600">
+                    <Target className="w-5 h-5" />
+                  </div>
+                  <CardTitle className="text-lg font-black tracking-tight uppercase">Missions</CardTitle>
                 </div>
-                <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white border-0">
-                  {missions.filter((m) => m.progress === m.total).length}/{missions.length}
+                <Badge className="bg-emerald-500 text-white border-0 font-black px-3">
+                  {missions.filter((m) => m.progress === m.total).length} / {missions.length}
                 </Badge>
               </div>
-              <CardDescription className="dark:text-slate-400">
-                Atteignez vos objectifs quotidiens pour optimiser votre progression
-              </CardDescription>
             </CardHeader>
-            <CardContent className="pb-6 px-4 md:px-6">
+            <CardContent className="pb-8 px-6">
               <div className="grid grid-cols-1 gap-4">
                 {isLoadingMissions ? (
                   <div className="space-y-4 w-full">
@@ -786,7 +785,8 @@ export function CandidateDashboard({
                                       </div>
                                       <Progress
                                         value={result.percentage}
-                                        className="h-1.5 bg-slate-200 dark:bg-slate-700"
+                                        className="h-1 bg-slate-100 dark:bg-slate-800"
+                                        indicatorClassName="bg-emerald-500"
                                       />
                                       {result.feedbackVisibleToCandidate && feedbackAvailable ? (
                                         <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-900/20">
@@ -838,33 +838,7 @@ export function CandidateDashboard({
           )}
 
           {/* Recent Activity */}
-          <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-xl">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-6 h-6 text-emerald-500" />
-                <CardTitle className="text-slate-900 dark:text-white">Activité Récente</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {recentActivity.length > 0 ? (
-                  recentActivity.map((activity) => (
-                    <ActivityItem
-                      key={activity.id}
-                      icon={getTypeIcon(activity.type)}
-                      title={activity.title}
-                      score={activity.score}
-                      xp={activity.xp}
-                      time={activity.time}
-                      bgColor={getActivityBgColor(activity.type)}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-slate-500">Aucune activité récente</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <ActivitySection activity={recentActivity} />
         </div>
 
         {/* Right Column */}
@@ -1312,3 +1286,67 @@ function CareerTestModal({
     </div>
   );
 }
+
+function ActivitySection({ activity }: { activity: any[] }) {
+  const [itemsToShow, setItemsToShow] = useState(5);
+  const hasMore = activity.length > itemsToShow;
+
+  return (
+    <Card className="border-slate-200/60 dark:border-white/5 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md shadow-sm rounded-3xl overflow-hidden">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <CardTitle className="text-lg font-black tracking-tight uppercase">Activité</CardTitle>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {activity.length > 0 ? (
+            <>
+              {activity.slice(0, itemsToShow).map((item) => (
+                <ActivityItem
+                  key={item.id}
+                  icon={getTypeIcon(item.type)}
+                  title={item.title}
+                  score={item.score}
+                  xp={item.xp}
+                  time={item.time}
+                  bgColor={getActivityBgColor(item.type)}
+                />
+              ))}
+
+              <div className="pt-4 flex justify-center">
+                {hasMore ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setItemsToShow(prev => prev + 5)}
+                    className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all rounded-xl"
+                  >
+                    Voir plus d'activités
+                  </Button>
+                ) : activity.length > 5 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setItemsToShow(5)}
+                    className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all rounded-xl"
+                  >
+                    Réduire la liste
+                  </Button>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8 text-[11px] font-black uppercase tracking-widest text-slate-400">Aucune activité</div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+

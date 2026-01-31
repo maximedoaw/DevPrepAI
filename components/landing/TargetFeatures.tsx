@@ -8,24 +8,51 @@ import { Button } from "@/components/ui/button"
 
 const categories = [
     {
-        id: "candidate",
-        title: "Candidats",
+        id: "students",
+        title: "Étudiants",
         subtitle: "Étudiants & Premiers Emplois",
         features: [
             {
-                title: "Assistant Candidat",
-                desc: "L'IA analyse vos offres de stage/alternance et vous prépare spécifiquement aux attentes des recruteurs.",
-                icon: GraduationCap
+                title: "Tableau de bord",
+                desc: "Suivez votre parcours de carriere et accédez à des ressources adaptées à votre profil.",
+                icon: GraduationCap,
+                image: "/features/students/img1.PNG"
+            },
+           {
+                title: "Personnalisation de l'experience utilisateur",
+                desc: "Un questionnaire intelligent pour personnaliser votre profil et votre parcours vers la reussite via votre plan de carriere",
+                icon: GraduationCap,
+                image: "/features/students/img2.PNG"
+            },
+            {
+                title: "Plan de carriere",
+                desc: "Un plan de carriere intelligent pour vous aider à atteindre votre objectif",
+                icon: GraduationCap,
+                image: "/features/students/img3.PNG"
+            },
+             {
+                title: "Hub de préparation aux entretiens",
+                desc: "Préparez vous efficacement pour vos futurs entretiens(QCM, technique, entretien vocale via IA recruiter )",
+                icon: GraduationCap,
+                image: "/features/students/img5.PNG"
+            },
+            {
+                title: "Portail d'emploi",
+                desc: "L'IA analyse votre plan de carriere et vous propose des offres d'emploi adaptées à votre profil.",
+                icon: GraduationCap,
+                image: "/features/students/img6.PNG"
             },
             {
                 title: "Simulation Live",
                 desc: "Entraînez-vous face à une IA qui imite parfaitement les processus de recrutement des grandes entreprises.",
-                icon: Target
+                icon: Target,
+                image: "/features/students/img8.PNG"
             },
             {
-                title: "Optimisation de CV",
+                title: "Optimisation de CV et portfolio",
                 desc: "Faites ressortir vos compétences clés avec une analyse sémantique avancée.",
-                icon: Sparkles
+                icon: Sparkles,
+                image: "/features/students/img4.PNG"
             }
         ]
     },
@@ -37,18 +64,27 @@ const categories = [
             {
                 title: "Plan de Transition",
                 desc: "Identifiez vos compétences transférables et comblez les lacunes avec un parcours sur-mesure.",
-                icon: Sparkles
+                icon: Sparkles,
+                image: "/features/career-changer/img2.PNG"
             },
             {
                 title: "Accès Réseau",
-                desc: "Rejoignez des cercles de pairs qui vivent la même transition que vous pour échaner.",
-                icon: Briefcase
+                desc: "Rejoignez des cercles de pairs qui vivent la même transition que vous pour échanger.",
+                icon: Briefcase,
+                image: "/features/career-changer/img7.PNG"
             },
             {
                 title: "Coaching Intensif",
                 desc: "Validez la viabilité de votre nouvelle voie avec des simulations de cas réels du métier.",
-                icon: Zap
-            }
+                icon: Zap,
+                image: "/features/career-changer/img6.PNG"
+            },
+            {
+                title: "Hub de préparation aux entretiens",
+                desc: "Préparez vous efficacement pour vos futurs entretiens(QCM, technique, entretien vocale via IA recruiter )",
+                icon: GraduationCap,
+                image: "/features/students/img5.PNG"
+            },
         ]
     },
     {
@@ -140,7 +176,7 @@ export default function TargetFeatures() {
                     </p>
                 </div>
 
-                <Tabs defaultValue="candidate" className="w-full">
+                <Tabs defaultValue="students" className="w-full">
                     {/* Responsive Tabs Navigation */}
                     <div className="flex justify-center mb-20">
                         <div className="w-full lg:w-auto overflow-x-auto pb-4 scrollbar-hide px-4 flex justify-start lg:justify-center">
@@ -177,10 +213,12 @@ function InnerCarousel({ category }: { category: typeof categories[0] }) {
     const next = () => setActiveIndex((prev) => (prev + 1) % category.features.length)
     const prev = () => setActiveIndex((prev) => (prev - 1 + category.features.length) % category.features.length)
 
+    const hasImage = (category.features[activeIndex] as any).image
+
     return (
         <div className="max-w-6xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
-                
+
                 {/* Visual Section - Minimalist Elegant Card */}
                 <motion.div
                     key={category.id + activeIndex + "vis"}
@@ -190,9 +228,9 @@ function InnerCarousel({ category }: { category: typeof categories[0] }) {
                     transition={{ duration: 0.6, ease: "easeOut" }}
                     className="relative order-2 lg:order-1"
                 >
-                    <div className="aspect-square rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl relative overflow-hidden flex flex-col items-center justify-center p-12 lg:p-16">
+                    <div className={`rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl relative overflow-hidden flex flex-col items-center justify-center transition-all duration-500 ${hasImage ? "aspect-video p-6" : "aspect-square p-12 lg:p-16"}`}>
                         {/* Subtle Paper Pin */}
-                        <div className="absolute top-8 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                        <div className="absolute top-8 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center z-20">
                             <div className="w-1 h-1 rounded-full bg-slate-400 dark:bg-slate-500" />
                         </div>
 
@@ -203,18 +241,30 @@ function InnerCarousel({ category }: { category: typeof categories[0] }) {
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 1.1 }}
                                 transition={{ duration: 0.4 }}
-                                className="relative z-10 text-center"
+                                className={`relative z-10 w-full h-full flex items-center justify-center ${hasImage ? "" : "p-8"}`}
                             >
-                                <div className="w-20 h-20 rounded-3xl bg-emerald-500/5 flex items-center justify-center mx-auto mb-8 border border-emerald-500/10">
-                                    {(() => {
-                                        const Icon = category.features[activeIndex].icon
-                                        return <Icon size={40} className="text-emerald-500" />
-                                    })()}
-                                </div>
-                                <div className="space-y-4 max-w-[160px] mx-auto">
-                                    <div className="h-1 w-full bg-emerald-500/10 rounded-full" />
-                                    <div className="h-1 w-2/3 bg-slate-50 dark:bg-slate-800 rounded-full mx-auto" />
-                                </div>
+                                {hasImage ? (
+                                    <div className="relative w-full h-full rounded-lg overflow-hidden shadow-sm group">
+                                        <img
+                                            src={(category.features[activeIndex] as any).image}
+                                            alt={category.features[activeIndex].title}
+                                            className="w-full h-full object-contain transition-transform duration-700 hover:scale-[1.02]"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="text-center">
+                                        <div className="w-20 h-20 rounded-3xl bg-emerald-500/5 flex items-center justify-center mx-auto mb-8 border border-emerald-500/10">
+                                            {(() => {
+                                                const Icon = category.features[activeIndex].icon
+                                                return <Icon size={40} className="text-emerald-500" />
+                                            })()}
+                                        </div>
+                                        <div className="space-y-4 max-w-[160px] mx-auto">
+                                            <div className="h-1 w-full bg-emerald-500/10 rounded-full" />
+                                            <div className="h-1 w-2/3 bg-slate-50 dark:bg-slate-800 rounded-full mx-auto" />
+                                        </div>
+                                    </div>
+                                )}
                             </motion.div>
                         </AnimatePresence>
 
@@ -255,20 +305,20 @@ function InnerCarousel({ category }: { category: typeof categories[0] }) {
                                 />
                             ))}
                         </div>
-                        
+
                         <div className="flex gap-3 sm:ml-auto">
-                            <Button 
-                                variant="outline" 
-                                size="icon" 
-                                onClick={prev} 
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={prev}
                                 className="rounded-full h-12 w-12 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:text-emerald-500 transition-all active:scale-90"
                             >
                                 <ChevronLeft size={20} />
                             </Button>
-                            <Button 
-                                variant="outline" 
-                                size="icon" 
-                                onClick={next} 
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={next}
                                 className="rounded-full h-12 w-12 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:text-emerald-500 transition-all active:scale-90"
                             >
                                 <ChevronRight size={20} />
