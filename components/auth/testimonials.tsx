@@ -152,9 +152,10 @@ export default function Testimonials() {
   const duplicatedTestimonials = [...testimonials, ...testimonials];
 
   return (
-    <section 
+    <section
+      id="testimonials"
       ref={containerRef}
-      className="relative py-20 overflow-hidden bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950"
+      className="relative py-20 overflow-hidden bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 scroll-mt-20"
     >
       <div className="max-w-6xl mx-auto px-6 text-center mb-14">
         <h2 className="text-4xl font-bold mb-4">
@@ -190,11 +191,10 @@ export default function Testimonials() {
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star
                       key={i}
-                      className={`h-4 w-4 ${
-                        i < t.stars
+                      className={`h-4 w-4 ${i < t.stars
                           ? "text-yellow-400 fill-yellow-400"
                           : "text-gray-300"
-                      }`}
+                        }`}
                     />
                   ))}
                 </div>

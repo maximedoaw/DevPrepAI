@@ -1,166 +1,108 @@
 "use client"
 
-import { useEffect, useRef } from "react"
-import gsap from "gsap"
-import { Facebook, Twitter, Linkedin, Github, HelpCircle, Mail, MapPin, Phone } from "lucide-react"
+import React from "react"
+import { motion } from "framer-motion"
+import { Facebook, Twitter, Linkedin, Github, MapPin, ArrowUpRight } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 
 export default function Footer() {
-  const iconsRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    if (iconsRef.current) {
-      const icons = iconsRef.current.querySelectorAll(".social-icon")
-      gsap.fromTo(
-        icons,
-        { y: 0 },
-        {
-          y: -6,
-          repeat: -1,
-          yoyo: true,
-          ease: "power1.inOut",
-          stagger: { each: 0.3 },
-          scrollTrigger: {
-            trigger: iconsRef.current,
-            start: "top bottom",
-          },
-        }
-      )
-    }
-  }, [])
+  const currentYear = new Date().getFullYear()
 
   return (
-    <footer className="relative pt-20 pb-10 bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 border-t border-emerald-100 dark:border-emerald-900/20">
-      {/* Effets de fond */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/5 dark:bg-emerald-500/5 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-green-500/5 dark:bg-green-500/5 rounded-full blur-3xl"></div>
-      </div>
+    <footer className="relative pt-24 pb-12 overflow-hidden border-t border-slate-100 dark:border-slate-800/50 bg-slate-50/30 dark:bg-slate-950/30">
+      {/* Subtle Aesthetic Background */}
+      <div className="absolute inset-0 z-0 opacity-[0.015] dark:opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
 
-      <div className="max-w-7xl mx-auto px-6 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
-          {/* Brand Section */}
+      <div className="container mx-auto px-4 md:px-6 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-24 mb-20">
+
+          {/* Brand Info */}
           <div className="space-y-6">
-            <Link href="/" className="block w-48">
-              <div className="relative h-16 w-full">
-                <Image 
-                  src="/Skillwokz.png" 
-                  alt="Skillwokz" 
+            <Link href="/" className="inline-block transition-opacity hover:opacity-80">
+              <div className="relative h-10 w-36">
+                <Image
+                  src="/Skillwokz.png"
+                  alt="Skillwokz Logo"
                   fill
-                  className="object-contain object-left"
+                  className="object-contain object-left dark:brightness-110"
                 />
               </div>
             </Link>
-            <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
-              La plateforme qui révolutionne le recrutement tech en connectant les talents aux opportunités grâce à l'IA.
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed max-w-xs">
+              L'accélérateur de carrière tech propulsé par l'IA pour les talents d'exception.
             </p>
-            <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-              <MapPin className="w-4 h-4" />
-              <span>Yaounde, Cameroun</span>
-            </div>
-          </div>
-
-          {/* Liens utiles */}
-          <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-              <span className="w-8 h-1 bg-emerald-500 rounded-full"></span>
-              Navigation
-            </h3>
-            <ul className="space-y-4 text-sm text-slate-600 dark:text-slate-400">
-              <li>
-                <Link href="/about" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2 group">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  À propos
-                </Link>
-              </li>
-              <li>
-                <Link href="/pricing" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2 group">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  Tarifs
-                </Link>
-              </li>
-              <li>
-                <Link href="/blog" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2 group">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  Blog
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2 group">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  Contact
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* FAQ */}
-          <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-              <span className="w-8 h-1 bg-emerald-500 rounded-full"></span>
-              Aide & Support
-            </h3>
-            <ul className="space-y-4 text-sm text-slate-600 dark:text-slate-400">
-              <li className="flex items-start gap-3 group cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-                <HelpCircle className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                <span>Comment fonctionne l'IA de matching ?</span>
-              </li>
-              <li className="flex items-start gap-3 group cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-                <HelpCircle className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                <span>Offres pour les écoles et bootcamps</span>
-              </li>
-              <li className="flex items-start gap-3 group cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-                <HelpCircle className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                <span>Centre d'aide et documentation</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Réseaux sociaux */}
-          <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-              <span className="w-8 h-1 bg-emerald-500 rounded-full"></span>
-              Suivez-nous
-            </h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-              Rejoignez notre communauté grandissante sur les réseaux sociaux.
-            </p>
-            <div ref={iconsRef} className="flex gap-4">
-              {[
-                { Icon: Linkedin, href: "https://linkedin.com" },
-                { Icon: Twitter, href: "https://twitter.com" },
-                { Icon: Github, href: "https://github.com" },
-                { Icon: Facebook, href: "https://facebook.com" },
-              ].map(({ Icon, href }, idx) => (
+            <div className="flex gap-4 pt-2">
+              {[Linkedin, Twitter, Github, Facebook].map((Icon, i) => (
                 <Link
-                  key={idx}
-                  href={href}
-                  target="_blank"
-                  className="social-icon p-3 rounded-xl bg-white dark:bg-slate-800 border border-emerald-100 dark:border-emerald-900/30 shadow-sm hover:shadow-md hover:border-emerald-200 dark:hover:border-emerald-800 hover:-translate-y-1 transition-all duration-300 group"
+                  key={i}
+                  href="#"
+                  className="text-slate-400 hover:text-emerald-500 transition-colors"
                 >
-                  <Icon className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors" />
+                  <Icon size={18} />
                 </Link>
               ))}
             </div>
           </div>
+
+          {/* Platform Links */}
+          <div>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-500 mb-6">Plateforme</h4>
+            <ul className="space-y-3">
+              {["Simulateur IA", "Tarification", "À propos", "Blog"].map((item) => (
+                <li key={item}>
+                  <Link href="#" className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-emerald-500 transition-colors">
+                    {item}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Company Links */}
+          <div>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-500 mb-6">Compagnie</h4>
+            <ul className="space-y-3">
+              {["Mentions Légales", "Confidentialité", "Contact"].map((item) => (
+                <li key={item}>
+                  <Link href="#" className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-emerald-500 transition-colors">
+                    {item}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Newsletter / Contact */}
+          <div className="lg:text-right">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-500 mb-6 lg:justify-end flex items-center gap-2">
+              Nous rejoindre
+            </h4>
+            <Link href="/sign-up">
+              <motion.button
+                whileHover={{ x: 5 }}
+                className="group inline-flex items-center gap-2 text-slate-900 dark:text-white font-black uppercase tracking-widest text-xs"
+              >
+                Démarrer l'aventure
+                <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                  <ArrowUpRight size={14} />
+                </div>
+              </motion.button>
+            </Link>
+            <div className="mt-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 lg:justify-end">
+              <MapPin size={10} className="text-emerald-500" />
+              Yaoundé, Cameroun
+            </div>
+          </div>
         </div>
 
-        {/* Bas de footer */}
-        <div className="pt-8 border-t border-emerald-100 dark:border-emerald-900/20 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-slate-500 dark:text-slate-500">
-            © {new Date().getFullYear()} SkillWokz. Tous droits réservés.
-          </p>
-          <div className="flex gap-6 text-sm text-slate-500 dark:text-slate-500">
-            <Link href="/privacy" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-              Confidentialité
-            </Link>
-            <Link href="/terms" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-              CGU
-            </Link>
-            <Link href="/legal" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-              Mentions légales
-            </Link>
+        {/* Minimal Copyright */}
+        <div className="pt-10 border-t border-slate-100 dark:border-slate-800/50 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="text-[9px] font-bold uppercase tracking-[0.3em] text-slate-400">
+            © {currentYear} SkillWokz. Tous droits réservés.
+          </div>
+          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-600/50 dark:text-emerald-500/30">
+            Built for the future of Africa
           </div>
         </div>
       </div>

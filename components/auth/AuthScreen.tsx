@@ -24,7 +24,7 @@ const AuthScreen = () => {
       <TargetFeatures />
       <ComparisonTable />
       <Pricing />
-      {/* <Testimonials /> */}
+      {/*<Testimonials />*/}
       <CreatorSection />
       <FAQ />
       <NewsLetters />

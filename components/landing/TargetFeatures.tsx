@@ -18,7 +18,7 @@ const categories = [
                 icon: GraduationCap,
                 image: "/features/students/img1.PNG"
             },
-           {
+            {
                 title: "Personnalisation de l'experience utilisateur",
                 desc: "Un questionnaire intelligent pour personnaliser votre profil et votre parcours vers la reussite via votre plan de carriere",
                 icon: GraduationCap,
@@ -30,7 +30,7 @@ const categories = [
                 icon: GraduationCap,
                 image: "/features/students/img3.PNG"
             },
-             {
+            {
                 title: "Hub de préparation aux entretiens",
                 desc: "Préparez vous efficacement pour vos futurs entretiens(QCM, technique, entretien vocale via IA recruiter )",
                 icon: GraduationCap,
@@ -157,7 +157,7 @@ const categories = [
 
 export default function TargetFeatures() {
     return (
-        <section className="py-24 bg-slate-50 dark:bg-slate-950 transition-colors duration-1000 overflow-hidden relative">
+        <section id="features" className="py-24 bg-slate-50 dark:bg-slate-950 transition-colors duration-1000 overflow-hidden relative scroll-mt-20">
             {/* Background Texture consistent with Moodboard */}
             <div className="absolute inset-0 opacity-[0.01] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
 
@@ -185,7 +185,7 @@ export default function TargetFeatures() {
                                     <TabsTrigger
                                         key={cat.id}
                                         value={cat.id}
-                                        className="rounded-full px-6 lg:px-10 py-4 data-[state=active]:bg-emerald-500 data-[state=active]:text-white transition-all duration-500 font-black text-xs uppercase tracking-widest whitespace-nowrap border border-transparent"
+                                        className="rounded-full px-6 lg:px-10 py-4 data-[state=active]:bg-emerald-500 data-[state=active]:text-white dark:data-[state=active]:bg-emerald-500 dark:data-[state=active]:text-white dark:data-[state=active]:border-none transition-all duration-500 font-black text-xs uppercase tracking-widest whitespace-nowrap border border-transparent"
                                     >
                                         {cat.title}
                                     </TabsTrigger>
