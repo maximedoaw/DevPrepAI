@@ -47,7 +47,7 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
             <div className="bg-white dark:bg-slate-950 rounded-none sm:rounded-[2rem] shadow-2xl w-full max-w-5xl border-0 sm:border border-slate-100 dark:border-slate-800 flex flex-col h-[100dvh] sm:h-[90vh] max-h-[90vh]">
 
                 {/* Header Premium */}
-                <div className="flex-none p-6 md:p-8 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-gradient-to-b from-emerald-50/50 to-transparent dark:from-emerald-950/20">
+                <div className="flex-none p-5 md:p-8 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-gradient-to-b from-emerald-50/50 to-transparent dark:from-emerald-950/20">
                     <div className="space-y-2">
                         <Badge variant="outline" className="bg-emerald-100/50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider">
                             ✨ Généré par IA
@@ -73,17 +73,17 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
                 <div className="flex-1 overflow-hidden flex flex-col min-h-0">
                     <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
                         <div className="px-4 md:px-8 border-b border-slate-100 dark:border-slate-800 bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm sticky top-0 z-10 flex-none">
-                            <TabsList className="h-14 w-full justify-start overflow-x-auto flex-nowrap gap-6 bg-transparent p-0 scrollbar-hide">
-                                <TabsTrigger value="overview" className="h-14 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 px-0 font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-base">
+                            <TabsList className="h-14 w-full justify-start overflow-x-auto flex-nowrap gap-4 md:gap-6 bg-transparent p-0 scrollbar-hide">
+                                <TabsTrigger value="overview" className="h-14 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 px-0 font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-sm md:text-base">
                                     Vue d'ensemble
                                 </TabsTrigger>
-                                <TabsTrigger value="skills" className="h-14 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 px-0 font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-base">
+                                <TabsTrigger value="skills" className="h-14 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 px-0 font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-sm md:text-base">
                                     Analyses & Ponts
                                 </TabsTrigger>
-                                <TabsTrigger value="path" className="h-14 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 px-0 font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-base">
+                                <TabsTrigger value="path" className="h-14 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 px-0 font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-sm md:text-base">
                                     Parcours & Étapes
                                 </TabsTrigger>
-                                <TabsTrigger value="actions" className="h-14 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 px-0 font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-base">
+                                <TabsTrigger value="actions" className="h-14 shrink-0 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 px-0 font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-sm md:text-base">
                                     Plan d'Action
                                 </TabsTrigger>
                             </TabsList>
@@ -92,11 +92,11 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
                         {/* Scrollable content area */}
                         <div className="flex-1 overflow-hidden relative">
                             <ScrollArea className="h-full w-full absolute inset-0 bg-slate-50/50 dark:bg-black/20">
-                                <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-8 pb-8">
+                                <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6 md:space-y-8 pb-8">
 
-                                    <TabsContent value="overview" className="mt-0 space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                                    <TabsContent value="overview" className="mt-0 space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
                                         {/* Hero Summary */}
-                                        <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group">
+                                        <div className="bg-white dark:bg-slate-900 rounded-2xl md:rounded-3xl p-5 md:p-8 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group">
                                             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none group-hover:bg-emerald-500/10 transition-colors duration-500"></div>
 
                                             <div className="relative z-10">
@@ -130,9 +130,9 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
                                         </div>
 
                                         {/* Stats Grid */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                                             {/* Objectifs */}
-                                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col h-full">
+                                            <div className="bg-white dark:bg-slate-900 rounded-2xl md:rounded-3xl p-5 md:p-6 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col h-full shrink-0">
                                                 <div className="absolute top-0 right-0 p-4 opacity-10">
                                                     <Target className="w-12 h-12 text-blue-500" />
                                                 </div>
@@ -153,7 +153,7 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
                                             </div>
 
                                             {/* Motivation Card */}
-                                            <div className="bg-emerald-600 dark:bg-emerald-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col h-full justify-center">
+                                            <div className="bg-emerald-600 dark:bg-emerald-700 rounded-2xl md:rounded-3xl p-5 md:p-6 text-white shadow-lg relative overflow-hidden flex flex-col h-full justify-center shrink-0">
                                                 <div className="relative z-10">
                                                     <Trophy className="w-8 h-8 mb-4 text-emerald-200" />
                                                     <blockquote className="text-lg font-medium leading-relaxed italic pl-0 py-1">
@@ -165,11 +165,11 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
                                         </div>
                                     </TabsContent>
 
-                                    <TabsContent value="skills" className="mt-0 space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                                    <TabsContent value="skills" className="mt-0 space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
                                         {/* Compétences Transférables Section */}
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
-                                                <div className="flex items-center gap-3 mb-6">
+                                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
+                                            <div className="bg-white dark:bg-slate-900 rounded-2xl md:rounded-3xl p-5 md:p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
+                                                <div className="flex items-center gap-3 mb-2">
                                                     <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl">
                                                         <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                                     </div>
@@ -196,11 +196,11 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
                                             </div>
 
                                             {/* Financial Bridge Section */}
-                                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col">
+                                            <div className="bg-white dark:bg-slate-900 rounded-2xl md:rounded-3xl p-5 md:p-8 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col space-y-6">
                                                 <div className="absolute top-0 right-0 p-4 opacity-5">
                                                     <Wallet className="w-24 h-24 text-emerald-600" />
                                                 </div>
-                                                <div className="flex items-center gap-3 mb-6">
+                                                <div className="flex items-center gap-3 mb-2">
                                                     <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl">
                                                         <Wallet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                                     </div>
@@ -245,19 +245,19 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
                                         </div>
                                     </TabsContent>
 
-                                    <TabsContent value="path" className="mt-0 space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                                        <div className="grid gap-6">
+                                    <TabsContent value="path" className="mt-0 space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                                        <div className="grid gap-4 md:gap-6">
                                             {/* Timeline Steps */}
-                                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
-                                                <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-8">Votre Parcours Recommandé</h3>
+                                            <div className="bg-white dark:bg-slate-900 rounded-2xl md:rounded-3xl p-5 md:p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
+                                                <h3 className="font-bold text-lg md:text-xl text-slate-900 dark:text-white mb-6 md:mb-8">Votre Parcours Recommandé</h3>
 
                                                 <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent dark:before:via-slate-800">
                                                     {careerPlan.recommendedPath?.nextSteps?.map((step: any, idx: number) => (
                                                         <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                                                            <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 font-bold text-sm">
+                                                            <div className="flex items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 font-bold text-xs md:text-sm">
                                                                 {idx + 1}
                                                             </div>
-                                                            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                                                            <div className="w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] bg-slate-50 dark:bg-slate-800/50 p-4 md:p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
                                                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
                                                                     <h4 className="font-bold text-slate-900 dark:text-white break-words">{step.step}</h4>
                                                                     {step.timeline && (
@@ -276,7 +276,7 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
                                             </div>
 
                                             {/* Skills Grid */}
-                                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
+                                            <div className="bg-white dark:bg-slate-900 rounded-2xl md:rounded-3xl p-5 md:p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
                                                 <div className="flex items-center gap-3 mb-6">
                                                     <BookOpen className="w-5 h-5 text-purple-500" />
                                                     <h3 className="font-bold text-xl text-slate-900 dark:text-white">Compétences à Acquérir</h3>
@@ -307,9 +307,9 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
                                         </div>
                                     </TabsContent>
 
-                                    <TabsContent value="actions" className="mt-0 space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                                        <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
-                                            <div className="flex items-center gap-3 mb-8">
+                                    <TabsContent value="actions" className="mt-0 space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                                        <div className="bg-white dark:bg-slate-900 rounded-2xl md:rounded-3xl p-5 md:p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
+                                            <div className="flex items-center gap-3 mb-6 md:mb-8">
                                                 <Calendar className="w-6 h-6 text-green-500" />
                                                 <div>
                                                     <h3 className="font-bold text-xl text-slate-900 dark:text-white">Plan d'Action Immédiat</h3>
@@ -370,9 +370,9 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
 
                                         {/* Motivation */}
                                         {careerPlan.motivationalMessage && (
-                                            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-3xl p-8 text-white shadow-lg text-center">
-                                                <Trophy className="w-8 h-8 mx-auto mb-4 text-emerald-200" />
-                                                <p className="text-xl md:text-2xl font-medium leading-relaxed italic opacity-90">
+                                            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl md:rounded-3xl p-5 md:p-8 text-white shadow-lg text-center">
+                                                <Trophy className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-4 text-emerald-200" />
+                                                <p className="text-lg md:text-2xl font-medium leading-relaxed italic opacity-90 break-words">
                                                     "{careerPlan.motivationalMessage}"
                                                 </p>
                                             </div>
@@ -385,7 +385,7 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
                 </div>
 
                 {/* Footer Action */}
-                <div className="flex-none p-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="flex-none p-5 md:p-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col sm:flex-row justify-between items-center gap-4">
                     <Button
                         variant="ghost"
                         onClick={() => {
@@ -407,7 +407,7 @@ export function CareerPlanModal({ open, onClose, careerPlan, onEditAnswers }: Ca
                         </Button>
                     </div>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

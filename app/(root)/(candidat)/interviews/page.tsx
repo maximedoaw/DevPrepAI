@@ -14,27 +14,26 @@ import {
   ArrowRight,
   Sparkles,
   History,
-  LayoutGrid,
-  List,
   ChevronRight,
   ChevronLeft,
-  Star
+  Star,
+  Zap
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 import { getInterviews, getUserStats } from "@/actions/interview.action"
+import { getUserRecommendations } from "../../../../actions/recommendation.action"
 import { getUserHistory } from "@/actions/ai.action"
 import {
   getSearchTemplates,
@@ -60,6 +59,8 @@ const INTERVIEW_TYPES = [
   { id: "HISTORY", label: "Historique", icon: History },
 ] as const;
 
+// Types for Interview Filter
+
 type InterviewType = typeof INTERVIEW_TYPES[number]["id"];
 
 export default function InterviewsHubPage() {
@@ -74,7 +75,6 @@ export default function InterviewsHubPage() {
   const [activeTab, setActiveTab] = useState<string>(urlTab)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(urlPage)
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [activeToggle, setActiveToggle] = useState<"filters" | "templates">("filters")
 
@@ -84,19 +84,6 @@ export default function InterviewsHubPage() {
     domain: "",
     dateSort: "newest"
   })
-
-  // Persistence for ViewMode
-  useEffect(() => {
-    const savedMode = localStorage.getItem("interviews_view_mode")
-    if (savedMode === "grid" || savedMode === "list") {
-      setViewMode(savedMode)
-    }
-  }, [])
-
-  const handleSetViewMode = (mode: "grid" | "list") => {
-    setViewMode(mode)
-    localStorage.setItem("interviews_view_mode", mode)
-  }
 
   // Sync URL with state
   useEffect(() => {
@@ -113,6 +100,11 @@ export default function InterviewsHubPage() {
   const { data: interviewsData, isLoading: interviewsLoading } = useQuery({
     queryKey: ["interviews"],
     queryFn: getInterviews,
+  })
+
+  const { data: recommendationsData, isLoading: recommendationsLoading } = useQuery({
+    queryKey: ["userRecommendations"],
+    queryFn: getUserRecommendations,
   })
 
   const { data: historyData, isLoading: historyLoading } = useQuery({
@@ -150,7 +142,6 @@ export default function InterviewsHubPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["searchTemplates"] })
       toast.success("Modèle enregistré")
-      setActiveToggle("templates")
     }
   })
 
@@ -195,39 +186,31 @@ export default function InterviewsHubPage() {
       items = [...historyData.history];
     } else {
       items = Array.isArray(interviewsData) ? [...interviewsData] : [];
-      // Tab Type Filter
       if (activeTab !== "ALL") {
-        // Match the specific technical label
         items = items.filter((it: any) => it.type === activeTab);
       }
     }
 
-    // 1. Search
     if (searchTerm) {
       const lowerTerm = searchTerm.toLowerCase();
       items = items.filter((it: any) =>
         (it.title || "").toLowerCase().includes(lowerTerm) ||
-        (it.context || "").toLowerCase().includes(lowerTerm) ||
-        (it.technology || []).some((t: string) => t.toLowerCase().includes(lowerTerm))
+        (it.context || "").toLowerCase().includes(lowerTerm)
       );
     }
 
-    // 2. Difficulty
     if (filters.difficulty && filters.difficulty !== "all") {
       items = items.filter((it: any) => it.difficulty === filters.difficulty);
     }
 
-    // 3. Domain
     if (filters.domain) {
       items = items.filter((it: any) => it.domain === filters.domain);
     }
 
-    // 4. Favorites Only
     if (showFavoritesOnly) {
       items = items.filter((it: any) => isFavorite(it.id));
     }
 
-    // 5. Date Sort
     items.sort((a: any, b: any) => {
       const dateA = new Date(a.date || a.createdAt || a.updatedAt || 0).getTime();
       const dateB = new Date(b.date || b.createdAt || b.updatedAt || 0).getTime();
@@ -246,14 +229,13 @@ export default function InterviewsHubPage() {
     return items;
   }, [interviewsData, historyData, activeTab, filters, searchTerm, showFavoritesOnly, favoritesData]);
 
-  const itemsPerPage = viewMode === "grid" ? 9 : 12
+  const itemsPerPage = 9
   const totalPages = Math.ceil(filteredInterviews.length / itemsPerPage)
   const paginatedInterviews = filteredInterviews.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   )
 
-  // Feedback Dialog logic
   const [selectedInterview, setSelectedInterview] = useState<any>(null)
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false)
   const handleOpenFeedback = (interview: any) => {
@@ -261,15 +243,29 @@ export default function InterviewsHubPage() {
     setIsFeedbackOpen(true);
   }
 
+  // Extract Recommendation Quizzes
+  const recommendedQuizzes = useMemo(() => {
+    if (!recommendationsData?.success || !recommendationsData?.data) return []
+    // Filter only DB_MATCHING recommendations which contain quizzes
+    const quizRecs = recommendationsData.data.filter((r: any) => r.source === "DB_MATCHING")
+    // Flatten contents
+    const allQuizzes: any[] = []
+    quizRecs.forEach((r: any) => {
+      try {
+        const content = JSON.parse(r.content)
+        if (Array.isArray(content)) allQuizzes.push(...content)
+      } catch (e) { }
+    })
+    // Deduplicate by ID
+    return Array.from(new Map(allQuizzes.map(item => [item.id, item])).values()).slice(0, 3)
+  }, [recommendationsData])
+
   if (isLoading) return <DevLoader />
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
-        {/* 1. Bannière */}
-        {/* 1. Bannière */}
         <PageBanner
           badge={{ text: "Hub d'Entraînement" }}
           title={
@@ -286,9 +282,51 @@ export default function InterviewsHubPage() {
           image={<Target className="w-32 h-32 text-emerald-100 drop-shadow-lg" />}
         />
 
-        {/* 2. Layout (Reordered for Mobile: Sidebar Top) */}
-        <div className="flex flex-col xl:flex-row gap-8 items-start">
+        {/* --- RECOMMENDATIONS SECTION --- */}
+        {recommendedQuizzes.length > 0 && !interviewsLoading && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Recommandé pour vous</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recommendedQuizzes.map((quiz: any) => (
+                <motion.div
+                  key={`rec-${quiz.id}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Link href={`/interviews/${quiz.id}`}>
+                    <Card className="h-full border-amber-200 dark:border-amber-900/30 bg-gradient-to-br from-amber-50/50 to-white dark:from-amber-950/10 dark:to-slate-900 hover:shadow-lg hover:border-amber-300 transition-all cursor-pointer group">
+                      <div className="absolute top-3 right-3 z-10">
+                        <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200">
+                          IA Match
+                        </Badge>
+                      </div>
+                      <CardContent className="p-6 flex flex-col h-full">
+                        <div className="mb-3">
+                          <div className="p-2 w-fit rounded-lg bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400">
+                            {quiz.type === 'MOCK_INTERVIEW' ? <Mic className="w-5 h-5" /> : <Code className="w-5 h-5" />}
+                          </div>
+                        </div>
+                        <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-2 line-clamp-1 group-hover:text-amber-600 transition-colors">
+                          {quiz.title}
+                        </h3>
+                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-auto pt-3">
+                          <span className="flex items-center gap-1"><Trophy className="w-3 h-3" /> {quiz.difficulty}</span>
+                          <span className="flex items-center gap-1"><Target className="w-3 h-3" /> {quiz.domain}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
 
+        <div className="flex flex-col xl:flex-row gap-8 items-start">
           {/* Mobile: Top / Desktop: Right Sidebar */}
           <div className="w-full xl:w-80 flex-shrink-0 order-1 xl:order-2">
             <div className="sticky top-8">
@@ -299,10 +337,8 @@ export default function InterviewsHubPage() {
                 onReset={resetFilters}
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
-                // Favorites
                 showFavorites={showFavoritesOnly}
                 onToggleFavorites={setShowFavoritesOnly}
-                // Templates
                 templates={templatesData?.templates || []}
                 onSaveTemplate={(name) => createTemplateMutation.mutate({ name, filters })}
                 onDeleteTemplate={(id) => deleteTemplateMutation.mutate(id)}
@@ -315,7 +351,6 @@ export default function InterviewsHubPage() {
 
           {/* Main Content Pane */}
           <div className="flex-1 w-full space-y-6 order-2 xl:order-1">
-
             {/* Nav & Display Controls */}
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
@@ -332,31 +367,6 @@ export default function InterviewsHubPage() {
                   ))}
                 </TabsList>
               </Tabs>
-
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
-                <button
-                  onClick={() => handleSetViewMode("grid")}
-                  className={cn(
-                    "p-2 rounded-md transition-all",
-                    viewMode === "grid"
-                      ? "bg-white dark:bg-slate-700 text-emerald-600 shadow-sm"
-                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                  )}
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleSetViewMode("list")}
-                  className={cn(
-                    "p-2 rounded-md transition-all",
-                    viewMode === "list"
-                      ? "bg-white dark:bg-slate-700 text-emerald-600 shadow-sm"
-                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                  )}
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
             </div>
 
             <div className="min-h-[400px]">
@@ -370,12 +380,9 @@ export default function InterviewsHubPage() {
                   <Button variant="outline" onClick={resetFilters}>Réinitialiser tout</Button>
                 </div>
               ) : (
-                <div className={cn(
-                  "grid gap-4",
-                  viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
-                )}>
+                <div className="flex flex-col gap-4">
                   <AnimatePresence mode="popLayout">
-                    {paginatedInterviews.map((interview: any, i) => (
+                    {paginatedInterviews.map((interview: any) => (
                       <motion.div
                         key={interview.id}
                         layout
@@ -384,162 +391,83 @@ export default function InterviewsHubPage() {
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
                       >
-                        {viewMode === "grid" ? (
-                          <Link href={activeTab !== "HISTORY" ? `/interviews/${interview.id}` : "#"} onClick={(e) => activeTab === "HISTORY" && e.preventDefault()}>
-                            {/* --- GRID CARD --- */}
-                            <Card className={cn(
-                              "h-full hover:shadow-lg transition-all duration-300 group relative cursor-pointer border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden",
-                              activeTab === "HISTORY" ? "hover:border-emerald-500/50" : ""
-                            )}>
-                              {/* Favorite Button */}
-                              {!interview.isHistory && (
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleToggleFavorite(interview.id, interview.type === "MOCK_INTERVIEW")
-                                  }}
-                                  className="absolute top-4 left-4 z-20 p-1.5 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-100 dark:border-slate-700 shadow-sm transition-transform hover:scale-110"
-                                >
-                                  <Star className={cn("w-4 h-4 transition-colors", isFavorite(interview.id) ? "text-amber-500 fill-amber-500" : "text-slate-300")} />
-                                </button>
-                              )}
-
-                              {interview.isHistory && (
-                                <div className="absolute top-0 right-0 p-4 z-10">
-                                  <Badge className={cn(
-                                    "font-bold shadow-sm",
-                                    (interview.score || 0) >= 80 ? "bg-emerald-500" :
-                                      (interview.score || 0) >= 50 ? "bg-amber-500" : "bg-red-500"
-                                  )}>
-                                    {interview.score || 0}%
-                                  </Badge>
-                                </div>
-                              )}
-
-                              <CardContent className="p-6 flex flex-col h-full">
-                                <div className="mb-4 flex items-start">
-                                  <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono text-xs">
-                                    {interview.technology?.[0] || "General"}
-                                  </Badge>
-                                </div>
-
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-2 line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                                  {interview.title}
-                                </h3>
-                                <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-4 flex-1">
-                                  {interview.description}
-                                </p>
-
-                                <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto">
-                                  <div className="flex items-center gap-3 text-xs font-medium text-slate-500 dark:text-slate-400">
-                                    <span className="flex items-center gap-1.5">
-                                      <Clock className="w-3.5 h-3.5" />
-                                      {interview.duration}m
-                                    </span>
-                                    <span className="flex items-center gap-1.5">
-                                      <Trophy className="w-3.5 h-3.5" />
-                                      {interview.difficulty || "MID"}
-                                    </span>
-                                  </div>
-
-                                  {interview.isHistory && interview.type === "MOCK_INTERVIEW" ? (
-                                    <Button
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleOpenFeedback(interview);
-                                      }}
-                                      className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700"
-                                    >
-                                      Feedback
-                                    </Button>
-                                  ) : (
-                                    !interview.isHistory &&
-                                    <div className="p-1.5 rounded-full bg-slate-50 dark:bg-slate-800 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/30 group-hover:text-emerald-600 transition-colors">
-                                      <ArrowRight className="w-4 h-4" />
-                                    </div>
-                                  )}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </Link>
-                        ) : (
-                          /* --- LIST VIEW --- */
-                          <div className={cn(
-                            "flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-md transition-all group relative",
-                            activeTab === "HISTORY" ? "hover:border-emerald-500/30" : ""
-                          )}>
-                            <div className="flex-shrink-0 flex items-center gap-3">
-                              {!interview.isHistory && (
-                                <button
-                                  onClick={() => handleToggleFavorite(interview.id, interview.type === "MOCK_INTERVIEW")}
-                                  className="p-1.5 rounded-lg border border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                                >
-                                  <Star className={cn("w-4 h-4", isFavorite(interview.id) ? "text-amber-500 fill-amber-500" : "text-slate-300")} />
-                                </button>
-                              )}
-                              <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
-                                {interview.type === "MOCK_INTERVIEW" ? <Mic className="w-5 h-5 text-emerald-600" /> :
-                                  interview.type === "TECHNICAL" ? <Code className="w-5 h-5 text-blue-600" /> : <BookOpen className="w-5 h-5 text-purple-600" />}
-                              </div>
-                            </div>
-
-                            <Link href={activeTab !== "HISTORY" ? `/interviews/${interview.id}` : "#"} onClick={(e) => activeTab === "HISTORY" && e.preventDefault()} className="flex-1 flex items-center gap-4 min-w-0">
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                                  {interview.title}
-                                </h3>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-sm">
-                                  {interview.description}
-                                </p>
-                              </div>
-
-                              <div className="hidden md:flex items-center gap-6">
-                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                  <Clock className="w-3.5 h-3.5" /> {interview.duration}m
-                                </div>
-                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                  <Trophy className="w-3.5 h-3.5" /> {interview.difficulty || "MID"}
-                                </div>
-                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500">
-                                  {interview.technology?.[0]}
-                                </Badge>
-                              </div>
-                            </Link>
-
-                            <div className="flex items-center gap-4 ml-auto">
-                              {interview.isHistory ? (
-                                <div className="flex items-center gap-4">
-                                  <div className={cn(
-                                    "text-lg font-bold min-w-[3rem] text-right",
-                                    (interview.score || 0) >= 80 ? "text-emerald-600" :
-                                      (interview.score || 0) >= 50 ? "text-amber-600" : "text-red-500"
-                                  )}>
-                                    {interview.score || 0}%
-                                  </div>
-                                  {interview.type === "MOCK_INTERVIEW" && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleOpenFeedback(interview)}
-                                      className="h-8 text-xs"
-                                    >
-                                      Feedback
-                                    </Button>
-                                  )}
-                                </div>
-                              ) : (
-                                <Link href={`/interviews/${interview.id}`}>
-                                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:text-emerald-600">
-                                    <ArrowRight className="w-4 h-4" />
-                                  </Button>
-                                </Link>
-                              )}
+                        {/* --- LIST VIEW --- */}
+                        <div className={cn(
+                          "flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-md transition-all group relative",
+                          activeTab === "HISTORY" ? "hover:border-emerald-500/30" : ""
+                        )}>
+                          <div className="flex-shrink-0 flex items-center gap-3">
+                            {!interview.isHistory && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleToggleFavorite(interview.id, interview.type === "MOCK_INTERVIEW")
+                                }}
+                                className="p-1.5 rounded-lg border border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                              >
+                                <Star className={cn("w-4 h-4", isFavorite(interview.id) ? "text-amber-500 fill-amber-500" : "text-slate-300")} />
+                              </button>
+                            )}
+                            <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
+                              {interview.type === "MOCK_INTERVIEW" ? <Mic className="w-5 h-5 text-emerald-600" /> :
+                                interview.type === "TECHNICAL" ? <Code className="w-5 h-5 text-blue-600" /> : <BookOpen className="w-5 h-5 text-purple-600" />}
                             </div>
                           </div>
-                        )}
+
+                          <Link href={activeTab !== "HISTORY" ? `/interviews/${interview.id}` : "#"} onClick={(e) => activeTab === "HISTORY" && e.preventDefault()} className="flex-1 flex items-center gap-4 min-w-0">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                                {interview.title}
+                              </h3>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-sm">
+                                {interview.description}
+                              </p>
+                            </div>
+
+                            <div className="hidden md:flex items-center gap-6">
+                              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                <Clock className="w-3.5 h-3.5" /> {interview.duration}m
+                              </div>
+                              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                <Trophy className="w-3.5 h-3.5" /> {interview.difficulty || "MID"}
+                              </div>
+                              <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500">
+                                {interview.technology?.[0]}
+                              </Badge>
+                            </div>
+                          </Link>
+
+                          <div className="flex items-center gap-4 ml-auto">
+                            {interview.isHistory ? (
+                              <div className="flex items-center gap-4">
+                                <div className={cn(
+                                  "text-lg font-bold min-w-[3rem] text-right",
+                                  (interview.score || 0) >= 80 ? "text-emerald-600" :
+                                    (interview.score || 0) >= 50 ? "text-amber-600" : "text-red-500"
+                                )}>
+                                  {interview.score || 0}%
+                                </div>
+                                {interview.type === "MOCK_INTERVIEW" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleOpenFeedback(interview)}
+                                    className="h-8 text-xs"
+                                  >
+                                    Feedback
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <Link href={`/interviews/${interview.id}`}>
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:text-emerald-600">
+                                  <ArrowRight className="w-4 h-4" />
+                                </Button>
+                              </Link>
+                            )}
+                          </div>
+                        </div>
                       </motion.div>
                     ))}
                   </AnimatePresence>
@@ -641,3 +569,4 @@ export default function InterviewsHubPage() {
     </div>
   )
 }
+

@@ -12,7 +12,7 @@ interface StatItem {
 interface PageBannerProps {
     badge?: {
         text: string
-        icon?: React.ElementType
+        icon?: any
         className?: string
     }
     title: React.ReactNode

@@ -1,6 +1,6 @@
 import type React from "react";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Caveat } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import TanStackProvider from "@/components/tan-stack-provider";
@@ -12,6 +12,11 @@ import "@stream-io/video-react-sdk/dist/css/styles.css";
 
 
 const inter = Inter({ subsets: ["latin"] });
+const caveat = Caveat({
+  subsets: ["latin"],
+  variable: '--font-caveat',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: "SkillWokz - Accelerateur de carriere",
@@ -26,7 +31,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${caveat.variable}`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -41,7 +46,7 @@ export default function RootLayout({
             </ClientRoot>
           </TanStackProvider>
           <Toaster />
-          <ScrollToTop/>
+          <ScrollToTop />
         </ThemeProvider>
       </body>
     </html>

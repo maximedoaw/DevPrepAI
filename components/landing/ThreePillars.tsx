@@ -9,27 +9,36 @@ const pillars = [
         title: "Formation d'Excellence",
         description: "Un parcours qui transcende la formation pour une maîtrise réelle du métier.",
         icon: GraduationCap,
-        color: "text-emerald-600",
-        bg: "bg-emerald-50 dark:bg-emerald-900/10",
-        rotate: -2
+        color: "text-amber-800 dark:text-amber-200",
+        paperColor: "bg-[#fff176] dark:bg-amber-900/40",
+        lineColor: "rgba(0, 0, 0, 0.2)",
+        darkLineColor: "rgba(255, 255, 255, 0.1)",
+        pinColor: "bg-red-500",
+        rotate: -3
     },
     {
         id: "p2",
         title: "Impact & Confiance",
         description: "Transformez vos entretiens en démonstrations de professionnalisme.",
         icon: Target,
-        color: "text-sky-600",
-        bg: "bg-sky-50 dark:bg-sky-900/10",
-        rotate: 1
+        color: "text-rose-800 dark:text-rose-200",
+        paperColor: "bg-[#f48fb1] dark:bg-rose-900/40",
+        lineColor: "rgba(0, 0, 0, 0.18)",
+        darkLineColor: "rgba(255, 255, 255, 0.1)",
+        pinColor: "bg-blue-500",
+        rotate: 2
     },
     {
         id: "p3",
         title: "Sphère d'Opportunités",
         description: "Accédez à un réseau d'élite où chaque connexion est une opportunité.",
         icon: Users2,
-        color: "text-amber-600",
-        bg: "bg-amber-50 dark:bg-amber-900/10",
-        rotate: 2
+        color: "text-emerald-800 dark:text-emerald-200",
+        paperColor: "bg-[#a5d6a7] dark:bg-emerald-900/40",
+        lineColor: "rgba(0, 0, 0, 0.2)",
+        darkLineColor: "rgba(255, 255, 255, 0.1)",
+        pinColor: "bg-amber-500",
+        rotate: 1.5
     }
 ]
 
@@ -122,44 +131,49 @@ export default function ThreePillars() {
                                 transition={{ delay: index * 0.15, duration: 0.8 }}
                                 className="group relative"
                             >
-                                {/* PIN (Relié) */}
-                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-30">
-                                    <div className="w-4 h-4 rounded-full bg-slate-400/80 dark:bg-slate-600 shadow-lg border border-white/50 dark:border-slate-800 flex items-center justify-center">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-900 dark:bg-slate-200" />
+                                {/* Push Pin (Realistic) */}
+                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-30 drop-shadow-md group-hover:scale-110 transition-transform">
+                                    <div className={`w-6 h-6 rounded-full ${pillar.pinColor} relative flex items-center justify-center border-b-4 border-black/20`}>
+                                        <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-white/40" />
+                                        <div className="w-1 h-3 bg-slate-300 absolute -bottom-2 rounded-full" />
                                     </div>
                                 </div>
 
-                                {/* PAPER SHEET CARD */}
+                                {/* PAPER SHEET CARD (Post-it Style) */}
                                 <div
-                                    className="relative bg-[#faf9f6] dark:bg-slate-900 p-8 pt-12 rounded-sm transition-all duration-700 hover:scale-105 hover:-translate-y-2 hover:z-40 cursor-default"
+                                    className={`relative ${pillar.paperColor} p-8 pt-14 rounded-sm transition-all duration-700 hover:scale-105 hover:-translate-y-2 hover:z-40 cursor-default border border-white/40 dark:border-emerald-500/30 backdrop-blur-md shadow-xl dark:shadow-emerald-500/5`}
                                     style={{
-                                        boxShadow: "0 15px 35px -15px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.05)",
-                                        borderLeft: "1px solid rgba(0,0,0,0.03)",
-                                        borderTop: "1px solid rgba(0,0,0,0.01)"
+                                        backgroundImage: `repeating-linear-gradient(transparent, transparent 27px, var(--line-color, ${pillar.lineColor}) 27px, var(--line-color, ${pillar.lineColor}) 28px)`
                                     }}
                                 >
+                                    <style jsx>{`
+                                        div {
+                                            --line-color: ${pillar.lineColor};
+                                        }
+                                        :global(.dark) div {
+                                            --line-color: ${pillar.darkLineColor};
+                                        }
+                                    `}</style>
+                                    {/* Red Vertical Margin Line */}
+                                    <div className="absolute left-10 top-0 bottom-0 w-[1px] bg-red-500/20" />
+
                                     {/* Tactile paper corner shadow */}
-                                    <div className="absolute bottom-0 right-0 w-10 h-10 bg-gradient-to-br from-transparent to-slate-200/30 dark:to-black/30 pointer-events-none rounded-br-sm group-hover:opacity-0 transition-opacity" />
+                                    <div className="absolute bottom-0 right-0 w-12 h-12 bg-gradient-to-br from-transparent via-black/[0.02] to-black/[0.1] pointer-events-none rounded-br-sm group-hover:opacity-0 transition-opacity" />
 
                                     {/* Subtle Paper Grain Overlay */}
-                                    <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
+                                    <div className="absolute inset-0 opacity-[0.04] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
 
-                                    <div className={`w-12 h-12 rounded-2xl ${pillar.bg} flex items-center justify-center mb-6 shadow-sm`}>
+                                    <div className={`relative z-10 w-12 h-12 rounded-2xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm flex items-center justify-center mb-6 shadow-sm border border-white/50 dark:border-slate-700 transition-transform group-hover:rotate-12`}>
                                         <pillar.icon className={`w-6 h-6 ${pillar.color}`} />
                                     </div>
 
-                                    <h3 className="text-xl font-black mb-4 text-slate-900 dark:text-white leading-tight uppercase tracking-tight">
+                                    <h3 className="relative z-10 text-3xl font-black mb-4 text-slate-800 dark:text-white leading-tight tracking-tight font-caveat -rotate-1">
                                         {pillar.title}
                                     </h3>
 
-                                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed font-semibold mb-8 text-sm opacity-90 group-hover:opacity-100 transition-opacity">
+                                    <p className="relative z-10 text-slate-700 dark:text-slate-300 leading-relaxed font-bold mb-8 text-xl opacity-95 group-hover:opacity-100 transition-opacity min-h-[90px] font-caveat rotate-1">
                                         {pillar.description}
                                     </p>
-
-                                    <div className="flex items-center gap-2 text-xs font-black text-emerald-600 dark:text-emerald-400 group-hover:gap-4 transition-all">
-                                        DÉCOUVRIR
-                                        <ChevronRight size={14} />
-                                    </div>
                                 </div>
                             </motion.div>
                         ))}

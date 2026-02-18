@@ -18,7 +18,7 @@ import {
 
   ResponsiveContainer,
 } from "recharts"
-import { Target, Trophy, Brain, Sparkles, Play, Video, TrendingUp, Briefcase, Building, CheckCircle2, XCircle, Clock, Star, ArrowRight, Wallet, Layout, PenTool, Mic, MicOff } from "lucide-react"
+import { Target, Trophy, Brain, Sparkles, Play, Video, TrendingUp, Briefcase, Building, CheckCircle2, XCircle, Clock, Star, ArrowRight, Wallet, Layout, PenTool, Mic, MicOff, GraduationCap } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { MissionCard } from "./mission-card"
 import { ActivityItem } from "./activity-item"
@@ -32,8 +32,8 @@ import type { DashboardData, Mission, Achievement } from "@/types/dashboard"
 import { FeedbackModal, FeedbackModalDetails } from "@/components/feedback-modal"
 import { buildSkillProgressFromFeedback, safeParseJson } from "@/lib/feedback-utils"
 import { toast } from "sonner"
-import { getCareerProfile, startCareerTest, refuseCareerTest, submitCareerTest, type CareerTestAnswer } from "@/actions/career-profile.action"
-import { Loader2, X, Sparkles as SparklesIcon } from "lucide-react"
+import { startCareerTest, refuseCareerTest, submitCareerTest, type CareerTestAnswer } from "@/actions/career-profile.action"
+import { Loader2, X, Sparkles as SparklesIcon, Brain as BrainIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CareerPlanModal } from "./career-plan-modal"
 
@@ -54,11 +54,43 @@ export function CandidateDashboard({
 }: CandidateDashboardProps) {
   // Récupérer les candidatures de l'utilisateur avec leurs résultats
   const queryClient = useQueryClient();
-  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
-  const [feedbackModalDetails, setFeedbackModalDetails] = useState<FeedbackModalDetails | null>(null);
+  const handleSubmitFormation = async (answers: Record<string, string>) => {
+    setIsSubmittingFormation(true);
+    setIsGeneratingFormationPlan(true);
+
+    const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
+      questionId,
+      answer
+    }));
+
+    try {
+      const res = await submitFormationTest(formattedAnswers, {
+        role: data.user.role,
+        domains: data.user.domains,
+        onboardingDetails: (data.user as any).onboardingDetails,
+        onboardingGoals: (data.user as any).onboardingGoals
+      });
+
+      if (res.success) {
+        setShowFormationModal(false);
+        setShowFormationPlanModal(true);
+        // Refresh query
+        queryClient.invalidateQueries({ queryKey: ["formation-profile", data.user.id] });
+      } else {
+        toast.error(res.error || "Erreur lors de la génération du plan.");
+      }
+    } catch (err) {
+      toast.error("Une erreur inattendue est survenue.");
+    } finally {
+      setIsSubmittingFormation(false);
+      setIsGeneratingFormationPlan(false);
+    }
+  };
   const [testStatus, setTestStatus] = useState<"idle" | "accepted" | "refused" | "done">("idle");
   const [showCareerModal, setShowCareerModal] = useState(false);
   const [showCareerPlanModal, setShowCareerPlanModal] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackModalDetails, setFeedbackModalDetails] = useState<any>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [isSubmittingCareer, setIsSubmittingCareer] = useState(false);
@@ -337,21 +369,26 @@ export function CandidateDashboard({
     try {
       const res = await submitCareerTest(formatted, onboardingContext)
 
-      if (res.success && res.data) {
+      if (res.success) {
         // Mise à jour du cache React Query
-        queryClient.setQueryData(["career-profile", data.user.id], {
-          careerProfile: res.data,
-          careerProfileTestStatus: "DONE",
-          careerProfileUpdatedAt: new Date()
-        });
+        if (res.data) {
+          queryClient.setQueryData(["career-profile", data.user.id], {
+            careerProfile: res.data,
+            careerProfileTestStatus: "DONE",
+            careerProfileUpdatedAt: new Date()
+          });
+        }
 
         setTestStatus("done")
         setShowPortfolioSpotlight(true) // Activate spotlight here only
         toast.success("Plan de carrière généré avec succès!")
       } else {
         console.error("❌ Erreur dans la réponse:", res.error)
-        toast.error(res.error || "Une erreur est survenue lors de la génération. Veuillez réessayer.")
-        setTestStatus("accepted") // Revenir à l'état accepté pour pouvoir relancer
+        // Only show error toast if we definitely don't have success
+        if (!res.success) {
+          toast.error(res.error || "Une erreur est survenue lors de la génération. Veuillez réessayer.")
+          setTestStatus("accepted")
+        }
       }
     } catch (error) {
       console.error("💥 Exception capturée:", error)
@@ -387,12 +424,11 @@ export function CandidateDashboard({
 
         <div className="relative p-6 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8">
 
-          {/* Left Content */}
+          {/* Existing Career Plan Content (Right side or main) */}
           <div className="flex-1 space-y-6 text-center md:text-left">
             {!testStatus || testStatus === "idle" || testStatus === "refused" ? (
               <>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100/80 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold uppercase tracking-wider mb-2">
-                  <Sparkles className="w-3 h-3" />
                   Nouveau
                 </div>
                 <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
@@ -1167,7 +1203,7 @@ function CareerTestModal({
             {q.options ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {q.options.map((option: string) => (
+                  {q.options?.map((option: string) => (
                     <button
                       key={option}
                       onClick={() => {
@@ -1180,18 +1216,18 @@ function CareerTestModal({
                       }}
                       className={cn(
                         "flex items-center p-4 rounded-2xl border-2 transition-all text-left relative",
-                        (answers[q.id] === option || (option.includes("(Préciser...)") && !q.options.includes(answers[q.id]) && answers[q.id]))
+                        (answers[q.id] === option || (option.includes("(Préciser...)") && !(q.options || []).includes(answers[q.id]) && answers[q.id]))
                           ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
                           : "border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 text-slate-600 dark:text-slate-400 hover:border-slate-200 dark:hover:border-slate-700"
                       )}
                     >
                       <div className={cn(
                         "w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center transition-all flex-shrink-0",
-                        (answers[q.id] === option || (option.includes("(Préciser...)") && !q.options.includes(answers[q.id]) && answers[q.id]))
+                        (answers[q.id] === option || (option.includes("(Préciser...)") && !(q.options?.includes(answers[q.id])) && answers[q.id]))
                           ? "border-emerald-500 bg-emerald-500"
                           : "border-slate-300 dark:border-slate-600"
                       )}>
-                        {(answers[q.id] === option || (option.includes("(Préciser...)") && !q.options.includes(answers[q.id]) && answers[q.id])) &&
+                        {(answers[q.id] === option || (option.includes("(Préciser...)") && !(q.options?.includes(answers[q.id])) && answers[q.id])) &&
                           <CheckCircle2 className="w-3 h-3 text-white" />
                         }
                       </div>
@@ -1201,7 +1237,7 @@ function CareerTestModal({
                 </div>
 
                 {/* Champ de saisie personnalisé si "Autre" est sélectionné ou si la réponse actuelle n'est pas dans les options fixes (donc c'est une réponse custom) */}
-                {(!q.options.includes(answers[q.id]) && answers[q.id] !== undefined) || (answers[q.id] === "") ? (
+                {(!(q.options || []).includes(answers[q.id]) && answers[q.id] !== undefined) || (answers[q.id] === "") ? (
                   <div className="animate-in fade-in slide-in-from-top-2">
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 ml-1">
                       Précisez votre réponse :

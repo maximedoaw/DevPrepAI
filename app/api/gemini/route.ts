@@ -7,7 +7,7 @@ import { NextResponse, NextRequest } from "next/server";
 
 const apiKey = process.env.GEMINI_API_KEY;
 interface GenerateInterviewRequest {
-  type: 'generate-interview' | 'simple-prompt' | 'evaluate-code' | 'evaluate-mock-interview' | 'evaluate-technical-text' | 'evaluate-motivation-letters' | 'generate-career-plan';
+  type: 'generate-interview' | 'simple-prompt' | 'evaluate-code' | 'evaluate-mock-interview' | 'evaluate-technical-text' | 'evaluate-motivation-letters' | 'generate-career-plan' | 'generate-formation-plan' | 'generate-interview-recommendations' | 'generate-job-recommendations';
   quizType?: 'QCM' | 'TECHNICAL' | 'MOCK_INTERVIEW' | 'SOFT_SKILLS';
   domain?: string; // Domaine du test (utilisé pour generate-interview et evaluate-technical-text)
   difficulty?: 'JUNIOR' | 'MID' | 'SENIOR';
@@ -44,6 +44,8 @@ interface GenerateInterviewRequest {
     candidateName: string;
     content: string;
   }>;
+  // Pour les recommandations
+  careerProfile?: any;
 }
 
 // Les prompts sont maintenant centralisés dans @/lib/prompts.ts
@@ -387,6 +389,108 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+    } else if (body.type === 'generate-formation-plan') {
+      // ------------------------------------------------------------------
+      // GÉNÉRATION DE PLAN DE FORMATION (DIRECTEUR)
+      // ------------------------------------------------------------------
+      const { answers, onboardingContext } = body as any;
+
+      if (!answers || !Array.isArray(answers) || answers.length === 0) {
+         return NextResponse.json(
+           { error: "Le tableau 'answers' est requis pour générer un plan de formation." },
+           { status: 400 }
+         );
+       }
+
+      const processedAnswers = [...answers]
+      const customValue = answers.find((a: any) => a.questionId === "target_market_custom")?.answer
+
+      const finalAnswers = processedAnswers.map((a: any) => {
+        if (a.questionId === "target_market" && a.answer === "other" && customValue) {
+          return { ...a, answer: `Autre: ${customValue}` }
+        }
+        return a
+      }).filter((a: any) => a.questionId !== "target_market_custom")
+
+      const answersText = finalAnswers
+        .map((a: any, idx: number) => `Question ${idx + 1} (${a.questionId}): ${a.answer}`)
+        .join('\n\n');
+
+      const role = onboardingContext?.role || 'Directeur';
+      const domains = Array.isArray(onboardingContext?.domains) 
+        ? onboardingContext.domains.join(', ') 
+        : 'Général';
+      
+      const onboardingDetails = onboardingContext?.onboardingDetails || {};
+      const onboardingGoals = onboardingContext?.onboardingGoals || {};
+
+      const prompt = PROMPTS.generateFormationPlan({
+        answersText,
+        role,
+        domains,
+        onboardingDetails,
+        onboardingGoals
+      });
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt
+      });
+
+      const generatedText = response.text;
+      if (!generatedText) throw new Error("No text was generated");
+
+       try {
+        let jsonText = generatedText.trim();
+        const jsonMatch = jsonText.match(/```json\s*([\s\S]*?)\s*```/) || jsonText.match(/```\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) jsonText = jsonMatch[1].trim();
+        
+        const parsedResult = JSON.parse(jsonText);
+        return NextResponse.json({ success: true, data: parsedResult });
+      } catch (parseError) {
+        console.error("Error parsing formation plan response:", parseError);
+        return NextResponse.json(
+          { 
+            error: "Failed to parse formation plan response",
+            rawResponse: generatedText.substring(0, 500)
+          },
+          { status: 500 }
+        );
+      }
+    } else if (body.type === 'generate-interview-recommendations') {
+      if (!body.careerProfile) return NextResponse.json({ error: "careerProfile is required" }, { status: 400 });
+
+      const prompt = PROMPTS.generateInterviewRecommendations({ careerProfile: body.careerProfile });
+      const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
+      const generatedText = response.text || "";
+      
+      try {
+        let jsonText = generatedText.trim();
+        const jsonMatch = jsonText.match(/```json\s*([\s\S]*?)\s*```/) || jsonText.match(/```\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) jsonText = jsonMatch[1].trim();
+        const parsedResult = JSON.parse(jsonText);
+        return NextResponse.json({ success: true, data: parsedResult });
+      } catch (e) {
+        return NextResponse.json({ error: "Failed to parse AI response", rawResponse: generatedText }, { status: 500 });
+      }
+
+    } else if (body.type === 'generate-job-recommendations') {
+      if (!body.careerProfile) return NextResponse.json({ error: "careerProfile is required" }, { status: 400 });
+
+      const prompt = PROMPTS.generateJobRecommendations({ careerProfile: body.careerProfile });
+      const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
+      const generatedText = response.text || "";
+      
+      try {
+        let jsonText = generatedText.trim();
+        const jsonMatch = jsonText.match(/```json\s*([\s\S]*?)\s*```/) || jsonText.match(/```\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) jsonText = jsonMatch[1].trim();
+        const parsedResult = JSON.parse(jsonText);
+        return NextResponse.json({ success: true, data: parsedResult });
+      } catch (e) {
+        return NextResponse.json({ error: "Failed to parse AI response", rawResponse: generatedText }, { status: 500 });
+      }
+
     } else if (body.type === 'evaluate-motivation-letters') {
       // ------------------------------------------------------------------
       // LOGIQUE : ÉVALUATION LETTRES DE MOTIVATION (BATCH)

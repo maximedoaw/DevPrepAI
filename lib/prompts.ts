@@ -396,5 +396,128 @@ Format JSON:
     { "applicationId": "ID", "rating": 1-5 }
   ]
 }`;
+  },
+
+  /**
+   * Génère des recommandations d'entretien basées sur le profil de carrière.
+   */
+  generateInterviewRecommendations: ({ careerProfile }: any) => {
+    return `Tu es un coach carrière expert. Analyse ce profil de carrière et recommande 3 types d'entretiens simulés prioritaires pour ce candidat.
+
+PROFIL:
+${JSON.stringify(careerProfile, null, 2)}
+
+IMPORTANT:
+- Focus sur les compétences manquantes ou critiques identifiées.
+- Valeurs en **FCFA**.
+- Pas de terme "tech" générique.
+
+Format JSON STRICT:
+{
+  "recommendations": [
+    {
+      "title": "Titre explicite de l'entretien",
+      "type": "MOCK_INTERVIEW" | "TECHNICAL" | "SOFT_SKILLS",
+      "difficulty": "JUNIOR" | "MID" | "SENIOR",
+      "reason": "Pourquoi c'est important pour lui maintenant",
+      "domain": "Domaine spécifique (ex: Marketing, Design...)"
+    }
+  ]
+}`;
+  },
+
+  /**
+   * Génère des recommandations d'emploi basées sur le profil de carrière.
+   */
+  generateJobRecommendations: ({ careerProfile }: any) => {
+    return `Tu es un chasseur de tête expert. Analyse ce plan de carrière et suggère 5 titres de postes précis et des mots-clés de recherche pertinents.
+
+PLAN DE CARRIÈRE:
+${JSON.stringify(careerProfile, null, 2)}
+
+IMPORTANT:
+- Valeurs en **FCFA**.
+- Pas de terme "tech" générique.
+- Les titres doivent être standards sur le marché (français/anglais).
+
+Format JSON STRICT:
+{
+  "jobTitles": ["Titre 1", "Titre 2", "Titre 3"],
+  "searchKeywords": ["Mot-clé 1", "Mot-clé 2", "Mot-clé 3"],
+  "industries": ["Industrie A", "Industrie B"],
+  "salaryRangeEstimation": "Estimation en FCFA"
+}`;
+  },
+  
+  /**
+   * Génère le prompt pour le plan de formation "Learning Path" (Spécialisé Institutionnel / Directeur).
+   */
+  generateFormationPlan: ({ answersText, role, domains, onboardingDetails, onboardingGoals }: {
+    answersText: string;
+    role: string;
+    domains: string;
+    onboardingDetails: any;
+    onboardingGoals: any;
+  }) => {
+    return `Tu es un stratège pédagogique et expert en ingénierie de formation pour l'enseignement supérieur. Ta mission est de conseiller le Directeur d'un Institut ou d'une Université pour concevoir une stratégie d'accompagnement pédagogique globale.
+Ce plan doit aider l'institution à maximiser l'excellence académique et l'employabilité de ses étudiants face aux réalités du marché camerounais.
+
+IMPORTANT : 
+- Toutes les valeurs monétaires doivent être exprimées en **FCFA**. 
+- N'utilise jamais le terme "tech" ou "technologie" de manière générique. Utilise des termes comme "cursus", "formation", "excellence académique", "stratégie pédagogique", "insertion professionnelle", etc.
+
+PROFIL DE L'INSTITUTION (contexte du Directeur):
+- Cursus/Filières concernées: ${role}
+- Domaines d'expertise: ${domains}
+- Détails Onboarding: ${JSON.stringify(onboardingDetails, null, 2)}
+- Objectifs Institutionnels: ${JSON.stringify(onboardingGoals, null, 2)}
+
+RÉPONSES AU QUESTIONNAIRE DE STRATÉGIE PÉDAGOGIQUE (Fournies par le Directeur):
+${answersText}
+
+OBJECTIF:
+Génère une stratégie d'accompagnement institutionnelle qui met l'accent sur:
+1. Les piliers du succès étudiant (Théorie, Pratique, Soft Skills, Immersion).
+2. L'alignement stratégique avec le marché (Comment l'institution répond aux besoins des employeurs locaux).
+3. Le plan de déploiement de l'accompagnement (Jalons pour les cohortes).
+
+FEATURES SKILLWORKZ À INTÉGRER DANS LA STRATÉGIE:
+- **Cockpit de Pilotage**: Pour le suivi global des performances et de l'alignement marché.
+- **Parcours d'Apprentissage IA**: Plans personnalisés pour chaque étudiant basés sur le cursus institutionnel.
+- **Tests Techniques & Certifications**: Pour valider les compétences métier des étudiants.
+- **Simulateur d'Entretiens**: Pour muscler l'employabilité des finalistes.
+- **Rapports d'Insertion**: Pour mesurer l'impact de la formation sur le marché.
+
+Format JSON STRICT attendu:
+{
+  "summary": "Résumé de la vision stratégique (3-4 sentences)",
+  "institutionalFocus": "Analyse des priorités identifiées par le Directeur",
+  "strategicPillars": [
+    {
+      "title": "Nom du pilier",
+      "description": "Objectifs stratégiques",
+      "impact": "Bénéfice attendu"
+    }
+  ],
+  "marketAlignment": {
+    "marketNeeds": "Analyse des besoins employeurs au Cameroun",
+    "institutionalGap": "Points de focus pour combler l'écart fondation/emploi",
+    "targetEmployers": ["Entreprise 1", "Entreprise 2"]
+  },
+  "implementationRoadmap": [
+    {
+      "step": "Titre du jalon",
+      "description": "Action concrète spécifique",
+      "timeline": "Période (ex: Semestre 1)",
+      "priority": "high"
+    }
+  ],
+  "actionPlanForCohorts": {
+    "launch": ["Focus initial"],
+    "midTerm": ["Développement compétences"],
+    "final": ["Préparation insertion"]
+  },
+  "motivationalMessage": "Note de synthèse inspirante adressée au Directeur"
+}`;
   }
 };

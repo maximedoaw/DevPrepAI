@@ -94,7 +94,7 @@ export default function CreatorSection() {
             {/* Colonne Humaine - Épurée */}
             <div className="lg:col-span-5 space-y-12">
               {[
-                { name: "Maxime Doaw", role: "Founder & Lead Engineer", img: "/maximedoaw.jpg", fallback: "MD", quote: "SkillWokz redonne au mérite sa juste place. Dans un pays où tout se joue sur les relations, la compétence doit redevenir le seul signal qui compte." },
+                { name: "Maxime Doaw", role: "Founder & software engineer", img: "/maximedoaw.jpg", fallback: "MD", quote: "SkillWokz redonne au mérite sa juste place. Dans un pays où tout se joue sur les relations, la compétence doit redevenir le seul signal qui compte." },
                 { name: "Ayina Michel", role: "Directeur Marketing", img: "/ayina.jpg", fallback: "AM", quote: "Réveiller les consciences techniques et humaniser la tech. Nous ne formons pas des profils, nous révélons des destins." }
               ].map((founder, i) => (
                 <motion.div

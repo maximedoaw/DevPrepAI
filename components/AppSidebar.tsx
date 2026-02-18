@@ -202,7 +202,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
           },
           path: "/",
         },
-         {
+        {
           id: "portfolio",
           title: "Portfolio & CV",
           description: "Mettez en lumière vos talents",
@@ -230,7 +230,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
           isNew: true,
           path: "/interviews",
         },
-        
+
         {
           id: "matching",
           title: "Portail d'emploi",
@@ -581,9 +581,9 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
       sidebarOptions = [
         {
           id: "dashboard",
-          title: "Espace école",
-          description: "Vue globale de votre établissement",
-          icon: Home,
+          title: "Tableau de bord",
+          description: "Performance académique & alignement marché",
+          icon: BarChart3,
           color: "text-emerald-600 dark:text-emerald-400",
           bgColor: "bg-emerald-500 dark:bg-emerald-600",
           action: () => {
@@ -593,69 +593,56 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
           path: "/",
         },
         {
-          id: "pedagogie",
-          title: "Espace pédagogique",
-          description: "Gestion des cours et ressources",
+          id: "formations",
+          title: "Création de Formation",
+          description: "Concevoir des programmes orientés emploi",
           icon: BookOpen,
           color: "text-teal-600 dark:text-teal-400",
           bgColor: "bg-teal-500 dark:bg-teal-600",
           action: () => {
-            router.push("/pedagogie");
+            router.push("/school/formations");
             if (window.innerWidth < 768) setSidebarOpen(false);
           },
-          path: "/pedagogie",
+          path: "/school/formations",
         },
         {
-          id: "sessions",
-          title: "Sessions de travail",
-          description: "Calendrier et organisation",
-          icon: Calendar,
+          id: "formateurs",
+          title: "Gestion des Formateurs",
+          description: "Suivi pédagogique & performance",
+          icon: GraduationCap,
           color: "text-green-600 dark:text-green-400",
           bgColor: "bg-green-500 dark:bg-green-600",
           action: () => {
-            router.push("/sessions");
+            router.push("/school/formateurs");
             if (window.innerWidth < 768) setSidebarOpen(false);
           },
-          path: "/sessions",
+          path: "/school/formateurs",
         },
         {
-          id: "etudiants",
-          title: "Suivi étudiant",
-          description: "Progression et résultats",
+          id: "students",
+          title: "Suivi des Étudiants",
+          description: "Compétences & employabilité",
           icon: Users,
           color: "text-lime-600 dark:text-lime-400",
           bgColor: "bg-lime-500 dark:bg-lime-600",
           action: () => {
-            router.push("/etudiants");
+            router.push("/school/students");
             if (window.innerWidth < 768) setSidebarOpen(false);
           },
-          path: "/etudiants",
+          path: "/school/students",
         },
         {
-          id: "carriere",
-          title: "Services carrière",
-          description: "Accompagnement professionnel",
-          icon: Briefcase,
+          id: "partners",
+          title: "Partenariats Entreprises",
+          description: "Écosystème formation-emploi",
+          icon: Handshake,
           color: "text-cyan-600 dark:text-cyan-400",
           bgColor: "bg-cyan-500 dark:bg-cyan-600",
           action: () => {
-            router.push("/carriere");
+            router.push("/school/partners");
             if (window.innerWidth < 768) setSidebarOpen(false);
           },
-          path: "/carriere",
-        },
-        {
-          id: "visibilite",
-          title: "Visibilité & partenariats",
-          description: "Mettez en avant vos étudiants",
-          icon: Handshake,
-          color: "text-emerald-600 dark:text-emerald-400",
-          bgColor: "bg-emerald-500 dark:bg-emerald-600",
-          action: () => {
-            router.push("/visibilite");
-            if (window.innerWidth < 768) setSidebarOpen(false);
-          },
-          path: "/visibilite",
+          path: "/school/partners",
         },
       ];
     }
@@ -806,8 +793,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
         };
       case "SCHOOL":
         return {
-          title: "École & Université",
-          subtitle: "Insertion professionnelle",
+          title: "Cockpit Académique",
+          subtitle: "Performance & Employabilité",
         };
       default:
         return {

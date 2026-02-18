@@ -173,6 +173,11 @@ model User {
   careerProfileUpdatedAt DateTime?
   careerProfileTestStatus String?      // PENDING, REFUSED, DONE
 
+  formationProfile     Json?            // AI-generated learning path
+  formationProfileAnswers Json?         // Store formation test answers
+  formationProfileUpdatedAt DateTime?
+  formationProfileTestStatus String?   // PENDING, REFUSED, DONE
+
   
   // Relations
   subscription     Subscription?

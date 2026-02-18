@@ -1,10 +1,12 @@
 "use server"
 
+
 import prisma from "@/db/prisma"
 import { Prisma } from "@prisma/client"
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server"
 import { GoogleGenAI } from "@google/genai"
 import { PROMPTS } from "@/lib/prompts"
+import { inngest } from "@/lib/inngest"
 
 function getBaseUrl() {
   if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
@@ -130,6 +132,17 @@ export async function submitCareerTest(answers: CareerTestAnswer[], onboardingCo
               careerProfileTestStatus: "DONE"
             }
           })
+
+          // Trigger Recommendation Engine via Inngest (Silently handles failure)
+          try {
+            await inngest.send([
+              { name: "recommendation.engine.run", data: { userId: user.id } },
+              { name: "jobs.recommended", data: { userId: user.id } }
+            ])
+          } catch (innError) {
+            console.error("⚠️ Failed to trigger Inngest background tasks:", innError)
+          }
+
           return { success: true, data: responseData.data }
         }
       }
@@ -201,6 +214,16 @@ export async function submitCareerTest(answers: CareerTestAnswer[], onboardingCo
         careerProfileTestStatus: "DONE"
       }
     })
+
+    // Trigger Recommendation Engine via Inngest (Fallback SDK path - Silently handles failure)
+    try {
+      await inngest.send([
+        { name: "recommendation.engine.run", data: { userId: user.id } },
+        { name: "jobs.recommended", data: { userId: user.id } }
+      ])
+    } catch (innError) {
+      console.error("⚠️ Failed to trigger Inngest background tasks (Fallback):", innError)
+    }
 
     return { success: true, data: careerPlan }
 

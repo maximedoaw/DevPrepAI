@@ -121,6 +121,8 @@ export async function getFullUserData(userId: string) {
         email: true,
         firstName: true,
         lastName: true,
+        username: true,
+        imageUrl: true,
         role: true,
         domains: true,
         credits: true,

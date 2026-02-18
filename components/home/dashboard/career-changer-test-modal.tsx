@@ -246,7 +246,7 @@ export function CareerChangerTestModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/90 backdrop-blur-md px-4 py-6 animate-in fade-in duration-300">
-            <div className="bg-white dark:bg-slate-950 rounded-3xl shadow-2xl max-w-2xl w-full p-6 md:p-10 space-y-8 border border-slate-200 dark:border-slate-800 max-h-[92vh] overflow-y-auto relative">
+            <div className="bg-white dark:bg-slate-950 rounded-2xl md:rounded-3xl shadow-2xl max-w-2xl w-full p-5 md:p-10 space-y-6 md:space-y-8 border border-slate-200 dark:border-slate-800 max-h-[92vh] overflow-y-auto relative">
                 <div className="relative flex items-start justify-between gap-4">
                     <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-2 mb-2">
@@ -257,7 +257,7 @@ export function CareerChangerTestModal({
                                 Bilan IA
                             </Badge>
                         </div>
-                        <h3 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                        <h3 className="text-xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                             Profil de carrière
                         </h3>
                         <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed max-w-md italic">
@@ -289,7 +289,7 @@ export function CareerChangerTestModal({
                 {/* Question Area */}
                 <div className="space-y-6 relative min-h-[300px]">
                     <div className="space-y-4">
-                        <h4 className="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100 leading-snug">
+                        <h4 className="text-base md:text-xl font-bold text-slate-800 dark:text-slate-100 leading-snug">
                             {q.label}
                         </h4>
                         {q.type === "text" && (
@@ -308,7 +308,7 @@ export function CareerChangerTestModal({
                                     <div
                                         key={option}
                                         className={cn(
-                                            "flex items-center justify-between p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 group",
+                                            "flex items-center justify-between p-4 md:p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 group",
                                             isSelected
                                                 ? "border-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/20"
                                                 : "border-slate-100 dark:border-slate-800 hover:border-emerald-200 dark:hover:border-emerald-800 hover:bg-slate-50 dark:hover:bg-slate-900/50"
@@ -316,7 +316,7 @@ export function CareerChangerTestModal({
                                         onClick={() => handleRadioChange(option)}
                                     >
                                         <span className={cn(
-                                            "text-[15px] font-medium transition-colors",
+                                            "text-sm md:text-[15px] font-medium transition-colors flex-1 pr-2",
                                             isSelected ? "text-emerald-900 dark:text-emerald-50" : "text-slate-600 dark:text-slate-400"
                                         )}>
                                             {option}
@@ -348,7 +348,7 @@ export function CareerChangerTestModal({
                                     <div
                                         key={option}
                                         className={cn(
-                                            "flex items-center justify-between p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 group",
+                                            "flex items-center justify-between p-4 md:p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 group",
                                             isChecked
                                                 ? "border-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/20"
                                                 : "border-slate-100 dark:border-slate-800 hover:border-emerald-200 dark:hover:border-emerald-800 hover:bg-slate-50 dark:hover:bg-slate-900/50"
@@ -356,7 +356,7 @@ export function CareerChangerTestModal({
                                         onClick={() => handleCheckboxChange(option)}
                                     >
                                         <span className={cn(
-                                            "text-[15px] font-medium transition-colors",
+                                            "text-sm md:text-[15px] font-medium transition-colors flex-1 pr-2",
                                             isChecked ? "text-emerald-900 dark:text-emerald-50" : "text-slate-600 dark:text-slate-400"
                                         )}>
                                             {option}
@@ -382,7 +382,7 @@ export function CareerChangerTestModal({
                     {q.type === "text" && (
                         <div className="relative">
                             <textarea
-                                className="w-full rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-6 py-5 pr-16 text-base text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 transition-all min-h-[180px] resize-none"
+                                className="w-full rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-5 md:px-6 py-4 md:py-5 pr-16 text-base text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 transition-all min-h-[180px] resize-none"
                                 placeholder={q.placeholder}
                                 value={(answers[q.id] as string) || ""}
                                 onChange={(e) => {
