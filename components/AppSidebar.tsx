@@ -600,10 +600,10 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
           color: "text-teal-600 dark:text-teal-400",
           bgColor: "bg-teal-500 dark:bg-teal-600",
           action: () => {
-            router.push("/school/formations");
+            router.push("/school/courses");
             if (window.innerWidth < 768) setSidebarOpen(false);
           },
-          path: "/school/formations",
+          path: "/school/courses",
         },
         {
           id: "formateurs",

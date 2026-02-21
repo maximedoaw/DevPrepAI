@@ -13,15 +13,15 @@ import { useTheme } from "next-themes"
 
 function ModeToggle() {
   const { theme, setTheme } = useTheme()
-  
+
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light')
   }
 
   return (
-    <Button 
-      variant="outline" 
-      size="icon" 
+    <Button
+      variant="outline"
+      size="icon"
       onClick={toggleTheme}
       className="relative border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950/50"
     >
@@ -64,7 +64,7 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             {/* Theme Toggle */}
             <ModeToggle />
-            
+
             {/* Auth Buttons */}
             {isLoading ? (
               <>
@@ -91,7 +91,7 @@ export default function Navbar() {
                     variant="outline"
                     onClick={() => setAuthLoading(true)}
                     disabled={authLoading}
-                    className="border-green-200 dark:border-green-800 text-slate-700 dark:text-slate-300 hover:bg-green-50 dark:hover:bg-green-950/50 rounded-xl"
+                    className="text-slate-700 border-green-200 dark:text-slate-300 hover:bg-green-50 dark:hover:bg-green-950/50 rounded-full"
                   >
                     {authLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -100,7 +100,7 @@ export default function Navbar() {
                 </LoginLink>
                 <RegisterLink>
                   <Button
-                    className="bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-green-500/25 rounded-xl"
+                    className="bg-green-600 text-white hover:bg-green-700 transition-all  rounded-full"
                     onClick={() => setAuthLoading(true)}
                     disabled={authLoading}
                   >
@@ -134,22 +134,22 @@ export default function Navbar() {
               {/* Navigation links - only show when not authenticated */}
               {!isAuthenticated && (
                 <>
-                  <Link 
-                    href="#features" 
+                  <Link
+                    href="#features"
                     className="block py-3 px-4 rounded-xl hover:bg-green-50 dark:hover:bg-green-950/50 transition-colors text-slate-700 dark:text-slate-300"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Fonctionnalités
                   </Link>
-                  <Link 
-                    href="#testimonials" 
+                  <Link
+                    href="#testimonials"
                     className="block py-3 px-4 rounded-xl hover:bg-green-50 dark:hover:bg-green-950/50 transition-colors text-slate-700 dark:text-slate-300"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Témoignages
                   </Link>
-                  <Link 
-                    href="#pricing" 
+                  <Link
+                    href="#pricing"
                     className="block py-3 px-4 rounded-xl hover:bg-green-50 dark:hover:bg-green-950/50 transition-colors text-slate-700 dark:text-slate-300"
                     onClick={() => setMobileMenuOpen(false)}
                   >
@@ -199,7 +199,7 @@ export default function Navbar() {
                     </LoginLink>
                     <RegisterLink>
                       <Button
-                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 transition-all rounded-xl"
+                        className="w-full bg-green-600 text-white hover:bg-green-700 transition-all border-b-4 border-green-800 shadow-md rounded-xl"
                         onClick={() => {
                           setAuthLoading(true)
                           setMobileMenuOpen(false)

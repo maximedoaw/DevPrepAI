@@ -160,3 +160,25 @@ export async function getFormationProfile() {
   if (!dbUser) return { success: false, error: "Utilisateur introuvable" }
   return { success: true, data: dbUser }
 }
+
+export async function deleteFormationProfile() {
+  const { getUser } = getKindeServerSession()
+  const user = await getUser()
+  if (!user?.id) return { success: false, error: "Non authentifié" }
+
+  try {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        formationProfile: Prisma.JsonNull,
+        formationProfileAnswers: Prisma.JsonNull,
+        formationProfileUpdatedAt: null,
+        formationProfileTestStatus: "NOT_STARTED"
+      }
+    })
+    return { success: true }
+  } catch (error) {
+    console.error("Erreur suppression plan formation:", error)
+    return { success: false, error: "Impossible de supprimer le plan." }
+  }
+}

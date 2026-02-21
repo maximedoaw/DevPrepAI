@@ -269,22 +269,23 @@ Format:
       return `Tu es un expert en évaluation technique (${domain}) au niveau ${difficulty}.
 Crée ${numberOfQuestions} exercices pratiques sur ${techString}.${descriptionContext}
 ${baseRègles}
+IMPORTANT: La description des tests techniques doit être formatée de manière à ce qu'une simulation puisse être effectuée directement sur notre plateforme (ex: un énoncé clair, un point de départ de code ou d'architecture simple à évaluer par IA, et un résultat attendu précis). Mentionne qu'ils peuvent utiliser des éditeurs externes (VS Code, CodePen, etc.) s'ils le souhaitent, mais que la validation se fera numériquement ou via des captures/textes sur la plateforme.
 
 Format:
 {
-  "title": "Titre du test",
-  "description": "Description",
+  "title": "Titre du test technique",
+  "description": "Description détaillée et mode opératoire du test...",
   "questions": [
     {
       "id": "q1",
       "title": "Titre exercice",
-      "text": "Énoncé détaillé",
+      "text": "Énoncé détaillé (Doit permettre de résoudre le problème sur la plateforme mais aussi inviter à utiliser des outils externes si nécessaire)",
       "type": "technical",
       "points": ${pointsPerQuestion},
-      "codeSnippet": "Contexte de départ",
+      "codeSnippet": "Code de départ ou structure architecturale initiale",
       "examples": [{"input": "Entrée", "output": "Résultat"}],
       "correctAnswer": "Critères de réussite / Solution",
-      "explanation": "Détails techniques"
+      "explanation": "Détails techniques pour l'évaluation"
     }
   ]
 }`;
@@ -518,6 +519,74 @@ Format JSON STRICT attendu:
     "final": ["Préparation insertion"]
   },
   "motivationalMessage": "Note de synthèse inspirante adressée au Directeur"
+}`;
+  },
+
+  /**
+   * Génère le prompt pour le générateur de cours des écoles.
+   */
+  generateCoursePlan: ({ title, domain, description, difficultyLevel }: {
+    title: string;
+    domain: string;
+    description: string;
+    difficultyLevel: string;
+  }) => {
+    return `Tu es un expert en ingénierie pédagogique et un concepteur de programmes académiques de premier plan. Ta mission est d'aider un formateur/enseignant d'une école à concevoir une formation technique de haute qualité, immersive, alignée avec les réalités du marché.
+
+CONTEXTE DU COURS :
+- Titre : ${title}
+- Domaine : ${domain}
+- Niveau ciblé : ${difficultyLevel || "JUNIOR"}
+- Description initiale : ${description || "Aucune description fournie. Imagine un programme complet adapté à ce titre et domaine."}
+
+OBJECTIF :
+Générer une structure de cours détaillée, des objectifs pédagogiques clairs, les compétences visées, et faire des recommandations. Adapte rigoureusement l'ensemble du contenu au niveau ciblé (${difficultyLevel}).
+
+IMPORTANT :
+- Tu t'adresses à des professionnels de l'éducation en Afrique de l'Ouest/Centrale (mentionne le marché local si pertinent).
+- Toutes les valeurs monétaires (si applicables) doivent être en **FCFA**.
+- Pas d'utilisation générique de "tech", sois précis par rapport au domaine.
+- Réponds UNIQUEMENT avec un JSON valide, sans balises markdown de bloc de code autour.
+
+Format JSON STRICT attendu :
+{
+  "objectives": [
+    "Objectif pédagogique 1 (verbe d'action)",
+    "Objectif pédagogique 2",
+    "Objectif pédagogique 3"
+  ],
+  "targetSkills": [
+    "Compétence 1",
+    "Compétence 2",
+    "Compétence 3",
+    "Compétence 4"
+  ],
+  "prerequisites": [
+    "Prérequis 1",
+    "Prérequis 2"
+  ],
+  "difficultyLevel": "${difficultyLevel || "JUNIOR"}",
+  "recommendedTests": [
+    "QCM",
+    "MOCK_INTERVIEW"
+  ],
+  "courseSections": [
+    {
+      "title": "Introduction et Fondamentaux",
+      "description": "Description détaillée de ce qui sera couvert dans ce module de base...",
+      "duration": 60 
+    },
+    {
+      "title": "Concepts Avancés",
+      "description": "Exploration approfondie des mécanismes métiers...",
+      "duration": 120 
+    },
+    {
+      "title": "Mise en Pratique / Cas d'Usage",
+      "description": "Réalisation d'un scénario du monde réel...",
+      "duration": 180
+    }
+  ]
 }`;
   }
 };

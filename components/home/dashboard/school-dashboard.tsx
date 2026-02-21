@@ -9,6 +9,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -55,7 +65,12 @@ import {
   MessageCircle,
   Trophy,
   UsersRound,
-  ArrowRight
+  ArrowRight,
+  Trash2,
+  Eye,
+  RefreshCw,
+  Loader2,
+  Brain
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
@@ -63,10 +78,9 @@ import type { DashboardData } from "@/types/dashboard"
 import Image from "next/image"
 import { FormationTestModal } from "./formation-test-modal"
 import { FormationPlanModal } from "./formation-plan-modal"
-import { submitFormationTest, getFormationProfile, type FormationTestAnswer } from "@/actions/formation-plan.action"
+import { submitFormationTest, getFormationProfile, deleteFormationProfile, type FormationTestAnswer } from "@/actions/formation-plan.action"
 import { toast } from "sonner"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Brain } from "lucide-react"
 
 interface SchoolDashboardProps {
   data: DashboardData
@@ -77,6 +91,7 @@ export function SchoolDashboard({ data }: SchoolDashboardProps) {
   const [activeTab, setActiveTab] = useState<"performance" | "market">("performance")
   const [showProgramModal, setShowProgramModal] = useState(false)
   const [showFormationPlanModal, setShowFormationPlanModal] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Fetch formation strategy
   const { data: formationData, isLoading: loadingFormation } = useQuery({
@@ -106,6 +121,20 @@ export function SchoolDashboard({ data }: SchoolDashboardProps) {
     }
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteFormationProfile(),
+    onSuccess: (res) => {
+      if (res.success) {
+        toast.success("Plan pédagogique supprimé.")
+        queryClient.invalidateQueries({ queryKey: ["formation-profile"] })
+        setShowDeleteConfirm(false)
+      } else {
+        toast.error(res.error || "Erreur lors de la suppression")
+      }
+    },
+    onError: () => toast.error("Une erreur imprévue est survenue.")
+  })
+
   const handleCreateProgram = (answersRecord: Record<string, string>) => {
     const answers: FormationTestAnswer[] = Object.entries(answersRecord).map(([id, val]) => ({
       questionId: id,
@@ -113,6 +142,8 @@ export function SchoolDashboard({ data }: SchoolDashboardProps) {
     }))
     createProgramMutation.mutate(answers)
   }
+
+  const hasPlan = formationData?.success && formationData.data?.formationProfile
 
   // Mock data for a more "Human" feel
   const successStories = [
@@ -381,23 +412,57 @@ export function SchoolDashboard({ data }: SchoolDashboardProps) {
                 <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xl flex items-center justify-center border border-white/30">
                   <Zap className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-lg font-black text-white uppercase tracking-tighter leading-none">Accompagnement Pédagogique</h3>
+                <div>
+                  <h3 className="text-lg font-black text-white uppercase tracking-tighter leading-none">Accompagnement Pédagogique</h3>
+                  <p className="text-[10px] text-white/60 font-bold mt-0.5 uppercase tracking-widest">
+                    {loadingFormation ? "Chargement..." : hasPlan ? "Plan actif" : "Aucun plan généré"}
+                  </p>
+                </div>
               </div>
 
-              <div className="space-y-3">
-                <Button
-                  onClick={() => setShowProgramModal(true)}
-                  className="w-full bg-white text-emerald-700 hover:bg-emerald-50 rounded-2xl h-12 text-[10px] font-black uppercase tracking-widest shadow-xl border-0"
-                >
-                  <Plus className="w-4 h-4 mr-2" /> Créer un Programme IA
-                </Button>
-                <Button variant="ghost" className="w-full text-white hover:bg-white/10 rounded-2xl h-12 text-[10px] font-black uppercase tracking-widest border border-white/20">
-                  Inscrire une Cohorte
-                </Button>
-                <Button variant="ghost" className="w-full text-white hover:bg-white/10 rounded-2xl h-12 text-[10px] font-black uppercase tracking-widest border border-white/20">
-                  Générer Rapports Insertion
-                </Button>
-              </div>
+              {loadingFormation ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="w-6 h-6 text-white/60 animate-spin" />
+                </div>
+              ) : hasPlan ? (
+                /* Plan exists – show management actions */
+                <div className="space-y-3">
+                  <Button
+                    onClick={() => setShowFormationPlanModal(true)}
+                    className="w-full bg-white text-emerald-700 hover:bg-emerald-50 rounded-2xl h-12 text-[10px] font-black uppercase tracking-widest shadow-xl border-0"
+                  >
+                    <Eye className="w-4 h-4 mr-2" /> Ouvrir le Plan
+                  </Button>
+                  <Button
+                    onClick={() => setShowProgramModal(true)}
+                    className="w-full bg-white/20 text-white hover:bg-white/30 backdrop-blur-xl border border-white/30 rounded-2xl h-12 text-[10px] font-black uppercase tracking-widest"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" /> Mettre à Jour
+                  </Button>
+                  <Button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full bg-red-500/20 text-red-200 hover:bg-red-500/30 border border-red-400/30 rounded-2xl h-12 text-[10px] font-black uppercase tracking-widest"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" /> Supprimer le Plan
+                  </Button>
+                </div>
+              ) : (
+                /* No plan – prompt creation */
+                <div className="space-y-3">
+                  <div className="p-4 rounded-2xl bg-white/10 border border-white/20 text-center">
+                    <Brain className="w-8 h-8 text-white/40 mx-auto mb-2" />
+                    <p className="text-[10px] text-white/70 font-bold uppercase tracking-widest">
+                      Aucun plan pédagogique IA n'a encore été créé.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => setShowProgramModal(true)}
+                    className="w-full bg-white text-emerald-700 hover:bg-emerald-50 rounded-2xl h-12 text-[10px] font-black uppercase tracking-widest shadow-xl border-0"
+                  >
+                    <Plus className="w-4 h-4 mr-2" /> Créer un Programme IA
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -430,7 +495,29 @@ export function SchoolDashboard({ data }: SchoolDashboardProps) {
         onClose={() => setShowFormationPlanModal(false)}
         plan={formationData?.data?.formationProfile}
       />
-    </div >
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent className="rounded-3xl border-slate-200/60 dark:border-white/10">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-black uppercase tracking-tight">Supprimer le plan pédagogique ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-500">
+              Cette action est irréversible. Le plan de formation IA généré sera définitivement supprimé.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl" disabled={deleteMutation.isPending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px]"
+            >
+              {deleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Supprimer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   )
 }
 

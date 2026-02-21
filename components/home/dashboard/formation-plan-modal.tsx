@@ -151,7 +151,7 @@ export function FormationPlanModal({ isOpen, onClose, plan }: FormationPlanModal
                                         <div className="bg-slate-900 dark:bg-emerald-900/20 rounded-2xl md:rounded-3xl p-5 md:p-8 text-white shadow-xl relative overflow-hidden group">
                                             <div className="relative z-10">
                                                 <Trophy className="w-6 h-6 md:w-8 md:h-8 mb-4 text-emerald-400" />
-                                                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wide mb-3">Note du Stratège SkillWorkz</h3>
+                                                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wide mb-3">Note du Stratège SkillWokz</h3>
                                                 <p className="text-base md:text-lg font-medium leading-relaxed italic border-l-2 border-emerald-500/30 pl-4 py-1 break-words">
                                                     "{motivationalMessage || "L'avenir académique se construit aujourd'hui."}"
                                                 </p>

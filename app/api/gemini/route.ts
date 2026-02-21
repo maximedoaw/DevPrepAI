@@ -7,7 +7,7 @@ import { NextResponse, NextRequest } from "next/server";
 
 const apiKey = process.env.GEMINI_API_KEY;
 interface GenerateInterviewRequest {
-  type: 'generate-interview' | 'simple-prompt' | 'evaluate-code' | 'evaluate-mock-interview' | 'evaluate-technical-text' | 'evaluate-motivation-letters' | 'generate-career-plan' | 'generate-formation-plan' | 'generate-interview-recommendations' | 'generate-job-recommendations';
+  type: 'generate-course' | 'generate-interview' | 'simple-prompt' | 'evaluate-code' | 'evaluate-mock-interview' | 'evaluate-technical-text' | 'evaluate-motivation-letters' | 'generate-career-plan' | 'generate-formation-plan' | 'generate-interview-recommendations' | 'generate-job-recommendations';
   quizType?: 'QCM' | 'TECHNICAL' | 'MOCK_INTERVIEW' | 'SOFT_SKILLS';
   domain?: string; // Domaine du test (utilisé pour generate-interview et evaluate-technical-text)
   difficulty?: 'JUNIOR' | 'MID' | 'SENIOR';
@@ -64,7 +64,57 @@ export async function POST(request: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey });
     const body: GenerateInterviewRequest = await request.json();
-    if (body.type === 'generate-interview') {
+
+    if (body.type === 'generate-course') {
+      // ------------------------------------------------------------------
+      // NOUVELLE LOGIQUE : GÉNÉRATION DE COURS PAR L'IA (SCHOOL)
+      // ------------------------------------------------------------------
+      const { title, domain, description, difficultyLevel } = body as any;
+
+      if (!title || !domain) {
+        return NextResponse.json(
+          { error: "Titre et domaine sont requis pour générer un cours." },
+          { status: 400 }
+        );
+      }
+
+      const prompt = PROMPTS.generateCoursePlan({
+        title,
+        domain,
+        description: description || "",
+        difficultyLevel: difficultyLevel || "JUNIOR"
+      });
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt
+      });
+
+      const generatedText = response.text;
+
+      if (!generatedText) {
+        throw new Error("No text was generated");
+      }
+
+      try {
+        let jsonText = generatedText.trim();
+        const jsonMatch = jsonText.match(/```json\s*([\s\S]*?)\s*```/) || jsonText.match(/```\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          jsonText = jsonMatch[1].trim();
+        }
+        const parsedResult = JSON.parse(jsonText);
+        return NextResponse.json({ success: true, data: parsedResult });
+      } catch (parseError) {
+        console.error("Error parsing course generation response:", parseError);
+        return NextResponse.json(
+          { 
+            error: "Failed to parse course generation response",
+            rawResponse: generatedText.substring(0, 500)
+          },
+          { status: 500 }
+        );
+      }
+    } else if (body.type === 'generate-interview') {
       // Génération automatique d'interview
       if (!body.quizType || !body.domain || !body.difficulty || !body.numberOfQuestions || !body.totalPoints) {
         return NextResponse.json(

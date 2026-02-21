@@ -165,7 +165,6 @@ const DictaphoneControl = ({ onTranscript, className }: { onTranscript: (t: stri
   )
 }
 
-// --- Page Component ---
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('overview')

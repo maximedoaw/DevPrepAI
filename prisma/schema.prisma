@@ -652,6 +652,14 @@ model BootcampCourse {
   updatedAt        DateTime             @updatedAt
   courseImage      String?              // URL de l'image du cours (uploadthing)
   courseSections   Json?
+  
+  // Champs générés par l'IA
+  objectives       String[]             @default([])
+  targetSkills     String[]             @default([])
+  prerequisites    String[]             @default([])
+  difficultyLevel  Difficulty?
+  recommendedTests String[]             @default([])
+  
   // Relations
   createdBy        User?               @relation("BootcampCourseCreator", fields: [createdById], references: [id], onDelete: Cascade)
   courseViews      BootcampCourseView[]
